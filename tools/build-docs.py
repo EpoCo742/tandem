@@ -10,6 +10,7 @@ DOCS = [
     ("03-technical-design-spec.md", "Tandem Technical Spec", "03 · Technical design specification", "technical-spec.html"),
     ("05-poc-plan.md", "Tandem POC Plan", "05 · Proof-of-concept plan", "poc-plan.html"),
     ("06-demo-guide.md", "Tandem Demo Guide", "06 · Demo guide", "demo-guide.html"),
+    ("07-demo-script.md", "Tandem Demo Script", "07 · Demo script", "demo-script.html"),
 ]
 
 CSS = """
