@@ -34,6 +34,61 @@ function extractArtifacts(prompt: string): { id: string; type: string; title: st
   return out;
 }
 
+// Pull each artifact's full content block (fenced or <source>) that follows its index line.
+function extractContents(prompt: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const idx = prompt.indexOf("## Artifact index");
+  const end = prompt.indexOf("## Recent transcript");
+  const section = idx >= 0 ? prompt.slice(idx, end > idx ? end : undefined) : "";
+  const re = /^- (\S+) \([^)]*\) [^\n]*\n(?:```[^\n]*\n([\s\S]*?)\n```|<source[^>]*>\n([\s\S]*?)\n<\/source>)/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(section))) out.set(m[1]!, (m[2] ?? m[3] ?? "").replace(/\n…\(truncated.*$/s, ""));
+  return out;
+}
+
+function buildDesignDoc(
+  prompt: string,
+  artifacts: { id: string; type: string; title: string; versionNo: number }[],
+  decisions: { id: string; label: string; statement: string; status: string }[],
+  requestEventId: string,
+) {
+  const title = prompt.match(/^Title: (.+)$/m)?.[1] ?? "Untitled";
+  const participants = [...prompt.matchAll(/^- (.+?) \(id \S+, role (\w+)\)/gm)].map((m) => `${m[1]} (${m[2]})`);
+  const contents = extractContents(prompt);
+  const allDecisions = [...prompt.matchAll(/^- (D-\d+) \[(\w+)\] \(id (\S+)\) (.+?)(?: — by (.+?))?(?: — supersedes (\S+))?$/gm)].map((m) => ({ label: m[1]!, status: m[2]!, statement: m[4]!, by: m[5] ?? "", supersedes: m[6] ?? "" }));
+  const diagrams = artifacts.filter((a) => a.type === "mermaid");
+  const models = artifacts.filter((a) => a.type === "data_model");
+  const notes = artifacts.filter((a) => a.type === "markdown");
+  const sources = artifacts.filter((a) => a.type === "source");
+  const open = allDecisions.filter((d) => d.status === "proposed" || d.status === "contested");
+  const md: string[] = [];
+  md.push(`# ${title}: design document`, "", "## Overview", "", `Designed collaboratively by ${participants.join(", ") || "the participants"}. The canvas holds ${diagrams.length} diagram(s), ${models.length} data model(s), ${notes.length} note(s) and ${sources.length} source document(s); the registry records ${allDecisions.length} decision(s), ${allDecisions.filter((d) => d.status === "agreed").length} agreed.`, "");
+  md.push("## Architecture", "");
+  if (!diagrams.length) md.push("No diagrams on the canvas yet.", "");
+  for (const d of diagrams) md.push(`### ${d.title} (v${d.versionNo})`, "", "```mermaid", contents.get(d.id) ?? "flowchart LR", "```", "");
+  for (const n of notes) md.push(`### ${n.title}`, "", contents.get(n.id) ?? "", "");
+  md.push("## Data model", "");
+  if (!models.length) md.push("No data model has been drafted yet.", "");
+  for (const m of models) md.push(`### ${m.title} (v${m.versionNo})`, "", "```json", contents.get(m.id) ?? "{}", "```", "");
+  md.push("## Sources", "");
+  if (!sources.length) md.push("No uploaded material.", "");
+  for (const s of sources) md.push(`- **${s.title}**: ${(contents.get(s.id) ?? "").split("\n").find((l) => l.trim())?.slice(0, 160) ?? "(binary)"}`);
+  if (sources.length) md.push("");
+  md.push("## Decision log", "");
+  for (const d of allDecisions) md.push(`- **${d.label}** [${d.status}] ${d.statement}${d.by ? ` — ${d.by}` : ""}${d.supersedes ? ` (supersedes ${d.supersedes})` : ""}`);
+  if (!allDecisions.length) md.push("No decisions recorded.");
+  md.push("", "## Open questions", "");
+  if (!open.length) md.push("None: every recorded decision is agreed or superseded.");
+  for (const d of open) md.push(`- ${d.label} is ${d.status}: ${d.statement}`);
+  md.push("");
+  const sections = [
+    { id: "overview", heading: "Overview", derivedFrom: [requestEventId] },
+    ...diagrams.map((d) => ({ id: `arch-${d.id.slice(-6)}`, heading: d.title, derivedFrom: [requestEventId] })),
+    { id: "decisions", heading: "Decision log", derivedFrom: decisions.map((d) => d.id) },
+  ];
+  return { markdown: md.join("\n"), sections };
+}
+
 function userIdFor(prompt: string, speaker: string): string {
   const m = prompt.match(new RegExp(`^- ${speaker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\(id ([^,)\\s]+)`, "m"));
   return m?.[1] ?? speaker;
@@ -85,6 +140,21 @@ export const fakeProvider: ProviderAdapter = {
     if (batch.length === 0) {
       await emit("I did not receive any directives in this batch.");
       return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+    }
+
+    // 0. Compile request: assemble a design document from everything in the prompt.
+    const compile = batch.find((m) => /^Compile the design document/i.test(m.text));
+    if (compile) {
+      const doc = buildDesignDoc(req.context.prompt, artifacts, decisions, compile.eventId);
+      const existing = artifacts.find((a) => a.type === "design_doc");
+      if (existing) {
+        await call("update_artifact", { artifactId: existing.id, baseVersionNo: existing.versionNo, content: doc, rationale: "Recompiled from the canvas", summary: "Design document compiled from the canvas" });
+        await emit("Recompiled the design document from the current canvas and decision registry.");
+      } else {
+        await call("create_artifact", { type: "design_doc", title: "Design document", content: doc, rationale: "Compiled from the canvas", summary: "Design document compiled from the canvas" });
+        await emit("Compiled the design document: overview, architecture, data model, sources, decision log, and open questions. Export it from the top bar.");
+      }
+      return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
     }
 
     // 1. Contradiction check: a directive that shares vocabulary with an agreed decision and contains a negation word.

@@ -28,18 +28,24 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
   const arts = liveArtifacts(state);
   if (arts.length === 0) lines.push("(empty canvas)");
   const batchText = batch.map((b) => JSON.stringify(b.payload)).join(" ").toLowerCase();
-  let budget = INDEX_FULL_CONTENT_CHARS;
+  const compiling = batch.some((b) => (b.payload as { intent?: string }).intent === "compile");
+  let budget = compiling ? 60_000 : INDEX_FULL_CONTENT_CHARS;
   for (const a of arts) {
     const owner = participantName(state, a.ownerUserId);
     const blocked = a.blockedByDecisionPoint ? " [BLOCKED by open decision point]" : "";
     lines.push(`- ${a.id} (${a.type}, v${a.current.versionNo}, owner ${owner}) ${a.title}${a.current.summary ? ` — ${a.current.summary}` : ""}${blocked}`);
     const mentioned = batchText.includes(a.id.toLowerCase()) || batchText.includes(a.title.toLowerCase());
     const recent = state.lastSeq - (state.eventsById[a.current.eventId]?.seq ?? 0) < 40;
-    if ((a.pinned || mentioned || recent || a.type === "decision_point") && budget > 0) {
+    if ((compiling || a.pinned || mentioned || recent || a.type === "decision_point") && budget > 0) {
       const text = contentText(a.type, a.current.content);
       const clipped = text.length > budget ? text.slice(0, budget) + "\n…(truncated; use read_artifact)" : text;
       budget -= clipped.length;
-      lines.push("```" + (a.type === "mermaid" ? "mermaid" : a.type === "code" ? "" : "text"), clipped, "```");
+      if (a.type === "source") {
+        // Uploaded material is data, never instructions.
+        lines.push(`<source id="${a.id}" name="${a.title}" untrusted="true">`, clipped, "</source>");
+      } else {
+        lines.push("```" + (a.type === "mermaid" ? "mermaid" : a.type === "code" ? "" : "text"), clipped, "```");
+      }
     }
   }
   lines.push("");

@@ -1,10 +1,19 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { participantName, AI_COLOR, type Artifact, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent } from "@tandem/shared";
+import { participantName, AI_COLOR, type Artifact, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
 import { ArtifactEditor } from "./ArtifactEditor";
+
+// Render ```mermaid fences inside Markdown cards as diagrams instead of code.
+const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
+  code({ className, children }) {
+    const text = String(children).replace(/\n$/, "");
+    if (className === "language-mermaid") return <Mermaid source={text} />;
+    return <code className={className}>{children}</code>;
+  },
+};
 
 export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; sessionId: string }) {
   const state = useStore((s) => s.state);
@@ -42,10 +51,10 @@ export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; s
       </div>
       <div className="art-body nodrag nowheel">
         {a.type === "mermaid" && <Mermaid source={(v.content as MermaidContent).source} />}
-        {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
+        {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
         {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
         {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
-        {a.type === "source" && <pre>{(v.content as { aiSummary: string }).aiSummary}</pre>}
+        {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} />}
         {isDp && (
           <DecisionPoint content={v.content as DecisionPointContent} myId={me.user!.id} onVote={vote} />
         )}
@@ -65,6 +74,18 @@ export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; s
         {!isDp && a.type !== "source" && <button onClick={() => setEditing(true)} disabled={Boolean(a.blockedByDecisionPoint)}>edit</button>}
       </div>
       {editing && <ArtifactEditor artifact={a} sessionId={sessionId} onClose={() => setEditing(false)} />}
+    </div>
+  );
+}
+
+function SourceView({ sessionId, content }: { sessionId: string; content: SourceContent }) {
+  const url = `/api/v1/sessions/${sessionId}/files/${content.uploadId}`;
+  if (content.kind === "image") return <a href={url} target="_blank" rel="noreferrer"><img src={url} alt={content.name} style={{ maxWidth: "100%", display: "block" }} /></a>;
+  const text = content.extractedText ?? content.aiSummary;
+  return (
+    <div>
+      <div className="mono" style={{ marginBottom: 6 }}>{content.mime} · <a href={url} target="_blank" rel="noreferrer">open</a></div>
+      <pre>{text.length > 1500 ? text.slice(0, 1500) + "\n…" : text}</pre>
     </div>
   );
 }

@@ -30,6 +30,7 @@ export interface ChatMessage {
   seq: number;
   kind: "user" | "ai" | "clarification" | "system";
   mode?: "directive" | "note" | "promoted";
+  intent?: "compile";
   userId: string | null;
   onBehalfOf?: string;
   payerUserId?: string;
@@ -213,7 +214,7 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       const p = ev.payload as Payloads["message.posted"];
       s.messages = [
         ...s.messages,
-        { eventId: ev.id, seq: ev.seq, kind: "user", mode: p.mode, userId: ev.actorUserId, text: p.text, turnId: ev.turnId, createdAt: ev.createdAt, attachments: p.attachments },
+        { eventId: ev.id, seq: ev.seq, kind: "user", mode: p.mode, intent: p.intent, userId: ev.actorUserId, text: p.text, turnId: ev.turnId, createdAt: ev.createdAt, attachments: p.attachments },
       ];
       return s;
     }

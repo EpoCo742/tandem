@@ -55,7 +55,7 @@ export const codeContentSchema = z.object({
 });
 
 export const createArtifactInput = z.object({
-  type: z.enum(["mermaid", "markdown", "data_model", "code"]),
+  type: z.enum(["mermaid", "markdown", "data_model", "code", "design_doc"]).describe("design_doc is a Markdown document assembled from the canvas; use markdownContent for it"),
   title: z.string(),
   content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema]),
   rationale: z.string().describe("One sentence on why this artifact exists"),

@@ -86,7 +86,7 @@ export function contentText(type: string, content: unknown): string {
     case "decision_point":
       return `${c.question}\n${c.context}`;
     case "source":
-      return String(c.aiSummary ?? "");
+      return String(c.extractedText ?? c.aiSummary ?? "");
     default:
       return JSON.stringify(content);
   }

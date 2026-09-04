@@ -16,7 +16,25 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const setMeta = useStore((s) => s.setMeta);
   const [text, setText] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function upload(file: File) {
+    setUploading(true);
+    setErr(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/v1/sessions/${sessionId}/uploads`, { method: "POST", body: fd, credentials: "same-origin" });
+      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   const myId = me.user!.id;
   const consented = state.participants[myId]?.consented ?? meta.me.consented;
@@ -79,7 +97,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
                 {m.kind === "clarification" && <span style={{ color: AI_COLOR }}>AI asks</span>}
                 {m.kind === "system" && <span>system</span>}
               </div>
-              <div className="text">{m.text}</div>
+              <div className="text">{m.intent === "compile" ? <em>asked the AI to compile the design document from the canvas</em> : m.text}</div>
             </div>
           );
         })}
@@ -117,6 +135,8 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
               <button className="primary" onClick={send} disabled={!text.trim()}>Send to AI</button>
               <button onClick={() => api("POST", `/api/v1/sessions/${sessionId}/turns/send-now`)} disabled={turn.state !== "collecting"} title="Close the batch window now">Send now</button>
               <button className="danger" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/turns/current/interrupt`)} disabled={turn.state !== "generating"}>Stop</button>
+              <input ref={fileRef} type="file" style={{ display: "none" }} accept="image/*,.md,.markdown,.txt,.mmd,.json,.yaml,.yml,.csv" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+              <button onClick={() => fileRef.current?.click()} disabled={uploading} title="Upload a screenshot, Markdown, text or .mmd diagram as a source card">{uploading ? "Uploading…" : "Upload"}</button>
               <span className="grow" />
               {err && <span className="err">{err}</span>}
             </div>

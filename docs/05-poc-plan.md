@@ -193,7 +193,9 @@ Deviations from the plan above:
 - Direct card edits go through the versioned edit dialog rather than live Yjs text editing; Yjs carries canvas layout and presence only. Live text editing is a later addition.
 - The fake provider records decisions and raises decision points deterministically; with real Copilot the model does this through the same tools and system prompt.
 
-Not yet done: uploads and source cards (P3), validation against a real Copilot seat, GitHub OAuth end-to-end (routes exist, needs an OAuth App).
+Added later the same day: uploads and source cards (P3) with `.mmd` files becoming diagram cards and uploaded text wrapped as untrusted source material for the AI; a "compile design document" action that runs as a normal AI turn with every artifact in context and produces a `design_doc` card (diagrams render inline); reducer unit tests.
+
+Not yet done: validation against a real Copilot seat, GitHub OAuth end-to-end (routes exist, needs an OAuth App), live Yjs text editing, compaction.
 
 ## 8. Known POC limitations to state in the demo
 

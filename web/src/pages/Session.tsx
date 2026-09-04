@@ -73,6 +73,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         </div>
         <button onClick={invite}>Invite</button>
         {inviteUrl && <span className="mono" style={{ userSelect: "all" }}>{inviteUrl}</span>}
+        <button className="primary" title="Ask the AI to assemble a design document from the canvas and decision registry" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/compile`).catch((e) => alert((e as Error).message))}>Compile design doc</button>
         <a href={`/api/v1/sessions/${sessionId}/export`} target="_blank" rel="noreferrer"><button>Export .md</button></a>
       </TopBar>
       <ConversationPane sessionId={sessionId} />

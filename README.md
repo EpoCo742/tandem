@@ -55,4 +55,4 @@ The smoke script drives two users through the full demo: batched directives, str
 
 ## Status
 
-2026-09-03: POC steps P0-P2 implemented and passing the smoke test and a manual browser run. Remaining from `docs/05-poc-plan.md`: uploads and source cards, and real-Copilot validation on an account with a seat.
+2026-09-03: POC steps P0-P3 implemented (sessions, batched turns, governance, versions, uploads and source cards, compile to design document, export) and passing the smoke test and manual browser runs. See `docs/06-demo-guide.md` for a screenshot walkthrough. Remaining: real-Copilot validation on an account with a seat, GitHub OAuth App configuration.

@@ -129,7 +129,17 @@ Clicking **revert to** on the first commit restores the diagram to its original 
 
 ---
 
-## 11. Export
+## 11. Uploads and the compiled design document
+
+**Upload** in the composer accepts screenshots, Markdown, text and `.mmd` Mermaid files. A `.mmd` file becomes a diagram card directly; everything else becomes a **source** card showing the extracted text (or the image) with an "open" link. Source material reaches the AI wrapped as untrusted data, so instructions hidden inside a document (the "ignore previous instructions" line in this example) are treated as content, never as commands.
+
+**Compile design doc** in the top bar asks the AI to assemble everything on the canvas into a **design document** card: overview, architecture with every diagram embedded, data model, sources, the decision log with supersessions, and open questions. The request appears in the AI lane as a compact note. Re-running it updates the same card as a new version.
+
+![Source card, uploaded diagram, and the compiled design document](guide/16-uploads-and-design-doc.jpg)
+
+---
+
+## 12. Export
 
 **Export .md** in the top bar produces a Markdown document with the artifacts, the decision log, and the commit history. Provenance travels along as HTML comments, so attribution survives leaving the app. An excerpt from this run:
 
@@ -162,7 +172,7 @@ flowchart LR
 
 ---
 
-## 12. What happened underneath
+## 13. What happened underneath
 
 The session is an append-only ledger. This run produced about 45 events; the important kinds are:
 
@@ -181,7 +191,7 @@ Every event carries who caused it, and every artifact section carries the messag
 
 ---
 
-## 13. Running with a real Copilot seat
+## 14. Running with a real Copilot seat
 
 1. On the credentials page choose **copilot** and paste a GitHub token (`gho_`, `ghu_`, or a fine-grained `github_pat_`) from an account with an active Copilot seat, or configure a GitHub OAuth App and sign in with GitHub.
 2. Validation lists the models your plan allows. Create the session with `copilot` as the provider; the model pin defaults to `claude-opus-5` when available, otherwise the first model in the list.
@@ -191,7 +201,7 @@ The system prompt asks the model to record decisions, check directives against t
 
 ---
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 - **"Connect a fake credential first"** when creating a session: sponsor mode needs a credential on the creator. Connect one on the credentials page.
 - **Consent banner stays**: each participant accepts consent once per session before addressing the AI.

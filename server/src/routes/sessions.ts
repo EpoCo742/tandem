@@ -13,6 +13,9 @@ import { createCommit, requestChange, resolveProposal, revertTo } from "../gover
 import { mintCollabToken } from "../crypto.js";
 import { exportMarkdown } from "../export.js";
 
+export const COMPILE_INSTRUCTION =
+  "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model, Sources (summaries of uploaded material), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
+
 function participantOr403(sessionId: string, userId: string) {
   const p = db.select().from(schema.participants).where(and(eq(schema.participants.sessionId, sessionId), eq(schema.participants.userId, userId))).get();
   if (!p) throw Object.assign(new Error("not a participant"), { statusCode: 403 });
@@ -246,6 +249,29 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     });
     brokerFor(req.params.id).onDirective(directive);
     return { resolved: true, optionId: winner };
+  });
+
+  // Compile the canvas into a design document. Runs as a normal AI turn funded by the requester
+  // (or the sponsor) with a fixed instruction; the assembler includes every artifact in full.
+  app.post<{ Params: { id: string } }>("/api/v1/sessions/:id/compile", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot compile" });
+    if (!me.consentedAt) return reply.code(403).send({ error: "consent required" });
+    const ev = appendEvent(req.params.id, {
+      type: "message.posted",
+      actorKind: "user",
+      actorUserId: user.id,
+      payload: {
+        text: COMPILE_INSTRUCTION,
+        mode: "directive",
+        attachments: [],
+        intent: "compile",
+      },
+    });
+    brokerFor(req.params.id).onDirective(ev);
+    brokerFor(req.params.id).sendNow();
+    return { eventId: ev.id };
   });
 
   app.post<{ Params: { id: string }; Body: { commitId: string } }>("/api/v1/sessions/:id/revert", async (req, reply) => {

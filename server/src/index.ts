@@ -2,6 +2,8 @@ import Fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyWebsocket from "@fastify/websocket";
 import fastifyStatic from "@fastify/static";
+import fastifyMultipart from "@fastify/multipart";
+import { registerUploadRoutes } from "./uploads.js";
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
@@ -17,6 +19,7 @@ async function main() {
   const app = Fastify({ logger: { level: config.isProd ? "info" : "info" } });
   await app.register(fastifyCookie, { secret: config.sessionSecret });
   await app.register(fastifyWebsocket, { options: { maxPayload: 4 * 1024 * 1024 } });
+  await app.register(fastifyMultipart);
 
   app.setErrorHandler((err: Error & { statusCode?: number }, _req, reply) => {
     const status = err.statusCode ?? 500;
@@ -27,6 +30,7 @@ async function main() {
   await registerAuthRoutes(app);
   await registerCredentialRoutes(app);
   await registerSessionRoutes(app);
+  await registerUploadRoutes(app);
   await registerLedgerSocket(app);
   await registerCollabSocket(app);
 
@@ -34,7 +38,8 @@ async function main() {
 
   // Serve the built SPA when present (demo / container mode).
   if (fs.existsSync(path.join(config.webDist, "index.html"))) {
-    await app.register(fastifyStatic, { root: config.webDist, prefix: "/", wildcard: false });
+    // wildcard serving resolves files at request time, so a rebuilt web/dist is picked up without a restart
+    await app.register(fastifyStatic, { root: config.webDist, prefix: "/", cacheControl: true, maxAge: 0 });
     app.setNotFoundHandler((req, reply) => {
       if (req.url.startsWith("/api") || req.url.startsWith("/auth")) return reply.code(404).send({ error: "not found" });
       return reply.sendFile("index.html");
