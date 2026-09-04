@@ -24,3 +24,4 @@ data/
 .env.*
 !.env.example
 data-smoke/
+data-test/

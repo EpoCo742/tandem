@@ -233,7 +233,7 @@ class SessionBroker {
   }
 }
 
-function pickClosest(requested: string, available: string[]): string {
+export function pickClosest(requested: string, available: string[]): string {
   const family = requested.match(/opus|sonnet|haiku|gpt-5|gpt-4|gemini|o[34]/i)?.[0]?.toLowerCase();
   if (family) {
     const same = available.find((m) => m.toLowerCase().includes(family));
