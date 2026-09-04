@@ -1,0 +1,204 @@
+import type { ToolResult } from "@tandem/shared";
+import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
+
+// Offline provider for local development and tests. It reads the rendered prompt,
+// produces plausible canvas operations through the same tool bindings the real
+// adapter uses, and streams text. No network, no credentials.
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function extractBatch(prompt: string): { speaker: string; text: string; eventId: string }[] {
+  const idx = prompt.lastIndexOf("## Current messages");
+  const tail = idx >= 0 ? prompt.slice(idx) : prompt;
+  const out: { speaker: string; text: string; eventId: string }[] = [];
+  for (const line of tail.split("\n")) {
+    const m = line.match(/^\[(.+?)\]\s*\(event (\S+)\)\s*(.*)$/);
+    if (m) out.push({ speaker: m[1]!, eventId: m[2]!, text: m[3]! });
+  }
+  return out;
+}
+
+function extractDecisions(prompt: string): { id: string; label: string; statement: string; status: string }[] {
+  const out: { id: string; label: string; statement: string; status: string }[] = [];
+  const re = /^- (D-\d+) \[(\w+)\] \(id (\S+)\) (.+)$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(prompt))) out.push({ label: m[1]!, status: m[2]!, id: m[3]!, statement: m[4]! });
+  return out;
+}
+
+function extractArtifacts(prompt: string): { id: string; type: string; title: string; versionNo: number }[] {
+  const out: { id: string; type: string; title: string; versionNo: number }[] = [];
+  const re = /^- (\S+) \((\w+), v(\d+), owner [^)]*\) (.+?)(?: — .*)?$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(prompt))) out.push({ id: m[1]!, type: m[2]!, versionNo: Number(m[3]), title: m[4]! });
+  return out;
+}
+
+function userIdFor(prompt: string, speaker: string): string {
+  const m = prompt.match(new RegExp(`^- ${speaker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\(id ([^,)\\s]+)`, "m"));
+  return m?.[1] ?? speaker;
+}
+
+function tokenise(s: string): string[] {
+  return s.toLowerCase().match(/[a-z][a-z0-9]+/g)?.filter((w) => w.length > 3) ?? [];
+}
+
+function serviceNames(text: string): string[] {
+  const names = new Set<string>();
+  for (const m of text.matchAll(/\b(service|app|application|system)\s+([A-Z][\w-]*)/gi)) names.add(`${m[1]![0]!.toUpperCase()}${m[1]!.slice(1).toLowerCase()} ${m[2]}`);
+  for (const m of text.matchAll(/\b(kafka|postgres|postgresql|redis|s3|dynamodb|rabbitmq|api gateway|mongodb)\b/gi)) names.add(m[1]!);
+  return [...names];
+}
+
+export const fakeProvider: ProviderAdapter = {
+  id: "fake",
+  async validate() {
+    return { ok: true, models: ["fake-architect-1"] };
+  },
+  async runTurn(req: TurnRequest): Promise<TurnResult> {
+    const batch = extractBatch(req.context.prompt);
+    const decisions = extractDecisions(req.context.prompt).filter((d) => d.status === "agreed" || d.status === "proposed");
+    const artifacts = extractArtifacts(req.context.prompt);
+    const say = async (t: string) => {
+      for (const chunk of t.match(/.{1,24}/gs) ?? []) {
+        if (req.signal.aborted) return;
+        req.onDelta(chunk);
+        await sleep(15);
+      }
+    };
+    let text = "";
+    const emit = async (t: string) => {
+      text += t;
+      await say(t);
+    };
+    let toolCalls = 0;
+    const call = async (name: string, input: unknown): Promise<ToolResult> => {
+      const b = req.tools.find((t) => t.name === name);
+      if (!b) return { status: "error", message: "no such tool" };
+      toolCalls += 1;
+      req.onToolProgress(name, "start");
+      const r = await b.handler(input);
+      req.onToolProgress(name, r.status === "error" ? "error" : "done");
+      return r;
+    };
+
+    if (batch.length === 0) {
+      await emit("I did not receive any directives in this batch.");
+      return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+    }
+
+    // 1. Contradiction check: a directive that shares vocabulary with an agreed decision and contains a negation word.
+    const negation = /\b(drop|remove|instead|replace|not|no longer|rather than|switch)\b/i;
+    for (const msg of batch) {
+      if (!negation.test(msg.text)) continue;
+      const words = new Set(tokenise(msg.text));
+      const hit = decisions.find((d) => d.status === "agreed" && tokenise(d.statement).filter((w) => words.has(w)).length >= 2);
+      if (hit) {
+        const blocks = artifacts.filter((a) => a.type === "mermaid").map((a) => a.id);
+        await emit(`${msg.speaker}, that contradicts ${hit.label} ("${hit.statement}"), which was agreed earlier. I have not changed the canvas. `);
+        await call("create_decision_point", {
+          question: `Keep ${hit.label} or adopt ${msg.speaker}'s change?`,
+          context: `${hit.label} states: ${hit.statement}. ${msg.speaker} now asks: "${msg.text}".`,
+          options: [
+            { id: "keep", title: `Keep ${hit.label}`, tradeoffs: "No rework; the earlier agreement stands.", canvasImpact: "No change." },
+            { id: "adopt", title: `Adopt the new direction`, tradeoffs: "Requires updating diagrams and superseding the decision.", canvasImpact: "Affected diagrams are revised.", proposedBy: userIdFor(req.context.prompt, msg.speaker) },
+            { id: "hybrid", title: "Combine both", tradeoffs: "More moving parts, but preserves both goals.", canvasImpact: "Diagram gains a bridging component." },
+          ],
+          blocksArtifactIds: blocks,
+          directiveEventIds: [msg.eventId],
+          contradictsDecisionId: hit.id,
+        });
+        await emit("I raised a decision point; vote on the card and I will apply the outcome.");
+        return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      }
+    }
+
+    // 2. Resolution of a decision point (synthetic system directive).
+    const resolution = batch.find((m) => /decision point .* resolved/i.test(m.text));
+    if (resolution) {
+      const optM = resolution.text.match(/option "([^"]+)"/);
+      const supersedes = resolution.text.match(/supersedes decision ([^\s.]+)/)?.[1] ?? null;
+      const chosen = optM?.[1] ?? "the chosen option";
+      const r = await call("record_decision", {
+        statement: `Resolved: ${chosen}`,
+        status: "agreed",
+        agreedBy: (resolution.text.match(/voters: ([^.]+)/)?.[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+        supersedes,
+        evidence: [resolution.eventId],
+      });
+      const diagram = artifacts.find((a) => a.type === "mermaid");
+      if (diagram) {
+        const cur = await call("read_artifact", { artifactId: diagram.id });
+        const src = (cur as { content?: { source?: string } }).content?.source ?? "flowchart LR";
+        await call("update_artifact", {
+          artifactId: diagram.id,
+          baseVersionNo: diagram.versionNo,
+          content: { source: `${src}\n  note[/"${chosen}"/]`, kind: "flowchart", sections: [{ id: "resolution", derivedFrom: [resolution.eventId] }] },
+          rationale: "Apply the resolved decision point",
+          summary: `${diagram.title} (updated for ${chosen})`,
+        });
+      }
+      await emit(`Applied the resolution: ${chosen}. Recorded as ${(r as { label?: string }).label ?? "a decision"}.`);
+      return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+    }
+
+    // 3. Ordinary directives: extend or create the architecture diagram and record one decision per directive.
+    const names = batch.flatMap((m) => serviceNames(m.text));
+    const diagram = artifacts.find((a) => a.type === "mermaid" && /architecture/i.test(a.title));
+    const nodeId = (n: string) => n.replace(/[^A-Za-z0-9]/g, "_");
+    const edges: string[] = [];
+    for (const m of batch) {
+      const ns = serviceNames(m.text);
+      for (let i = 0; i + 1 < ns.length; i++) {
+        const verb = m.text.match(/\b(publish|publishes|emit|emits|send|sends|subscribe|subscribes|listen|listens|write|writes|save|saves|read|reads|call|calls)\b/i)?.[1]?.toLowerCase() ?? "uses";
+        edges.push(`  ${nodeId(ns[i]!)}["${ns[i]}"] -->|${verb}| ${nodeId(ns[i + 1]!)}["${ns[i + 1]}"]`);
+      }
+    }
+    const sections = batch.map((m) => ({ id: `msg-${m.eventId.slice(-6)}`, derivedFrom: [m.eventId] }));
+    if (names.length > 0) {
+      if (diagram) {
+        const cur = await call("read_artifact", { artifactId: diagram.id });
+        const src = (cur as { content?: { source?: string } }).content?.source ?? "flowchart LR";
+        await call("update_artifact", {
+          artifactId: diagram.id,
+          baseVersionNo: diagram.versionNo,
+          content: { source: `${src}\n${edges.join("\n")}`, kind: "flowchart", sections },
+          rationale: `Add ${names.join(", ")}`,
+          summary: `System architecture with ${names.join(", ")}`,
+        });
+        await emit(`Updated the architecture diagram with ${names.join(", ")}. `);
+      } else {
+        await call("create_artifact", {
+          type: "mermaid",
+          title: "System architecture",
+          content: { source: `flowchart LR\n${edges.length ? edges.join("\n") : names.map((n) => `  ${nodeId(n)}["${n}"]`).join("\n")}`, kind: "flowchart", sections },
+          rationale: "First architecture sketch from the discussion",
+          summary: `System architecture with ${names.join(", ")}`,
+        });
+        await emit(`Created the architecture diagram with ${names.join(", ")}. `);
+      }
+    } else {
+      await call("create_artifact", {
+        type: "markdown",
+        title: `Notes: ${batch[0]!.text.slice(0, 40)}`,
+        content: { markdown: batch.map((m) => `- **${m.speaker}:** ${m.text}`).join("\n"), sections },
+        rationale: "Capture the discussion",
+        summary: "Discussion notes",
+      });
+      await emit("I captured that as a note on the canvas. ");
+    }
+    for (const m of batch) {
+      if (m.speaker === "System") continue;
+      const r = await call("record_decision", {
+        statement: m.text.replace(/\.$/, ""),
+        status: "agreed",
+        agreedBy: [userIdFor(req.context.prompt, m.speaker)],
+        supersedes: null,
+        evidence: [m.eventId],
+      });
+      if (r.status === "recorded") await emit(`Recorded ${r.label} for ${m.speaker}. `);
+    }
+    await emit("Anything you want me to elaborate, or shall I draft the data model next?");
+    return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+  },
+};

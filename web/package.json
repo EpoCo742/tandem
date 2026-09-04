@@ -1,0 +1,29 @@
+{
+  "name": "@tandem/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@hocuspocus/provider": "^4.6.0",
+    "@tandem/shared": "workspace:*",
+    "@xyflow/react": "^12.11.6",
+    "mermaid": "^11.17.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "yjs": "^13.6.32",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.2.2"
+  }
+}

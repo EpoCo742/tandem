@@ -1,0 +1,16 @@
+{
+  "name": "tandem",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "start": "pnpm --filter @tandem/server start"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
