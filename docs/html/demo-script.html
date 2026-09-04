@@ -50,7 +50,7 @@ strong{font-weight:600}
 <h1>Tandem POC: Demo Script</h1>
 
 <p>The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.</p>
-<p>This file tracks the features as they land. Last updated 2026-09-04 (light and dark theme, canvas grid, logo).</p>
+<p>This file tracks the features as they land. Last updated 2026-09-04 (light and dark theme, canvas grid).</p>
 <h2 id="two-ways-to-run-it">Two ways to run it</h2>
 <p><strong>By hand.</strong> Alice in a normal browser window, Bob in a private window (or via <code>bob.mjs</code> below). Type the quoted lines exactly; the fake architect keys off specific words (see the trigger table at the end).</p>
 <p><strong>Seeded.</strong> With a dev-auth server running (<code>TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake</code>):</p>
@@ -343,7 +343,6 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tbody>
 </table></div>
 <p>Point at: diagrams re-render in the matching Mermaid theme; the other participant's window is unaffected; the choice survives a reload.</p>
-<p>The wordmark in the top bar swaps artwork with the theme: the amber A and teal N stem brighten for the dark palette.</p>
 <hr />
 <h2 id="what-the-fake-architect-reacts-to">What the fake architect reacts to</h2>
 <p>The offline provider is deterministic. Phrase directives so they hit the right rule; the first matching rule wins.</p>
