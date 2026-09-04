@@ -58,10 +58,14 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
     bind("record_decision", async (input) => {
       const state = getState(scope.sessionId);
       // "agreed" requires every listed user to have authored evidence, or to be the on-behalf-of user for this turn.
+      // "agreed" requires every listed user to have authored evidence, or the evidence to be a
+      // system-issued decision-point resolution (the votes are the agreement).
       let status = input.status;
       if (status === "agreed") {
-        const authors = new Set(input.evidence.map((id) => state.eventsById[id]?.actorUserId).filter(Boolean));
-        const ok = input.agreedBy.every((u) => authors.has(u) || u === scope.onBehalfOf);
+        const evidence = input.evidence.map((id) => state.eventsById[id]).filter(Boolean);
+        const authors = new Set(evidence.map((e) => e!.actorUserId).filter(Boolean));
+        const viaResolution = evidence.some((e) => e!.actorKind === "system" && e!.type === "message.posted");
+        const ok = viaResolution || input.agreedBy.every((u) => authors.has(u) || u === scope.onBehalfOf);
         if (!ok) status = "proposed";
       }
       if (input.supersedes && !state.decisions[input.supersedes]) return { status: "error", message: `No decision ${input.supersedes}` };

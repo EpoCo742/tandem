@@ -1,0 +1,167 @@
+import { useEffect, useRef, useState } from "react";
+import { participantName, pendingProposals, contentText, AI_COLOR, type Proposal } from "@tandem/shared";
+import { api } from "../api";
+import { useStore } from "../state/store";
+import { signalTyping } from "../ws";
+
+type Tab = "side" | "proposals" | "decisions" | "history";
+
+export function SidePane({ sessionId }: { sessionId: string }) {
+  const state = useStore((s) => s.state);
+  const me = useStore((s) => s.me)!;
+  const [tab, setTab] = useState<Tab>("side");
+  const pending = pendingProposals(state);
+  const myPending = pending.filter((p) => p.requiresApprovalFrom.includes(me.user!.id)).length;
+
+  return (
+    <div className="pane right">
+      <div className="tabs">
+        <button className={tab === "side" ? "active" : ""} onClick={() => setTab("side")}>Side channel</button>
+        <button className={tab === "proposals" ? "active" : ""} onClick={() => setTab("proposals")}>Proposals{myPending ? <span className="badge">{myPending}</span> : null}</button>
+        <button className={tab === "decisions" ? "active" : ""} onClick={() => setTab("decisions")}>Decisions</button>
+        <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>History</button>
+      </div>
+      {tab === "side" && <SideChannel sessionId={sessionId} />}
+      {tab === "proposals" && <Proposals sessionId={sessionId} proposals={pending} />}
+      {tab === "decisions" && <Decisions />}
+      {tab === "history" && <History sessionId={sessionId} />}
+    </div>
+  );
+}
+
+function SideChannel({ sessionId }: { sessionId: string }) {
+  const state = useStore((s) => s.state);
+  const typing = useStore((s) => s.typing);
+  const me = useStore((s) => s.me)!;
+  const [text, setText] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const notes = state.messages.filter((m) => m.kind === "user" && m.mode === "note");
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
+  }, [notes.length]);
+  const typers = Object.entries(typing).filter(([u, l]) => l === "side" && u !== me.user!.id).map(([u]) => participantName(state, u));
+
+  async function send() {
+    const t = text.trim();
+    if (!t) return;
+    setText("");
+    await api("POST", `/api/v1/sessions/${sessionId}/messages`, { text: t, mode: "note" }).catch(() => setText(t));
+  }
+
+  return (
+    <>
+      <div className="pane-body" ref={ref}>
+        <div className="muted" style={{ fontSize: 12 }}>Human-only. Nothing here reaches the AI unless you promote it.</div>
+        {notes.map((m) => (
+          <div key={m.eventId} className="msg note" style={{ borderLeftColor: state.participants[m.userId!]?.color }}>
+            <div className="who">
+              <span style={{ color: state.participants[m.userId!]?.color }}>{participantName(state, m.userId)}</span>
+              <span className="grow" />
+              <button style={{ padding: "0 6px", fontSize: 10.5 }} onClick={() => api("POST", `/api/v1/sessions/${sessionId}/messages/${m.eventId}/promote`)}>promote to AI</button>
+            </div>
+            <div className="text">{m.text}</div>
+          </div>
+        ))}
+        {typers.length > 0 && <div className="mono">{typers.join(", ")} typing…</div>}
+      </div>
+      <div className="pane-foot composer">
+        <textarea value={text} placeholder="Talk to the other people" onChange={(e) => { setText(e.target.value); signalTyping("side"); }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} style={{ minHeight: 44 }} />
+        <div className="actions"><button onClick={send} disabled={!text.trim()}>Post note</button></div>
+      </div>
+    </>
+  );
+}
+
+function Proposals({ sessionId, proposals }: { sessionId: string; proposals: Proposal[] }) {
+  const state = useStore((s) => s.state);
+  const me = useStore((s) => s.me)!;
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="pane-body">
+      {proposals.length === 0 && <div className="muted">No pending proposals. Under the hybrid policy, additive changes apply at once; edits to someone else's artifact wait here.</div>}
+      {proposals.map((p) => {
+        const mine = p.requiresApprovalFrom.includes(me.user!.id) || state.participants[me.user!.id]?.role === "owner";
+        const secs = p.autoApplyAt ? Math.max(0, Math.round((new Date(p.autoApplyAt).getTime() - Date.now()) / 1000)) : null;
+        const before = state.artifacts[p.artifactId]?.current.content;
+        return (
+          <div key={p.id} className="proposal">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <b>{p.op} · {p.title}</b>
+              <span className="chip" style={{ color: "#d4890a" }}>{p.risk.replace(/_/g, " ")}</span>
+            </div>
+            <div style={{ fontSize: 12 }}>
+              by {p.turnId ? "AI for " : ""}{participantName(state, p.proposerUserId)} · needs {p.requiresApprovalFrom.map((u) => participantName(state, u)).join(", ")}
+              {secs !== null && <span className="mono"> · auto-applies in {secs}s</span>}
+            </div>
+            <div className="muted" style={{ fontSize: 12 }}>{p.rationale}</div>
+            {before !== undefined && <pre>{diffPreview(contentText(p.artifactType, before), contentText(p.artifactType, p.proposedContent))}</pre>}
+            {before === undefined && <pre>{contentText(p.artifactType, p.proposedContent).slice(0, 800)}</pre>}
+            {mine && (
+              <div className="row">
+                <button className="primary" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/proposals/${p.id}/resolve`, { decision: "approve" })}>Approve</button>
+                <button className="danger" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/proposals/${p.id}/resolve`, { decision: "reject" })}>Reject</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function diffPreview(a: string, b: string): string {
+  const al = a.split("\n");
+  const bl = b.split("\n");
+  const aset = new Set(al);
+  const bset = new Set(bl);
+  const out: string[] = [];
+  for (const l of al) if (!bset.has(l)) out.push("- " + l);
+  for (const l of bl) if (!aset.has(l)) out.push("+ " + l);
+  return out.length ? out.join("\n") : "(no textual change)";
+}
+
+function Decisions() {
+  const state = useStore((s) => s.state);
+  const setHighlight = useStore((s) => s.setHighlight);
+  const decisions = Object.values(state.decisions).sort((a, b) => a.label.localeCompare(b.label));
+  return (
+    <div className="pane-body">
+      {decisions.length === 0 && <div className="muted">The AI records settled statements here and checks new directives against them.</div>}
+      {decisions.map((d) => (
+        <div key={d.id} className={"decision " + d.status} onClick={() => setHighlight(d.evidence)} style={{ cursor: "pointer" }} title="Highlight the evidence messages">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <span className="mono">{d.label} · {d.status}</span>
+            <span>{d.agreedBy.map((u) => <span key={u} className="chip solid" style={{ background: state.participants[u]?.color ?? AI_COLOR, marginLeft: 3 }}>{participantName(state, u)}</span>)}</span>
+          </div>
+          <div>{d.statement}</div>
+          {d.supersedes && <div className="mono">supersedes {state.decisions[d.supersedes]?.label}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function History({ sessionId }: { sessionId: string }) {
+  const state = useStore((s) => s.state);
+  const [msg, setMsg] = useState<string | null>(null);
+  const commits = [...state.commits].reverse();
+  return (
+    <div className="pane-body">
+      {commits.length === 0 && <div className="muted">A commit is written after every AI turn and every applied edit.</div>}
+      {msg && <div className="muted">{msg}</div>}
+      {commits.map((c) => (
+        <div key={c.id} className={"commit" + (c.id === state.headCommitId ? " head" : "")}>
+          <span className="id">{c.id.slice(-6)}</span>
+          <span style={{ flex: 1 }}>{c.message}<div className="mono">{new Date(c.createdAt).toLocaleTimeString()} · {Object.keys(c.artifactVersions).length} artifacts</div></span>
+          {c.id !== state.headCommitId && (
+            <button onClick={() => api<{ restored: string[] }>("POST", `/api/v1/sessions/${sessionId}/revert`, { commitId: c.id }).then((r) => setMsg(`Restored ${r.restored.length} artifact(s) as a new commit.`)).catch((e) => setMsg((e as Error).message))}>revert to</button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -122,7 +122,7 @@ export const fakeProvider: ProviderAdapter = {
       const r = await call("record_decision", {
         statement: `Resolved: ${chosen}`,
         status: "agreed",
-        agreedBy: (resolution.text.match(/voters: ([^.]+)/)?.[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+        agreedBy: (resolution.text.match(/voters: ([^)]+)\)/)?.[1] ?? "").split(",").map((s) => userIdFor(req.context.prompt, s.trim())).filter(Boolean),
         supersedes,
         evidence: [resolution.eventId],
       });

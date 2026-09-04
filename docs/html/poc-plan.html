@@ -41,7 +41,7 @@ strong{font-weight:600}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
 </style>
 <div class="page">
-<nav class="toc"><div class="k">Contents</div><a href="#1-consolidation-map">1. Consolidation map</a><a href="#2-copilot-provider-adapter-concretely">2. Copilot provider adapter, concretely</a><a href="#3-poc-repository-layout">3. POC repository layout</a><a href="#4-scope-by-step">4. Scope by step</a><a href="#5-demo-script">5. Demo script</a><a href="#6-what-stays-exactly-as-designed">6. What stays exactly as designed</a><a href="#7-known-poc-limitations-to-state-in-the-demo">7. Known POC limitations to state in the demo</a></nav>
+<nav class="toc"><div class="k">Contents</div><a href="#1-consolidation-map">1. Consolidation map</a><a href="#2-copilot-provider-adapter-concretely">2. Copilot provider adapter, concretely</a><a href="#3-poc-repository-layout">3. POC repository layout</a><a href="#4-scope-by-step">4. Scope by step</a><a href="#5-demo-script">5. Demo script</a><a href="#6-what-stays-exactly-as-designed">6. What stays exactly as designed</a><a href="#7-implementation-status-2026-09-03">7. Implementation status (2026-09-03)</a><a href="#8-known-poc-limitations-to-state-in-the-demo">8. Known POC limitations to state in the demo</a></nav>
 <article>
 <div class="eyebrow"><span>Tandem design package · 05 · Proof-of-concept plan</span><span>2026-09-03</span></div>
 <h1>Tandem: Proof-of-Concept Plan</h1>
@@ -327,7 +327,13 @@ DATA_DIR=./data
 <h2 id="6-what-stays-exactly-as-designed">6. What stays exactly as designed</h2>
 <p>Ledger event types and the reducer, tool names and schemas, proposal and decision semantics, version and commit model, attribution chain, the context layout the model sees, and the provider adapter interface. The POC is the real system with cheaper infrastructure underneath it.</p>
 <hr />
-<h2 id="7-known-poc-limitations-to-state-in-the-demo">7. Known POC limitations to state in the demo</h2>
+<h2 id="7-implementation-status-2026-09-03">7. Implementation status (2026-09-03)</h2>
+<p>Implemented and verified (smoke test <code>server/scripts/smoke.mjs</code> plus a manual browser run with the offline provider): P0 skeleton, P1 first turn with streaming and the React Flow canvas, P2 governance (proposals with auto-apply timer, decision points with votes and resolution turns, versions, commits, revert, provenance highlighting), side channel with promotion, Markdown export, Dockerfile.</p>
+<p>Deviations from the plan above:
+- Direct card edits go through the versioned edit dialog rather than live Yjs text editing; Yjs carries canvas layout and presence only. Live text editing is a later addition.
+- The fake provider records decisions and raises decision points deterministically; with real Copilot the model does this through the same tools and system prompt.</p>
+<p>Not yet done: uploads and source cards (P3), validation against a real Copilot seat, GitHub OAuth end-to-end (routes exist, needs an OAuth App).</p>
+<h2 id="8-known-poc-limitations-to-state-in-the-demo">8. Known POC limitations to state in the demo</h2>
 <ul>
 <li>Copilot premium requests: one per turn times the model multiplier; the sponsor's allowance is consumed.</li>
 <li>No compaction: sessions longer than roughly 40 turns will exceed the prompt budget; start a new session.</li>

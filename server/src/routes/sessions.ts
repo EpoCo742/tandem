@@ -235,7 +235,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     appendEvent(req.params.id, { type: "decision.resolved", actorKind: "system", actorUserId: null, causedBy: [dp.current.eventId], payload: { decisionPointArtifactId: dp.id, optionId: winner, decisionId: null } });
     const conflict = Object.values(after.conflicts).find((c) => c.decisionPointArtifactId === dp.id);
     const option = content.options.find((o) => o.id === winner)!;
-    const voters = Object.entries(votes).filter(([, v]) => v === winner).map(([u]) => u);
+    const voters = Object.entries(votes).filter(([, v]) => v === winner).map(([u]) => after.participants[u]?.name ?? u);
     const supersedes = conflict?.contradicts.decisionId ? ` It supersedes decision ${conflict.contradicts.decisionId}.` : "";
     const directive = appendEvent(req.params.id, {
       type: "message.posted",

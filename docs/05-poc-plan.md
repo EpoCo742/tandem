@@ -185,7 +185,17 @@ Ledger event types and the reducer, tool names and schemas, proposal and decisio
 
 ---
 
-## 7. Known POC limitations to state in the demo
+## 7. Implementation status (2026-09-03)
+
+Implemented and verified (smoke test `server/scripts/smoke.mjs` plus a manual browser run with the offline provider): P0 skeleton, P1 first turn with streaming and the React Flow canvas, P2 governance (proposals with auto-apply timer, decision points with votes and resolution turns, versions, commits, revert, provenance highlighting), side channel with promotion, Markdown export, Dockerfile.
+
+Deviations from the plan above:
+- Direct card edits go through the versioned edit dialog rather than live Yjs text editing; Yjs carries canvas layout and presence only. Live text editing is a later addition.
+- The fake provider records decisions and raises decision points deterministically; with real Copilot the model does this through the same tools and system prompt.
+
+Not yet done: uploads and source cards (P3), validation against a real Copilot seat, GitHub OAuth end-to-end (routes exist, needs an OAuth App).
+
+## 8. Known POC limitations to state in the demo
 
 - Copilot premium requests: one per turn times the model multiplier; the sponsor's allowance is consumed.
 - No compaction: sessions longer than roughly 40 turns will exceed the prompt budget; start a new session.
