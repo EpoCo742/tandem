@@ -1,4 +1,4 @@
-import re, html, pathlib, markdown
+import re, html, pathlib, base64, markdown
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / "docs"
 OUT = SRC / "html"
@@ -9,6 +9,7 @@ DOCS = [
     ("02-architecture.md", "Tandem Architecture", "02 · Architecture", "architecture.html"),
     ("03-technical-design-spec.md", "Tandem Technical Spec", "03 · Technical design specification", "technical-spec.html"),
     ("05-poc-plan.md", "Tandem POC Plan", "05 · Proof-of-concept plan", "poc-plan.html"),
+    ("06-demo-guide.md", "Tandem Demo Guide", "06 · Demo guide", "demo-guide.html"),
 ]
 
 CSS = """
@@ -47,6 +48,9 @@ th{text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em
 td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 td code{white-space:nowrap}
 hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+figure{margin:16px 0 22px}
+figure img{width:100%;height:auto;border:1px solid var(--line);box-shadow:var(--shadow);display:block}
+figcaption{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:6px;letter-spacing:.03em}
 strong{font-weight:600}
 :focus-visible{outline:2px solid var(--b);outline-offset:2px}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
@@ -72,6 +76,16 @@ for src, title, eyebrow, out in DOCS:
     )
     # wrap tables
     body = body.replace("<table>", '<div class="table-wrap"><table>').replace("</table>", "</table></div>")
+    # inline local images as data URIs so the published page is self-contained
+    def inline_img(m):
+        alt, rel = m.group("alt"), m.group("src")
+        p = SRC / rel
+        if not p.exists():
+            return m.group(0)
+        mime = "image/png" if p.suffix.lower() == ".png" else "image/jpeg"
+        data = base64.b64encode(p.read_bytes()).decode("ascii")
+        return f'<figure><img src="data:{mime};base64,{data}" alt="{alt}" loading="lazy"><figcaption>{alt}</figcaption></figure>'
+    body = re.sub(r'<p><img alt="(?P<alt>[^"]*)" src="(?P<src>guide/[^"]+)"\s*/?></p>', inline_img, body)
     # ids on h2 + toc
     toc = []
     def h2(m):

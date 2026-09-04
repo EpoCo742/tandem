@@ -9,6 +9,7 @@ Working name: **Tandem** (placeholder). Produced 2026-09-03 from `research-promp
 | `03-technical-design-spec.md` | Claude Code / implementing engineers | Locked defaults, repo layout, full SQL schema, event catalogue, broker state machine, policy engine, provider adapters, canvas tools, API, prompts, tests, milestones with acceptance criteria |
 | `04-executive-deck.html` | all audiences | 13-slide concept deck. Also published as a claude.ai artifact |
 | `05-poc-plan.md` | you + Claude Code | Decisions of 2026-09-03 and the consolidated single-process POC: Copilot first, sponsor mode, SQLite, embedded Hocuspocus, demo script |
+| `06-demo-guide.md` + `guide/` | anyone demoing | Step-by-step walkthrough of the running POC with screenshots from a real run |
 
 Published artifacts (private until shared; HTML sources in `docs/html/`, regenerated from the Markdown by a small Python build script):
 
