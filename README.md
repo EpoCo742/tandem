@@ -51,6 +51,8 @@ TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake DATA_DIR=./data-smoke PORT=3011 APP_URL=h
 node server/scripts/smoke.mjs http://localhost:3011
 ```
 
+`node server/scripts/demo.mjs --until <stage>` seeds a demo session through the API up to a named stage (see `docs/07-demo-script.md`) so a live demo can start from there.
+
 The smoke script drives two users through the full demo: batched directives, streaming to both, a cross-owner edit that becomes a proposal, approval, a contradiction that raises a decision point, votes, the resolution turn, revert, side channel with promotion, Markdown export, and replay.
 
 ## Status
