@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python (docs build script)
+__pycache__/
+*.pyc
+
+# Node (POC code, when it arrives)
+node_modules/
+dist/
+.turbo/
+
+# POC runtime data: SQLite db, uploads, Copilot CLI state
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# secrets
+.env
+.env.*
+!.env.example

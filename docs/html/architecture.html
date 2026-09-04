@@ -1,0 +1,528 @@
+<title>Tandem Architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#EDF0F3;--panel:#FFFFFF;--panel-2:#F5F7F9;--ink:#1A2128;--ink-2:#4A5561;--ink-3:#7C8893;--line:#D3DAE0;--a:#D4890A;--b:#178E9E;--ai:#5A6773;--ai-soft:#E4E8EC;--code:#F3F5F7;--shadow:0 1px 2px rgba(26,33,40,.06),0 8px 24px rgba(26,33,40,.08);--display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;--body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;--mono:"IBM Plex Mono",Consolas,"Courier New",monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#0F1519;--panel:#171F26;--panel-2:#1E2830;--ink:#E6EBEF;--ink-2:#AEB9C3;--ink-3:#7C8893;--line:#2C3742;--a:#E9A63A;--b:#3FB4C3;--ai:#9AA7B3;--ai-soft:#27323C;--code:#121A20;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}}
+:root[data-theme="dark"]{--ground:#0F1519;--panel:#171F26;--panel-2:#1E2830;--ink:#E6EBEF;--ink-2:#AEB9C3;--ink-3:#7C8893;--line:#2C3742;--a:#E9A63A;--b:#3FB4C3;--ai:#9AA7B3;--ai-soft:#27323C;--code:#121A20;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.page{max-width:1240px;margin:0 auto;padding:32px 16px 80px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:32px;align-items:start}
+nav.toc{position:sticky;top:24px;font-size:13px;border-left:3px solid;border-image:linear-gradient(180deg,var(--a) 0 50%,var(--b) 50% 100%) 1;padding-left:14px}
+nav.toc .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;line-height:1.35}
+nav.toc a:hover{color:var(--b)}
+article{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:48px 56px 56px;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.1;letter-spacing:-.015em}
+h1{font-size:clamp(34px,4.5vw,52px);font-weight:800;margin:0 0 12px}
+h2{font-size:28px;font-weight:700;margin:44px 0 12px;padding-top:20px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:700;margin:28px 0 8px}
+h4{font-size:16px;font-weight:700;margin:20px 0 6px}
+p,li{max-width:72ch}
+p{margin:0 0 12px}
+em{color:var(--ink-2)}
+blockquote{margin:12px 0;padding:8px 16px;border-left:3px solid var(--ai);background:var(--panel-2);color:var(--ink-2)}
+blockquote p{margin:0}
+a{color:var(--b)}
+ul,ol{padding-left:22px;margin:0 0 12px}
+li{margin:4px 0}
+code{font-family:var(--mono);font-size:.88em;background:var(--code);padding:1px 5px;border-radius:3px}
+pre{background:var(--code);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.5;margin:12px 0 18px}
+pre code{background:none;padding:0;font-size:inherit}
+pre.mermaid{background:var(--panel-2);text-align:center}
+.table-wrap{overflow-x:auto;margin:12px 0 20px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td code{white-space:nowrap}
+hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+strong{font-weight:600}
+:focus-visible{outline:2px solid var(--b);outline-offset:2px}
+@media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
+</style>
+<div class="page">
+<nav class="toc"><div class="k">Contents</div><a href="#1-the-concept-in-one-page">1. The concept in one page</a><a href="#2-design-principles">2. Design principles</a><a href="#3-system-context-and-containers">3. System context and containers</a><a href="#4-identity-credentials-and-who-pays">4. Identity, credentials and who pays</a><a href="#5-the-session-ledger">5. The session ledger</a><a href="#6-the-turn-broker">6. The turn broker</a><a href="#7-governance-conflicts-approvals-decisions">7. Governance: conflicts, approvals, decisions</a><a href="#8-artifacts-versions-commits">8. Artifacts, versions, commits</a><a href="#9-context-what-the-ai-sees-each-turn">9. Context: what the AI sees each turn</a><a href="#10-compiling-the-design-document">10. Compiling the design document</a><a href="#11-extending-to-building-software-together">11. Extending to building software together</a><a href="#12-security-and-privacy-summary">12. Security and privacy summary</a><a href="#13-roadmap">13. Roadmap</a></nav>
+<article>
+<div class="eyebrow"><span>Tandem design package · 02 · Architecture</span><span>2026-09-03</span></div>
+<h1>Tandem: Architecture Document</h1>
+
+<p><em>Shared AI sessions for software architects. Working name: Tandem.</em>
+<em>Companion documents: <code>01-research-findings.md</code> (what exists, what is possible) and <code>03-technical-design-spec.md</code> (build-level detail for Claude).</em></p>
+<hr />
+<h2 id="1-the-concept-in-one-page">1. The concept in one page</h2>
+<p>Two or more software architects open a shared session in a web app. Each signs in with their own identity (GitHub) and attaches their own AI credentials: an Anthropic API key, a GitHub Copilot subscription, or an OpenAI key. The session has one AI participant and one shared context. Anyone can address the AI; the turn runs on the credentials of the person who asked, but the result lands in the context everyone shares.</p>
+<p>To the right of the conversation is a canvas. The AI populates it with artifacts: Mermaid architecture diagrams, ER diagrams, sequence diagrams, Markdown notes, data models, decision records, source cards for uploaded documents. Humans can edit artifacts directly, comment on them, and upload their own. When Alice says "Service A publishes Kafka events" and Bob says "Service B consumes them and writes to Postgres", the AI updates one diagram, records two decisions, and attributes each to its author.</p>
+<p>Steering is governed, not free-for-all. Turns are serialized. Near-simultaneous messages merge into one labelled prompt. When a directive contradicts a recorded decision or rewrites something the other person authored, the AI raises a Decision Point instead of silently choosing. Every applied change is versioned; every AI turn is a commit; anything can be rolled back or forked into a v2.</p>
+<p>When the canvas says what everyone wants it to say, one command compiles it into a complete design document with sections, diagrams, data models and the decision log, exportable as Markdown, DOCX or PDF. The session, its artifacts and its full history persist for later tuning.</p>
+<pre class="mermaid">flowchart LR
+    subgraph People
+        A[Alice&lt;br/&gt;Anthropic key]
+        B[Bob&lt;br/&gt;Copilot seat]
+    end
+    subgraph Tandem
+        L[(Session ledger&lt;br/&gt;append-only events)]
+        T[Turn broker]
+        C[Canvas&lt;br/&gt;artifacts, versions, decisions]
+        D[Design doc compiler]
+    end
+    subgraph Providers
+        P1[Anthropic API]
+        P2[GitHub Copilot]
+    end
+    A -- messages, edits, uploads --&gt; L
+    B -- messages, edits, uploads --&gt; L
+    L --&gt; T
+    T -- Alice's turn --&gt; P1
+    T -- Bob's turn --&gt; P2
+    P1 &amp; P2 -- streamed tokens + canvas ops --&gt; L
+    L --&gt; C
+    C --&gt; D
+    L -. live broadcast .-&gt; A &amp; B
+</pre>
+<hr />
+<h2 id="2-design-principles">2. Design principles</h2>
+<ol>
+<li><strong>The session is the source of truth, not the model.</strong> The AI holds no state between turns. Everything it knows is rebuilt from the ledger each turn. This is what makes credential rotation, replay, rollback and forks possible.</li>
+<li><strong>One AI turn at a time.</strong> Serialized inference with a live broadcast gives every participant the same view. Parallel inference over a shared context produces contradictions nobody can reconcile.</li>
+<li><strong>Nothing is anonymous.</strong> Every message, edit, tool call and generated block carries who caused it. The AI is never the author of record; it acts on behalf of a named person in response to a named message.</li>
+<li><strong>The AI escalates disagreement, it does not adjudicate it.</strong> Contradictions become explicit Decision Points that people resolve.</li>
+<li><strong>Governance is a dial.</strong> Speed for whiteboarding, rigor for design review. The same mechanism (proposals) serves both; only the auto-apply rules change.</li>
+<li><strong>Everything is a version; nothing is deleted.</strong> Artifacts have immutable versions, sessions have commits, rollback is a forward commit.</li>
+<li><strong>Bring your own credentials, keep your own bill.</strong> Tandem never resells inference. Each participant pays their provider directly.</li>
+</ol>
+<hr />
+<h2 id="3-system-context-and-containers">3. System context and containers</h2>
+<pre class="mermaid">flowchart TB
+    subgraph Browser
+        UI[Web app&lt;br/&gt;Next.js + React]
+        CV[Canvas&lt;br/&gt;React Flow + Mermaid + Excalidraw]
+        YC[Yjs client&lt;br/&gt;presence, layout, live text]
+    end
+
+    subgraph Tandem backend
+        API[API gateway&lt;br/&gt;REST + WebSocket]
+        TB[Turn broker&lt;br/&gt;one worker per active session]
+        CA[Context assembler]
+        PA[Provider adapters&lt;br/&gt;Anthropic / Copilot / OpenAI]
+        HP[Hocuspocus&lt;br/&gt;Yjs sync server]
+        DC[Doc compiler]
+        ING[Ingestion&lt;br/&gt;uploads to source cards]
+    end
+
+    subgraph Data
+        PG[(Postgres&lt;br/&gt;sessions, ledger, artifacts,&lt;br/&gt;versions, commits, decisions)]
+        RD[(Redis&lt;br/&gt;pub/sub, locks, queues)]
+        S3[(Object store&lt;br/&gt;uploads, exports, snapshots)]
+        KMS[(KMS&lt;br/&gt;credential envelope keys)]
+    end
+
+    subgraph External
+        GH[GitHub OAuth]
+        AN[Anthropic API]
+        CP[Copilot CLI runtime]
+        OA[OpenAI API]
+    end
+
+    UI &lt;--&gt; API
+    CV &lt;--&gt; YC &lt;--&gt; HP
+    API --&gt; PG &amp; RD &amp; S3
+    API --&gt; TB
+    TB --&gt; CA --&gt; PA
+    PA --&gt; AN &amp; CP &amp; OA
+    PA -- credentials --&gt; KMS
+    TB --&gt; PG &amp; RD
+    HP --&gt; PG
+    ING --&gt; S3 &amp; PG
+    DC --&gt; PG &amp; S3
+    UI --&gt; GH
+</pre>
+<h3>Container responsibilities</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Container</th>
+<th>Responsibility</th>
+<th>Key decisions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Web app</td>
+<td>Conversation pane, canvas, side channel, approvals UI, timeline</td>
+<td>Next.js, React 19. Canvas cards are React Flow nodes.</td>
+</tr>
+<tr>
+<td>API gateway</td>
+<td>Auth, session CRUD, ledger append, event fan-out over WebSocket</td>
+<td>Fastify. Every mutation becomes a ledger event before anything else happens.</td>
+</tr>
+<tr>
+<td>Turn broker</td>
+<td>Owns the AI turn lifecycle for a session: collect, generate, apply, commit</td>
+<td>One BullMQ worker holds a Redis lock per session. Serialization is enforced here, not in the UI.</td>
+</tr>
+<tr>
+<td>Context assembler</td>
+<td>Renders the ledger into a provider-neutral prompt: system, brief, decisions, artifact index, transcript window</td>
+<td>Stable prefix first so prompt caching works. Attribution-preserving compaction.</td>
+</tr>
+<tr>
+<td>Provider adapters</td>
+<td>Translate the neutral prompt and tool calls into Anthropic, Copilot or OpenAI calls under a specific user's credentials; stream back</td>
+<td>Adapter interface fixed; Anthropic adapter is reference.</td>
+</tr>
+<tr>
+<td>Hocuspocus</td>
+<td>CRDT sync for canvas layout, cursors, presence, and live text edits inside artifacts</td>
+<td>Yjs docs persisted to Postgres.</td>
+</tr>
+<tr>
+<td>Doc compiler</td>
+<td>Multi-step pipeline from canvas state to design document</td>
+<td>Structured outputs for outline, per-section generation grounded in artifacts.</td>
+</tr>
+<tr>
+<td>Ingestion</td>
+<td>Uploads to source cards: image, PDF, Markdown, text, existing diagrams</td>
+<td>Uses the payer's credentials to summarize; stores extracted text alongside the file.</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="4-identity-credentials-and-who-pays">4. Identity, credentials and who pays</h2>
+<pre class="mermaid">sequenceDiagram
+    participant U as User
+    participant W as Web app
+    participant API as Tandem API
+    participant KMS
+    participant GH as GitHub
+    U-&gt;&gt;W: Sign in
+    W-&gt;&gt;GH: OAuth (identity + Copilot scope, optional)
+    GH--&gt;&gt;API: user token (gho_...)
+    API-&gt;&gt;KMS: encrypt token, store ciphertext
+    U-&gt;&gt;W: Add Anthropic API key (optional)
+    W-&gt;&gt;API: key over TLS, never persisted client-side
+    API-&gt;&gt;KMS: encrypt key, store ciphertext
+    API--&gt;&gt;W: provider list: [copilot: ok, anthropic: ok]
+    Note over U,API: Session creation
+    U-&gt;&gt;API: create session, pin model claude-opus-5, policy hybrid
+    API--&gt;&gt;U: invite link
+</pre>
+<p><strong>Payer rule.</strong> The credentials used for an AI turn belong to the <em>triggering participant</em>: the author of the first message in the turn's batch. In sponsor mode, the workspace key is used for every turn. The UI shows a small badge on each AI response: "ran on Alice's Anthropic account".</p>
+<p><strong>Model pin.</strong> A session pins one model (for example <code>claude-opus-5</code>). Every participant's provider must be able to serve it: Anthropic key directly, or a Copilot plan that includes it. If a participant cannot, their turns run on the closest available model and the response is badged "degraded: ran on Sonnet 4.5 via Copilot". This keeps the AI's voice consistent.</p>
+<p><strong>Consent.</strong> On joining, a participant sees the sentence: "Everything posted in this session, including other people's uploads, is sent to each participant's AI provider when that participant asks the AI something." They must accept. Sponsor mode collapses this to a single provider.</p>
+<p><strong>What Tandem never does.</strong> It never offers Claude.ai login, never stores Claude.ai session tokens, never proxies a subscription for someone who did not authenticate it. See <code>01-research-findings.md</code> section 2.</p>
+<hr />
+<h2 id="5-the-session-ledger">5. The session ledger</h2>
+<p>The ledger is an append-only, ordered stream of events per session. It is the mechanism behind live sync, replay, attribution, versioning and reconnect.</p>
+<pre class="mermaid">classDiagram
+    class Event {
+        seq: bigint
+        session_id
+        type
+        actor: user_id | ai
+        on_behalf_of: user_id?
+        caused_by: event_seq[]
+        payload: jsonb
+        created_at
+    }
+    class MessageEvent { text, attachments[], mode: directive|note|whisper }
+    class AiTurnEvent { turn_id, payer_user_id, provider, model, status }
+    class AiMessageEvent { turn_id, text, addressed_to[] }
+    class ArtifactProposedEvent { proposal_id, artifact_id, base_version, new_content, rationale, risk }
+    class ArtifactAppliedEvent { artifact_id, version, proposal_id? }
+    class DecisionEvent { decision_id, statement, status, votes }
+    class ConflictEvent { conflict_id, directive_event, contradicts: decision_id | artifact_version }
+    class CommitEvent { commit_id, parent_commit, artifact_versions map }
+    Event &lt;|-- MessageEvent
+    Event &lt;|-- AiTurnEvent
+    Event &lt;|-- AiMessageEvent
+    Event &lt;|-- ArtifactProposedEvent
+    Event &lt;|-- ArtifactAppliedEvent
+    Event &lt;|-- DecisionEvent
+    Event &lt;|-- ConflictEvent
+    Event &lt;|-- CommitEvent
+</pre>
+<p>Properties that matter:</p>
+<ul>
+<li><strong>Ordered.</strong> <code>seq</code> is a per-session monotonic integer assigned by Postgres. Clients subscribe from a <code>seq</code> and catch up on reconnect.</li>
+<li><strong>Causal.</strong> <code>caused_by</code> links an AI message to the user messages that triggered it, and an applied artifact version to the proposal, to the AI message, to the user message. This chain is the attribution system.</li>
+<li><strong>Two lanes.</strong> Persisted events (above) and ephemeral events (token deltas, typing, cursors). Ephemeral events fan out over Redis pub/sub and are never stored.</li>
+</ul>
+<hr />
+<h2 id="6-the-turn-broker">6. The turn broker</h2>
+<p>The broker turns a stream of human messages into a sequence of AI turns without ever running two turns for the same session at once.</p>
+<pre class="mermaid">stateDiagram-v2
+    [*] --&gt; Idle
+    Idle --&gt; Collecting: directive arrives
+    Collecting --&gt; Collecting: another directive within window
+    Collecting --&gt; Screening: window closes (1.5 s) or sender presses &quot;Send now&quot;
+    Screening --&gt; Idle: nothing to do (note only)
+    Screening --&gt; Conflict: directive contradicts decision / ownership
+    Conflict --&gt; Generating: participants resolve, or policy = last-writer-wins
+    Screening --&gt; Generating: clear to run
+    Generating --&gt; Generating: tool call (canvas op) executed
+    Generating --&gt; Applying: end of turn
+    Generating --&gt; Interrupted: a participant hits Stop
+    Interrupted --&gt; Applying: partial output kept as a note
+    Applying --&gt; Committing: proposals auto-applied or queued for approval
+    Committing --&gt; Idle: commit written, broadcast
+    Idle --&gt; Collecting: queued directives exist
+</pre>
+<h3>Collecting</h3>
+<p>Messages sent within a short window (default 1.5 s, extended while someone is typing) are batched. Messages that arrive while a turn is generating are queued and the sender sees "queued for the next turn". The batch becomes one multi-speaker user prompt:</p>
+<pre><code>[Alice] Service A should publish an OrderPlaced event to Kafka.
+[Bob] Service B subscribes to OrderPlaced and writes to the orders table in Postgres.
+</code></pre>
+<p>Speaker labels are always present, even for a single speaker. Research on multi-party dialogue shows labelled speakers are what let models track who wants what.</p>
+<h3>Screening</h3>
+<p>A cheap, fast model call (Haiku 4.5, a few hundred tokens) classifies the batch before the expensive turn runs. It answers: does this need a full turn; does it contradict any entry in the decision registry; does it target an artifact last edited by someone else; is it addressed to a specific person rather than the AI. This mirrors GroupGPT's split between deciding to intervene and generating a response, and it is what makes conflict handling cheap enough to run on every message.</p>
+<h3>Generating</h3>
+<p>The context assembler builds the prompt; the payer's adapter streams the response. Tool calls are canvas operations (create, update, propose, record decision, flag conflict, ask for clarification). They execute server-side, append ledger events, and their results are fed back to the model within the same turn. Deltas broadcast to every client as ephemeral events.</p>
+<h3>Applying and committing</h3>
+<p>Each canvas operation becomes a proposal. Session policy decides which proposals auto-apply and which wait for a person. After the turn, a commit snapshots the artifact versions in force.</p>
+<hr />
+<h2 id="7-governance-conflicts-approvals-decisions">7. Governance: conflicts, approvals, decisions</h2>
+<p>This section answers the brief's hardest questions.</p>
+<h3>7.1 What counts as a conflict</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Detected by</th>
+<th>Default handling (hybrid policy)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Directive contradicts an <em>agreed</em> decision ("use Postgres" after "we agreed on DynamoDB")</td>
+<td>Screening step compares against the decision registry</td>
+<td>Decision Point raised; no change applied until resolved</td>
+</tr>
+<tr>
+<td>Directive rewrites an artifact section the <em>other</em> participant authored or last edited</td>
+<td>Ownership metadata on artifact versions</td>
+<td>Proposal created, requires the owner's approval; 60-second auto-apply timer optional</td>
+</tr>
+<tr>
+<td>Two directives in one batch disagree with each other</td>
+<td>Screening step</td>
+<td>AI responds with a Decision Point listing both, applies nothing</td>
+</tr>
+<tr>
+<td>Additive change (new artifact, new section, new decision nobody contests)</td>
+<td>Default</td>
+<td>Auto-applied, attributed, revertible with one click</td>
+</tr>
+<tr>
+<td>Concurrent direct edits to the same artifact text</td>
+<td>Yjs CRDT</td>
+<td>Merged at character level; both authors recorded</td>
+</tr>
+<tr>
+<td>Semantic overlap (two people design the same component differently in separate artifacts)</td>
+<td>Periodic "coherence check" the AI runs after commits</td>
+<td>AI proposes a reconciliation with a merged draft citing both sources</td>
+</tr>
+</tbody>
+</table></div>
+<h3>7.2 Policies</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Policy</th>
+<th>Additive changes</th>
+<th>Changes to other's work</th>
+<th>Contradicting a decision</th>
+<th>Best for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Last-writer-wins</td>
+<td>Auto</td>
+<td>Auto, notify owner</td>
+<td>Auto, decision marked contested</td>
+<td>Solo-style brainstorming with a passenger</td>
+</tr>
+<tr>
+<td><strong>Hybrid (default)</strong></td>
+<td>Auto</td>
+<td>Proposal to owner</td>
+<td>Decision Point</td>
+<td>Working sessions</td>
+</tr>
+<tr>
+<td>Review</td>
+<td>Proposal</td>
+<td>Proposal</td>
+<td>Decision Point</td>
+<td>Design reviews with a driver and reviewer</td>
+</tr>
+<tr>
+<td>Consensus</td>
+<td>Proposal, all approve</td>
+<td>Proposal, all approve</td>
+<td>Decision Point, all vote</td>
+<td>Formal sign-off</td>
+</tr>
+</tbody>
+</table></div>
+<h3>7.3 Decision Points</h3>
+<p>A Decision Point is an artifact. The AI creates it with a neutral statement of the disagreement, the options it can see, trade-offs for each, and what would change on the canvas under each option. Participants vote or add an option. When resolved, the AI records the decision, applies the winning option, and the Decision Point card collapses into the decision registry with a link back to the debate.</p>
+<pre class="mermaid">sequenceDiagram
+    participant A as Alice
+    participant B as Bob
+    participant TB as Turn broker
+    participant AI
+    A-&gt;&gt;TB: &quot;Store events in Postgres, drop Kafka&quot;
+    TB-&gt;&gt;TB: Screening: contradicts D-07 &quot;Kafka is the event bus&quot; (agreed by Alice, Bob)
+    TB-&gt;&gt;AI: turn with conflict flag
+    AI--&gt;&gt;TB: flag_conflict + create Decision Point DP-03 (options: keep Kafka / Postgres outbox / both)
+    TB--&gt;&gt;A: DP-03 card appears, vote requested
+    TB--&gt;&gt;B: DP-03 card appears, vote requested
+    B-&gt;&gt;TB: vote: Postgres outbox
+    A-&gt;&gt;TB: vote: Postgres outbox
+    TB-&gt;&gt;AI: turn: DP-03 resolved → outbox
+    AI--&gt;&gt;TB: record_decision D-07 superseded by D-11; update_artifact ARCH-01
+    TB--&gt;&gt;A: diagram updated, D-11 recorded
+    TB--&gt;&gt;B: diagram updated, D-11 recorded
+</pre>
+<h3>7.4 Human-to-human channels</h3>
+<ul>
+<li><strong>Side channel.</strong> A chat lane that is never sent to the AI. Any message can be promoted into the AI lane with one click, which turns it into a directive with the original author preserved.</li>
+<li><strong>Comments</strong> on artifacts and on specific lines or nodes. Comments are visible to the AI only if marked "for AI".</li>
+<li><strong>Private scratch.</strong> A participant can run a private prompt against the shared context on their own credentials. Nothing is written to the ledger unless they choose "share to session", which posts the exchange with attribution.</li>
+<li><strong>Presence.</strong> Cursors, selection highlights and "typing to AI" indicators, via Yjs awareness.</li>
+</ul>
+<hr />
+<h2 id="8-artifacts-versions-commits">8. Artifacts, versions, commits</h2>
+<pre class="mermaid">erDiagram
+    SESSION ||--o{ PARTICIPANT : has
+    SESSION ||--o{ EVENT : ledger
+    SESSION ||--o{ ARTIFACT : contains
+    SESSION ||--o{ COMMIT : history
+    SESSION ||--o{ DECISION : registry
+    ARTIFACT ||--o{ ARTIFACT_VERSION : versions
+    ARTIFACT_VERSION }o--|| EVENT : produced_by
+    COMMIT }o--o{ ARTIFACT_VERSION : pins
+    COMMIT }o--o| COMMIT : parent
+    DECISION }o--o{ EVENT : evidence
+    SESSION }o--o| SESSION : forked_from
+</pre>
+<ul>
+<li><strong>Artifact types (v1):</strong> <code>mermaid</code> (flowchart, sequence, class, ER, C4-style), <code>markdown</code>, <code>data_model</code> (structured JSON rendered as a table and as an ER diagram), <code>decision</code>, <code>decision_point</code>, <code>source</code> (an upload plus its extracted text), <code>sketch</code> (Excalidraw JSON), <code>code</code> (fenced source), <code>design_doc</code> (compiled output).</li>
+<li><strong>Versions</strong> are immutable and content-addressed. A version records the author (a user, or the AI on behalf of a user), the proposal it came from and the message that caused it.</li>
+<li><strong>Section provenance.</strong> For Markdown and Mermaid artifacts, each top-level section or diagram node carries <code>derived_from</code> message references. The AI is required to populate these through the tool schema, so blame works below the artifact level.</li>
+<li><strong>Commits</strong> snapshot which version of every artifact is current plus the canvas layout. A commit is written after every AI turn and after every batch of direct human edits (debounced). Rollback creates a new commit whose pins equal an old commit's. The timeline UI is a slider over commits with a diff view.</li>
+<li><strong>Forks.</strong> "Create v2" forks the session: new session, <code>forked_from</code> pointer, ledger starts with a summary event, artifacts copied at their current versions. The original stays intact.</li>
+</ul>
+<hr />
+<h2 id="9-context-what-the-ai-sees-each-turn">9. Context: what the AI sees each turn</h2>
+<pre class="mermaid">flowchart TB
+    S[System prompt&lt;br/&gt;role, collaboration protocol, tool rules&lt;br/&gt;frozen per session]
+    B[Session brief&lt;br/&gt;living summary, updated by the AI each turn]
+    D[Decision registry&lt;br/&gt;agreed, proposed, contested, superseded]
+    I[Artifact index&lt;br/&gt;id, type, title, owner, version, one-line summary&lt;br/&gt;+ full content of pinned and recently touched artifacts]
+    T[Transcript window&lt;br/&gt;last N turns, speaker-labelled, thinking stripped]
+    U[Current batch&lt;br/&gt;speaker-labelled messages + attachments]
+    S --&gt; B --&gt; D --&gt; I --&gt; T --&gt; U
+</pre>
+<ul>
+<li><strong>Stable prefix first.</strong> System prompt and tool definitions never change within a session, so the provider's prompt cache covers them. Brief, registry and index change slowly. Transcript is the volatile tail.</li>
+<li><strong>Thinking is stripped between turns.</strong> Provider adapters replay thinking blocks only inside a single turn's tool loop, under one set of credentials. Across turns (and across payers) the ledger holds text and tool blocks only.</li>
+<li><strong>Compaction is attribution-aware.</strong> When the transcript window exceeds budget, older turns are summarized into the brief with speaker attribution preserved ("Alice proposed X; Bob objected because Y; resolved in D-04"). On Anthropic the server-side compaction beta can carry this; the assembler also does it locally for other providers.</li>
+<li><strong>Large sessions.</strong> Beyond roughly 50 artifacts, the index includes full content only for artifacts referenced in the current batch, recently changed, or pinned. A lightweight retrieval step over artifact summaries picks the rest.</li>
+</ul>
+<hr />
+<h2 id="10-compiling-the-design-document">10. Compiling the design document</h2>
+<pre class="mermaid">flowchart LR
+    C[Canvas state&lt;br/&gt;artifacts + decisions + sources] --&gt; O[Outline proposal&lt;br/&gt;structured output]
+    O --&gt;|participants approve or edit| G[Per-section generation&lt;br/&gt;grounded in cited artifacts]
+    G --&gt; A[Assembly&lt;br/&gt;embed diagrams as SVG,&lt;br/&gt;data models as tables,&lt;br/&gt;decision log appendix]
+    A --&gt; R[Review pass&lt;br/&gt;consistency check across sections]
+    R --&gt; X[Export&lt;br/&gt;Markdown / DOCX / PDF / HTML]
+    X --&gt; V[Saved as design_doc artifact vN]
+</pre>
+<p>Every section cites the artifacts and decisions it was built from. Exports carry provenance as HTML comments or footnotes, so the invisible attribution survives leaving the app. Re-running the compile after canvas changes produces a new version with a diff against the previous one.</p>
+<hr />
+<h2 id="11-extending-to-building-software-together">11. Extending to building software together</h2>
+<p>The same session model carries into implementation:</p>
+<ul>
+<li>A session gains a <strong>workspace</strong>: a git repository in a sandbox (Copilot SDK session or Claude Agent SDK, each under the payer's credentials).</li>
+<li>An AI turn can run as an <strong>agent turn</strong>: it edits files, runs tests, and its output is a branch plus a proposal card summarizing the diff.</li>
+<li>Governance rules apply unchanged: additive branches auto-merge under hybrid policy only if tests pass; changes touching another person's module become proposals; contradictions with design decisions raise Decision Points.</li>
+<li>The design document becomes living input: artifacts are referenced from code comments and ADRs.</li>
+</ul>
+<p>Nothing in the ledger, broker, provenance or commit model changes. The build phase is a new artifact type (<code>change_set</code>) and a new adapter mode (agentic with a filesystem).</p>
+<hr />
+<h2 id="12-security-and-privacy-summary">12. Security and privacy summary</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Control</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Provider credentials</td>
+<td>Encrypted at rest with per-record data keys wrapped by a KMS; decrypted only inside the adapter process for the duration of a call; never logged; user can revoke and rotate; keys are checked with a cheap call at attach time.</td>
+</tr>
+<tr>
+<td>Cross-participant data flow</td>
+<td>Explicit consent; per-turn payer badge; sponsor mode; session-level "do not send uploads to other providers" flag which restricts uploads to the uploader's own turns.</td>
+</tr>
+<tr>
+<td>Access</td>
+<td>Session membership is explicit; roles: owner, editor, viewer. Viewers see everything live but cannot address the AI or edit.</td>
+</tr>
+<tr>
+<td>Prompt injection via uploads</td>
+<td>Uploaded content is wrapped and labelled as untrusted source material in the prompt; canvas tools cannot change session policy or membership.</td>
+</tr>
+<tr>
+<td>Audit</td>
+<td>The ledger is the audit log. Exportable per session.</td>
+</tr>
+<tr>
+<td>Retention</td>
+<td>Sessions and uploads deleted on request; provider-side retention is the provider's policy and is shown to participants.</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="13-roadmap">13. Roadmap</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Milestone</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M0 Walking skeleton</td>
+<td>Two people, one session, Anthropic BYOK, serialized turns streamed to both, Markdown and Mermaid cards</td>
+</tr>
+<tr>
+<td>M1 Governance</td>
+<td>Proposals, approvals, decision registry, conflict screening, Decision Points, versions, commits, rollback, blame</td>
+</tr>
+<tr>
+<td>M2 Knowledge</td>
+<td>Uploads and source cards, side channel, private scratch, compile to design doc, exports</td>
+</tr>
+<tr>
+<td>M3 Providers</td>
+<td>Copilot adapter with per-user billing, model pin and degradation, compaction, forks, sponsor mode</td>
+</tr>
+<tr>
+<td>M4 Build together</td>
+<td>Sandbox workspace, agent turns, change-set proposals</td>
+</tr>
+</tbody>
+</table></div>
+<p>See <code>03-technical-design-spec.md</code> for the build-level specification of each milestone.</p>
+</article>
+</div>

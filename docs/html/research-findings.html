@@ -1,0 +1,476 @@
+<title>Tandem Research Findings</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#EDF0F3;--panel:#FFFFFF;--panel-2:#F5F7F9;--ink:#1A2128;--ink-2:#4A5561;--ink-3:#7C8893;--line:#D3DAE0;--a:#D4890A;--b:#178E9E;--ai:#5A6773;--ai-soft:#E4E8EC;--code:#F3F5F7;--shadow:0 1px 2px rgba(26,33,40,.06),0 8px 24px rgba(26,33,40,.08);--display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;--body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;--mono:"IBM Plex Mono",Consolas,"Courier New",monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#0F1519;--panel:#171F26;--panel-2:#1E2830;--ink:#E6EBEF;--ink-2:#AEB9C3;--ink-3:#7C8893;--line:#2C3742;--a:#E9A63A;--b:#3FB4C3;--ai:#9AA7B3;--ai-soft:#27323C;--code:#121A20;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}}
+:root[data-theme="dark"]{--ground:#0F1519;--panel:#171F26;--panel-2:#1E2830;--ink:#E6EBEF;--ink-2:#AEB9C3;--ink-3:#7C8893;--line:#2C3742;--a:#E9A63A;--b:#3FB4C3;--ai:#9AA7B3;--ai-soft:#27323C;--code:#121A20;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.page{max-width:1240px;margin:0 auto;padding:32px 16px 80px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:32px;align-items:start}
+nav.toc{position:sticky;top:24px;font-size:13px;border-left:3px solid;border-image:linear-gradient(180deg,var(--a) 0 50%,var(--b) 50% 100%) 1;padding-left:14px}
+nav.toc .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;line-height:1.35}
+nav.toc a:hover{color:var(--b)}
+article{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:48px 56px 56px;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.1;letter-spacing:-.015em}
+h1{font-size:clamp(34px,4.5vw,52px);font-weight:800;margin:0 0 12px}
+h2{font-size:28px;font-weight:700;margin:44px 0 12px;padding-top:20px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:700;margin:28px 0 8px}
+h4{font-size:16px;font-weight:700;margin:20px 0 6px}
+p,li{max-width:72ch}
+p{margin:0 0 12px}
+em{color:var(--ink-2)}
+blockquote{margin:12px 0;padding:8px 16px;border-left:3px solid var(--ai);background:var(--panel-2);color:var(--ink-2)}
+blockquote p{margin:0}
+a{color:var(--b)}
+ul,ol{padding-left:22px;margin:0 0 12px}
+li{margin:4px 0}
+code{font-family:var(--mono);font-size:.88em;background:var(--code);padding:1px 5px;border-radius:3px}
+pre{background:var(--code);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.5;margin:12px 0 18px}
+pre code{background:none;padding:0;font-size:inherit}
+pre.mermaid{background:var(--panel-2);text-align:center}
+.table-wrap{overflow-x:auto;margin:12px 0 20px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td code{white-space:nowrap}
+hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+strong{font-weight:600}
+:focus-visible{outline:2px solid var(--b);outline-offset:2px}
+@media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
+</style>
+<div class="page">
+<nav class="toc"><div class="k">Contents</div><a href="#1-verdict">1. Verdict</a><a href="#2-the-credential-question-in-detail">2. The credential question in detail</a><a href="#3-what-already-exists">3. What already exists</a><a href="#4-the-hard-problems-and-how-the-design-resolves-them">4. The hard problems and how the design resolves them</a><a href="#5-what-it-would-take">5. What it would take</a><a href="#6-open-questions-answered-2026-09-03">6. Open questions (answered 2026-09-03)</a><a href="#sources">Sources</a></nav>
+<article>
+<div class="eyebrow"><span>Tandem design package · 01 · Research findings</span><span>2026-09-03</span></div>
+<h1>Research Findings: Shared AI Sessions for Collaborative Architecture</h1>
+
+<p>Working name used throughout these documents: <strong>Tandem</strong> (placeholder, rename freely).
+Date of research: 2026-09-03.</p>
+<p>This document answers the questions in the original brief: is it possible, what already exists, what it would take, and where the real risks are. The architecture and build spec live in <code>02-architecture.md</code> and <code>03-technical-design-spec.md</code>.</p>
+<hr />
+<h2 id="1-verdict">1. Verdict</h2>
+<p><strong>The product is buildable today, with one change to the idea as written.</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Element of the idea</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two or more people in one shared AI conversation with one shared context</td>
+<td>Feasible, precedented</td>
+<td>Mixus, Microsoft Copilot Cowork, Claude Design group chat, Claude Team shared projects all ship variants. None target software architects with a canvas plus versioned artifacts.</td>
+</tr>
+<tr>
+<td>Each user's own credentials pay for their turns</td>
+<td><strong>Partly feasible</strong></td>
+<td>GitHub Copilot: officially supported. Anthropic API key (BYOK): allowed. <strong>Claude Pro/Max subscription login: prohibited</strong> by Anthropic as of 2026-02-19. OpenAI ChatGPT sign-in: grants API credits, third-party use is not clearly documented, treat as unverified.</td>
+</tr>
+<tr>
+<td>Canvas of AI-produced artifacts (Mermaid, ERD, docs), uploads, ingestion</td>
+<td>Feasible, mature tooling</td>
+<td>React Flow, Excalidraw, Mermaid, Yjs are all MIT. Claude Design is the closest UX reference.</td>
+</tr>
+<tr>
+<td>Conflict detection, queued steering, approval, versioning, rollback, attribution</td>
+<td>Feasible, but this is the novel part</td>
+<td>No shipped product does this well. Research (MUCA, GroupGPT, CHI 2026 collaborative editing study) gives design guidance but not an implementation. This is the differentiator.</td>
+</tr>
+<tr>
+<td>Compile the canvas into a full design document</td>
+<td>Feasible</td>
+<td>Straightforward multi-step generation pipeline with structured outputs.</td>
+</tr>
+<tr>
+<td>Future: two people building an app together with the AI</td>
+<td>Feasible later</td>
+<td>Copilot SDK and Claude Agent SDK both provide hosted agent runtimes; the shared-session layer designed here carries over.</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="2-the-credential-question-in-detail">2. The credential question in detail</h2>
+<p>This is the one place the brief collides with vendor policy, so it gets the most space.</p>
+<h3>2.1 Anthropic</h3>
+<p>Anthropic's Claude Code legal page, updated 2026-02-19, states:</p>
+<blockquote>
+<p>Anthropic does not permit third-party developers to offer Claude.ai login into their own applications, or to route requests through Free, Pro, or Max plan credentials on behalf of their users. Moreover, developers may not collect, store, or intermediate Claude.ai credentials or session tokens.</p>
+</blockquote>
+<p>and, for API keys:</p>
+<blockquote>
+<p>This does not restrict how customers provision and manage their own API keys ... provided the resulting usage is billed to the key owner under their agreement with Anthropic and is not resold or intermediated.</p>
+</blockquote>
+<p>Consequences for Tandem:</p>
+<ul>
+<li><strong>Do not</strong> build "Sign in with Claude". It is prohibited and Anthropic actively enforces it (OpenClaw and other harnesses were cut off in January and February 2026).</li>
+<li><strong>Do</strong> let each user paste their own Anthropic Console API key. Usage bills to their Console account. This is the standard BYOK pattern used by Warp, Kodus, Cursor and many others. Store keys encrypted (AES-256-GCM, envelope key in a KMS), never send them to the browser.</li>
+<li>A Claude Team or Enterprise organization can issue API keys to members through the Console, so "my employer pays" works via the same BYOK path.</li>
+<li>Alternative for enterprises: a single "session sponsor" key configured by the workspace owner. Permitted, since the key owner is billed for their own users.</li>
+</ul>
+<h3>2.2 GitHub Copilot</h3>
+<p>The Copilot SDK went GA on 2026-06-02. GitHub's OAuth setup guide says explicitly:</p>
+<blockquote>
+<p>Create an SDK client for each authenticated user, passing their token ... Copilot usage is billed to each user's subscription.</p>
+</blockquote>
+<p>Supported token types are OAuth user tokens (<code>gho_</code>), GitHub App user tokens (<code>ghu_</code>) and fine-grained PATs. Classic PATs are rejected. The app owns the OAuth lifecycle (storage, refresh, expiry).</p>
+<p>This is exactly the model the brief describes, and it is the only major vendor that documents it as allowed. Two important details:</p>
+<ul>
+<li><strong>Copilot serves Claude models.</strong> Claude Opus 5 and Sonnet 4.5 are GA inside Copilot (availability varies by plan; Free and Student plans have had flagship Claude models removed). So a Copilot Pro+ or Business user gets Claude through their subscription without an Anthropic key. Model availability is queried at runtime through the SDK.</li>
+<li><strong>The SDK is an agent runtime, not a raw chat API.</strong> Every SDK talks JSON-RPC to a bundled Copilot CLI process. Per-user sessions mean per-user CLI processes on your server. Each prompt consumes one premium request times the model multiplier. A "simple prompt/response" mode was requested in copilot-sdk issue 182 and is still open; today you drive the agent engine with tools disabled.</li>
+</ul>
+<h3>2.3 OpenAI</h3>
+<p>Codex supports ChatGPT sign-in and API-key auth. "Sign in with ChatGPT" for third-party apps grants a one-time API credit ($5 or $50 by plan) rather than metering against the subscription. Secondary sources say OpenAI tolerates ChatGPT-subscription OAuth inside third-party harnesses, but OpenAI's own auth docs do not state a policy. <strong>Treat as unverified; ship OpenAI as BYOK API key only until confirmed in writing.</strong></p>
+<h3>2.4 Resulting provider matrix (v1)</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Auth in Tandem</th>
+<th>Bills to</th>
+<th>Claude models available</th>
+<th>Policy status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anthropic API</td>
+<td>User-pasted API key</td>
+<td>User's Console org</td>
+<td>All current models</td>
+<td>Explicitly allowed</td>
+</tr>
+<tr>
+<td>GitHub Copilot</td>
+<td>GitHub OAuth (per-user token)</td>
+<td>User's Copilot seat</td>
+<td>Opus 5, Sonnet 4.5 (plan-dependent)</td>
+<td>Explicitly allowed</td>
+</tr>
+<tr>
+<td>OpenAI API</td>
+<td>User-pasted API key</td>
+<td>User's platform org</td>
+<td>none</td>
+<td>Allowed (BYOK)</td>
+</tr>
+<tr>
+<td>Claude Pro/Max</td>
+<td>not offered</td>
+<td></td>
+<td></td>
+<td><strong>Prohibited</strong></td>
+</tr>
+<tr>
+<td>ChatGPT Plus/Pro</td>
+<td>not offered in v1</td>
+<td></td>
+<td></td>
+<td>Unverified</td>
+</tr>
+<tr>
+<td>Workspace sponsor key</td>
+<td>Admin-configured Anthropic key</td>
+<td>Workspace</td>
+<td>All</td>
+<td>Allowed</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="3-what-already-exists">3. What already exists</h2>
+<h3>3.1 Shipped products with shared AI conversations</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Product</th>
+<th>What it does</th>
+<th>What it lacks for this use case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Claude Design</strong> (Anthropic Labs, 2026-04-17)</td>
+<td>Chat left, canvas right. Org-scoped sharing; edit access lets colleagues "modify the design and chat with Claude together in a group conversation". Exports PDF/PPTX/HTML, hands off to Claude Code.</td>
+<td>One org, one Anthropic bill. Visual design focus, not architecture artifacts. No conflict, approval, decision or versioning model beyond edit history. Closest UX reference.</td>
+</tr>
+<tr>
+<td><strong>Claude Team / Enterprise shared projects</strong></td>
+<td>Shared project knowledge, members see uploads and responses in real time; group sharing in beta on Enterprise.</td>
+<td>Chats are private by default; no multi-author steering model; single billing org.</td>
+</tr>
+<tr>
+<td><strong>Mixus</strong></td>
+<td>"Multiplayer chat": multiple users in one AI conversation, speaker recognition, response threading, role-based permissions (view, contributor, moderator, admin).</td>
+<td>General business chat; no canvas, no artifact versioning, no BYO credentials. Good reference for permission tiers.</td>
+</tr>
+<tr>
+<td><strong>Microsoft Copilot Cowork</strong> (Frontier, experimental)</td>
+<td>Multiple team members interact with one shared Copilot agent that edits shared documents.</td>
+<td>M365-only, opaque architecture. Validates the category.</td>
+</tr>
+<tr>
+<td><strong>GitHub Copilot in Teams</strong> (2026-08-21)</td>
+<td>Shared agentic work in Teams channels.</td>
+<td>Chat-in-channel, not a design canvas.</td>
+</tr>
+<tr>
+<td><strong>Liveblocks AI Copilots</strong></td>
+<td>Drop-in AI chat that reads and edits Yjs/Storage state; AI spreadsheet example where an agent edits cells alongside humans.</td>
+<td>Chat is primarily single-player; you would still design the shared-turn model yourself. Strong candidate as infrastructure.</td>
+</tr>
+<tr>
+<td><strong>Eraser / DiagramGPT, Miro AI, FigJam AI, Lucid AI</strong></td>
+<td>Text-to-diagram, AI on a collaborative board.</td>
+<td>AI is a feature bolted onto a board, not a persistent participant with shared context and its own attribution.</td>
+</tr>
+<tr>
+<td><strong>SillyTavern MultiPlayer (STMP)</strong></td>
+<td>Open-source multi-user LLM chat.</td>
+<td>Hobbyist; useful proof that serialized multi-user turns work.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Conclusion: the category is real and multiple large vendors are moving into it, but nobody combines (a) BYO credentials, (b) an architect's artifact canvas, (c) an explicit governance model for conflicting steering, and (d) git-like versioning of the shared design. That combination is the product.</p>
+<h3>3.2 Research that informs the design</h3>
+<ul>
+<li><strong>MUCA: Multi-User Chat Assistant</strong> (arXiv 2401.04883). Frames the group-chat assistant problem as three decisions: <em>what</em> to say, <em>when</em> to speak, <em>who</em> to address. Three modules: sub-topic generator, dialog analyzer, conversational strategies arbitrator. Tandem adopts the 3W framing: users explicitly address the AI in v1, and an "ambient" mode later lets the AI decide when to intervene.</li>
+<li><strong>GroupGPT</strong> (arXiv 2603.01059). Separates the <em>intervention decision</em> from <em>response generation</em>, cutting token use up to 3x. Tandem uses the same split: a cheap classifier step (Haiku 4.5) decides whether a message needs a full turn, a conflict flag, or nothing.</li>
+<li><strong>Collaborative Document Editing with Multiple Users and AI Agents</strong> (CHI 2026, arXiv 2509.11826). Week-long study, 14 teams. Teams folded agents into existing norms of authorship and control rather than treating them as teammates; agent outputs became shared resources, agent configurations stayed personal. Design implication: the AI's output must be attributed <em>to the human who asked</em>, and private scratch prompts must exist.</li>
+<li><strong>Multi-User Shared AI Sessions</strong> (tianpan.co, 2026-04-17). Treat the session as an ordered persistent event stream; serialize LLM turns; broadcast tokens to everyone; attribute every tool call to a user identity; context fills faster with multiple authors so compaction must be attribution-aware; OT/CRDT do not map onto inference semantics. Tandem's ledger and turn broker follow this directly.</li>
+<li><strong>Multi-party turn-taking and addressee prediction</strong> (several 2024-2026 papers). LLMs do reasonably at addressee recognition when speakers are explicitly labelled. Tandem always labels speakers in the transcript.</li>
+</ul>
+<h3>3.3 Infrastructure that can be reused</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Options</th>
+<th>Recommendation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Live canvas layout, presence, cursors, concurrent text edits</td>
+<td>Yjs (+ Hocuspocus self-hosted, or Liveblocks managed), Automerge</td>
+<td><strong>Yjs + Hocuspocus</strong> for control and zero vendor lock; Liveblocks if you want to skip infra.</td>
+</tr>
+<tr>
+<td>Artifact canvas (cards, edges, pan/zoom)</td>
+<td>React Flow (MIT), tldraw (paid license since Sept 2025), Excalidraw (MIT)</td>
+<td><strong>React Flow</strong> for the card canvas; embed <strong>Excalidraw</strong> for freehand sketches.</td>
+</tr>
+<tr>
+<td>Diagrams</td>
+<td>Mermaid, D2, PlantUML</td>
+<td><strong>Mermaid</strong> (renders in browser, AI writes it well, exportable to SVG).</td>
+</tr>
+<tr>
+<td>Rich text / markdown editing</td>
+<td>Tiptap (Yjs-native), CodeMirror 6</td>
+<td>Tiptap for docs, CodeMirror for code/Mermaid source.</td>
+</tr>
+<tr>
+<td>LLM access</td>
+<td>Anthropic TS SDK, <code>@github/copilot-sdk</code>, OpenAI SDK</td>
+<td>All three behind one adapter interface.</td>
+</tr>
+<tr>
+<td>Long sessions</td>
+<td>Anthropic compaction beta, context editing, prompt caching</td>
+<td>Use all three (details in spec).</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="4-the-hard-problems-and-how-the-design-resolves-them">4. The hard problems and how the design resolves them</h2>
+<p>The brief lists these directly. Short answers here; full mechanisms in the architecture document.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Question from the brief</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two users direct it to do conflicting things. How does it resolve?</td>
+<td>The AI never silently picks a winner. A cheap pre-check compares each directive against the <strong>decision registry</strong> and artifact ownership. Contradictions produce a <strong>Decision Point</strong> card with options and trade-offs; participants vote; the AI applies the agreed option. Session policy chooses between last-writer-wins, review-required, and consensus.</td>
+</tr>
+<tr>
+<td>How does it version so we can roll back?</td>
+<td>Every applied change creates an immutable artifact version; every AI turn creates a <strong>session commit</strong> (a git-like snapshot with parent pointer). Rollback creates a new commit pointing at old versions. Sessions can be <strong>forked</strong> for a v2.</td>
+</tr>
+<tr>
+<td>Attribution, visible and invisible</td>
+<td>Every ledger event carries an actor (<code>user:alice</code> or <code>ai on behalf of alice, triggered by message m42</code>). Visible: speaker colours, artifact headers, section-level "blame" overlay, diff view. Invisible: provenance metadata on every block, embedded as comments in exports, exportable audit log.</td>
+</tr>
+<tr>
+<td>Do users have to agree? Is steering queued?</td>
+<td>Configurable. Turns are always serialized (one AI turn at a time). Messages sent during a turn queue and are merged into the next turn as a labelled multi-speaker prompt. Whether changes need approval depends on session policy and on whether the change touches something the other person authored or a recorded decision.</td>
+</tr>
+<tr>
+<td>How do you merge two ideas?</td>
+<td>Text and layout: Yjs CRDT merges keystroke-level. Semantic: the AI runs a <strong>reconciliation turn</strong> that produces a merged proposal citing both sources, then it goes through the normal approval path.</td>
+</tr>
+<tr>
+<td>How do users talk outside the context window?</td>
+<td>A <strong>side channel</strong> (human-only chat, never sent to the AI unless a message is explicitly promoted), comments on artifacts, presence and cursors, private scratch prompts on the user's own credentials with a "share to session" action.</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="5-what-it-would-take">5. What it would take</h2>
+<h3>5.1 Effort (prototype to usable alpha)</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Milestone</th>
+<th>Scope</th>
+<th>Estimate (1-2 engineers)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M0 Walking skeleton</td>
+<td>Two users, GitHub login, Anthropic BYOK, one session, ledger, serialized turns, tokens streamed to both, Markdown and Mermaid cards on a React Flow canvas</td>
+<td>2-3 weeks</td>
+</tr>
+<tr>
+<td>M1 Governance</td>
+<td>Proposals and approvals, decision registry, conflict flagging, artifact versions, session commits, rollback, blame overlay</td>
+<td>3-4 weeks</td>
+</tr>
+<tr>
+<td>M2 Knowledge</td>
+<td>Uploads (images, PDF, md), source cards, side channel, private scratch, compile-to-design-doc pipeline, exports (MD, DOCX, PDF)</td>
+<td>3 weeks</td>
+</tr>
+<tr>
+<td>M3 Providers and scale</td>
+<td>Copilot SDK adapter, session model pinning, compaction, forks and v2, workspace sponsor key</td>
+<td>3 weeks</td>
+</tr>
+<tr>
+<td>M4 Build together</td>
+<td>Shared repo workspace, agent turns via Copilot SDK or Claude Agent SDK, branch-per-proposal</td>
+<td>4-6 weeks</td>
+</tr>
+</tbody>
+</table></div>
+<p>Roughly one quarter to a compelling alpha with two providers and the full governance model.</p>
+<h3>5.2 Running cost (the part users pay themselves)</h3>
+<p>Each AI turn re-sends the shared context. Illustrative session: 60K-token working context, 40 AI turns, Claude Opus 5 ($5 input, $25 output per million, cache reads at 10% of input price).</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Input tokens</th>
+<th>Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No caching</td>
+<td>2.4M</td>
+<td>$12.00 + output</td>
+</tr>
+<tr>
+<td>With prompt caching, 80% cache hit rate</td>
+<td>0.48M full + 1.92M cached</td>
+<td>$2.40 + $0.96 + output</td>
+</tr>
+<tr>
+<td>Output, 40 turns at 1.5K tokens</td>
+<td>60K</td>
+<td>$1.50</td>
+</tr>
+</tbody>
+</table></div>
+<p>A two-hour architecture session costs each participant a few dollars on their own key. Because credentials rotate with the speaker, each participant's account warms its own cache; consecutive messages by the same person hit cache, alternating speakers do not. The spec includes a "sponsor" mode where one key pays for all turns and caching is maximal.</p>
+<h3>5.3 Risks</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Severity</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vendor policy shifts again (Anthropic tightened terms twice in 2026)</td>
+<td>High</td>
+<td>Provider adapter layer; ship BYOK API key as the baseline that no policy has restricted; keep Copilot as the subscription path.</td>
+</tr>
+<tr>
+<td>Data flows to <em>every</em> participant's provider account</td>
+<td>Medium</td>
+<td>Explicit consent at session join; visible "this turn runs on Bob's Anthropic account" badge; sponsor mode for enterprises with data-handling requirements.</td>
+</tr>
+<tr>
+<td>Model inconsistency when participants use different providers or models</td>
+<td>Medium</td>
+<td>Session-level model pin; each participant must be able to serve the pinned model or the session degrades with a banner.</td>
+</tr>
+<tr>
+<td>Copilot SDK is heavy (CLI process per user session)</td>
+<td>Medium</td>
+<td>Pool and hibernate sessions; run adapter in its own service; consider stateless per-turn sessions.</td>
+</tr>
+<tr>
+<td>Context window pressure with multiple contributors</td>
+<td>Medium</td>
+<td>Session brief plus decision registry plus artifact index instead of raw transcript; compaction; attribution-preserving summaries.</td>
+</tr>
+<tr>
+<td>Governance friction makes the tool feel slow</td>
+<td>Medium</td>
+<td>Default policy auto-applies additive changes, only gates conflicts; approvals are one click with a 30-second auto-apply timer option.</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="6-open-questions-answered-2026-09-03">6. Open questions (answered 2026-09-03)</h2>
+<p>Decisions: Copilot first (organization is licensed); sponsor mode yes; hybrid policy; 2-5 participants; self-hosted Yjs with Hocuspocus; card canvas with embedded sketches. POC runs as one process on SQLite; see <code>05-poc-plan.md</code>. The original questions are kept below for the record.</p>
+<ol>
+<li><strong>First provider.</strong> Recommended: Anthropic BYOK first (simplest, fully allowed), Copilot second. Agree?</li>
+<li><strong>Sponsor mode in v1?</strong> Enterprises will want one key for a session. It is a small addition to the payer selection logic. Recommended: yes, behind a workspace setting.</li>
+<li><strong>Default governance policy.</strong> Recommended default: <em>hybrid</em> (additive auto-applies, conflicts gated). Alternatives: last-writer-wins for speed, consensus for formal design reviews.</li>
+<li><strong>More than two participants?</strong> The design supports N; the UI is tuned for 2-5. Confirm N is not needed to be large.</li>
+<li><strong>Self-host vs managed realtime.</strong> Yjs + Hocuspocus (self-host) is recommended. Liveblocks saves a week of infra at the cost of a vendor.</li>
+<li><strong>Canvas feel.</strong> Card canvas (React Flow, structured artifacts) versus freeform whiteboard (Excalidraw). Recommended: card canvas primary, Excalidraw embedded per card.</li>
+</ol>
+<hr />
+<h2 id="sources">Sources</h2>
+<ul>
+<li>Anthropic, Claude Code legal and compliance: https://code.claude.com/docs/en/legal-and-compliance</li>
+<li>WinBuzzer, Anthropic bans Claude subscription OAuth in third-party apps (2026-02-19): https://winbuzzer.com/2026/02/19/anthropic-bans-claude-subscription-oauth-in-third-party-apps-xcxwbn/</li>
+<li>GitHub Docs, Copilot SDK authentication: https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate</li>
+<li>GitHub Docs, Copilot SDK GitHub OAuth setup: https://docs.github.com/en/copilot/how-tos/copilot-sdk/setup/github-oauth</li>
+<li>GitHub Changelog, Copilot SDK GA (2026-06-02): https://github.blog/changelog/2026-06-02-copilot-sdk-is-now-generally-available/</li>
+<li>github/copilot-sdk repository: https://github.com/github/copilot-sdk</li>
+<li>copilot-sdk issue 182, user-delegated billing and simple prompt-response: https://github.com/github/copilot-sdk/issues/182</li>
+<li>GitHub Docs, supported models in Copilot: https://docs.github.com/en/copilot/reference/ai-models/supported-models</li>
+<li>OpenAI Codex authentication: https://learn.chatgpt.com/docs/auth</li>
+<li>Anthropic, Introducing Claude Design: https://www.anthropic.com/news/claude-design-anthropic-labs</li>
+<li>Claude Help, project visibility and sharing: https://support.claude.com/en/articles/9519189-manage-project-visibility-and-sharing</li>
+<li>Mixus multiplayer chat docs: https://docs.mixus.ai/multiplayer/overview</li>
+<li>Futurum, Microsoft Copilot Cowork: https://futurumgroup.com/insights/will-ms-copilot-cowork-enable-real-enterprise-ai-collaboration/</li>
+<li>GitHub Changelog, shared agentic work in Teams (2026-08-21): https://github.blog/changelog/2026-08-21-shared-agentic-work-with-github-copilot-in-microsoft-teams/</li>
+<li>Liveblocks AI Copilots: https://liveblocks.io/ai-copilots</li>
+<li>Tian Pan, Multi-User Shared AI Sessions (2026-04-17): https://tianpan.co/blog/2026-04-17-multi-user-shared-ai-sessions</li>
+<li>MUCA (arXiv 2401.04883): https://arxiv.org/abs/2401.04883</li>
+<li>GroupGPT (arXiv 2603.01059): https://arxiv.org/abs/2603.01059</li>
+<li>Collaborative Document Editing with Multiple Users and AI Agents, CHI 2026 (arXiv 2509.11826): https://arxiv.org/abs/2509.11826</li>
+<li>Charlie Guo, AI's Missing Multiplayer Mode: https://www.ignorance.ai/p/ais-missing-multiplayer-mode</li>
+<li>SitePoint, Anthropic API terms and the BYOK pattern: https://www.sitepoint.com/end-wrapper-era-anthropic-api-terms-saas/</li>
+<li>Meetrix, open-source whiteboard tools (tldraw licensing change): https://meetrix.io/blogs/open-source-whiteboard-tools/</li>
+<li>Eraser DiagramGPT: https://www.eraser.io/diagramgpt</li>
+</ul>
+</article>
+</div>
