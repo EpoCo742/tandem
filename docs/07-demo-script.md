@@ -2,7 +2,7 @@
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
-This file tracks the features as they land. Last updated 2026-09-04 (light and dark theme, canvas grid).
+This file tracks the features as they land. Last updated 2026-09-04 (light and dark theme, canvas grid, logo).
 
 ## Two ways to run it
 
@@ -176,6 +176,8 @@ Feature: personal UI preferences, not shared state.
 | Anyone | Canvas corner toggle cycles **grid: dots**, **lines**, **off**. |
 
 Point at: diagrams re-render in the matching Mermaid theme; the other participant's window is unaffected; the choice survives a reload.
+
+The wordmark in the top bar swaps artwork with the theme: the amber A and teal N stem brighten for the dark palette.
 
 ---
 

@@ -1,6 +1,7 @@
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { usePrefs } from "../state/prefs";
+import { Logo } from "./Logo";
 import { navigate } from "../App";
 
 export function Avatar({ name, color, size = 22 }: { name: string; color: string; size?: number }) {
@@ -37,7 +38,7 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
   return (
     <div className="topbar">
       <a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }} style={{ textDecoration: "none", color: "inherit" }}>
-        <span className="brand"><span>Tandem</span></span>
+        <Logo height={20} />
       </a>
       <span className="mono">poc</span>
       {children}
