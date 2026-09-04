@@ -32,6 +32,8 @@ export const sessions = sqliteTable("sessions", {
   pinnedModel: text("pinned_model").notNull(),
   provider: text("provider").notNull(),
   sponsorCredentialId: text("sponsor_credential_id"),
+  forkedFromSessionId: text("forked_from_session_id"),
+  forkedAtCommitId: text("forked_at_commit_id"),
   createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

@@ -157,6 +157,49 @@ export const fakeProvider: ProviderAdapter = {
       return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
     }
 
+    // 0b. Data model request: derive entities from tables and events mentioned so far.
+    const wantsModel = batch.find((m) => /data model|entity|schema|tables?\b.*(draft|design|model)/i.test(m.text) && !/^Compile/.test(m.text));
+    if (wantsModel) {
+      const corpus = [req.context.prompt, ...batch.map((b) => b.text)].join("\n");
+      const tables = [...new Set([...corpus.matchAll(/\b(?:the |a )?([a-z][a-z_]+) table\b/gi)].map((m) => m[1]!.toLowerCase()))];
+      const events = [...new Set([...corpus.matchAll(/\b([A-Z][A-Za-z]+) event\b/g)].map((m) => m[1]!))];
+      const ev = [wantsModel.eventId];
+      const entities = [
+        ...tables.map((t) => ({
+          name: t,
+          fields: [
+            { name: "id", type: "uuid", pk: true },
+            { name: "status", type: "text" },
+            { name: "created_at", type: "timestamptz" },
+            { name: "updated_at", type: "timestamptz", nullable: true },
+          ],
+          derivedFrom: ev,
+        })),
+        ...events.map((e) => ({
+          name: `${e.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase()}_events`,
+          fields: [
+            { name: "id", type: "uuid", pk: true },
+            { name: "aggregate_id", type: "uuid", fk: tables[0] ? `${tables[0]}.id` : undefined },
+            { name: "payload", type: "jsonb" },
+            { name: "occurred_at", type: "timestamptz" },
+          ],
+          derivedFrom: ev,
+        })),
+      ];
+      if (entities.length === 0) {
+        await call("ask_clarification", { question: "Which tables or events should the data model cover? I did not find any named in the discussion yet.", addressedTo: [userIdFor(req.context.prompt, wantsModel.speaker)] });
+        await emit("I need a table or event name to start from; asked on the canvas.");
+        return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      }
+      const relations = tables[0] && events.length ? events.map((e) => ({ from: tables[0]!, to: `${e.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase()}_events`, cardinality: "1-n" as const, label: "emits", derivedFrom: ev })) : [];
+      const existing = artifacts.find((a) => a.type === "data_model");
+      const content = { entities, relations, sections: [{ id: "entities", derivedFrom: ev }] };
+      if (existing) await call("update_artifact", { artifactId: existing.id, baseVersionNo: existing.versionNo, content, rationale: "Refresh data model from the discussion", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
+      else await call("create_artifact", { type: "data_model", title: "Data model", content, rationale: "Drafted from the tables and events named so far", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
+      await emit(`Drafted the data model with ${entities.map((e) => e.name).join(", ")}${relations.length ? ` and ${relations.length} relation(s)` : ""}. Tell me the fields you actually need and I will refine it.`);
+      return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+    }
+
     // 1. Contradiction check: a directive that shares vocabulary with an agreed decision and contains a negation word.
     const negation = /\b(drop|remove|instead|replace|not|no longer|rather than|switch)\b/i;
     for (const msg of batch) {

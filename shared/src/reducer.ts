@@ -156,6 +156,7 @@ export interface SessionState {
   turns: Record<string, Turn>;
   conflicts: Record<string, Conflict>;
   brief: string;
+  forkedFrom: { sessionId: string; commitId: string | null; title: string } | null;
   lastSeq: number;
   eventsById: Record<string, AnyLedgerEvent>;
 }
@@ -178,6 +179,7 @@ export function emptyState(sessionId: string): SessionState {
     turns: {},
     conflicts: {},
     brief: "",
+    forkedFrom: null,
     lastSeq: 0,
     eventsById: {},
   };
@@ -193,6 +195,7 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       s.policy = p.policy;
       s.payerMode = p.payerMode;
       s.pinnedModel = p.pinnedModel;
+      s.forkedFrom = p.forkedFrom ?? null;
       return s;
     }
     case "participant.joined": {

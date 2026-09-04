@@ -65,7 +65,7 @@ export interface Option {
 // ---- payloads --------------------------------------------------------------
 
 export type Payloads = {
-  "session.created": { title: string; policy: Policy; payerMode: PayerMode; pinnedModel: string };
+  "session.created": { title: string; policy: Policy; payerMode: PayerMode; pinnedModel: string; forkedFrom?: { sessionId: string; commitId: string | null; title: string } };
   "participant.joined": { role: "owner" | "editor" | "viewer"; name: string; color: string; avatarUrl?: string };
   "participant.left": Record<string, never>;
   "participant.consented": { providers: string[] };

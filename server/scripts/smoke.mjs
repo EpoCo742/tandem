@@ -152,7 +152,7 @@ await wait(200);
 assert(subA.events.some((e) => e.type === "commit.reverted_to"), "revert recorded");
 
 // Side channel and promote.
-const note = await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Should we ask about the data model?", mode: "note" });
+const note = await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Before we go further, should we ask which fields the orders table needs?", mode: "note" });
 const turnsBefore = subA.events.filter((e) => e.type === "turn.started").length;
 await wait(300);
 assert(subA.events.filter((e) => e.type === "turn.started").length === turnsBefore, "side-channel note did not trigger a turn");
@@ -187,6 +187,58 @@ const designDoc = subA.events.find((e) => e.type === "artifact.applied" && e.pay
 assert(designDoc, "compile produced a design_doc artifact");
 const docText = designDoc.payload.content.markdown;
 assert(docText.includes("## Decision log") && docText.includes("D-01") && docText.includes("```mermaid") && docText.includes("business-rules.md"), "design document contains decisions, diagrams and sources");
+
+// Data model drafted by the AI from the tables and events named so far.
+const turnsBeforeModel = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Draft the data model for this." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeModel, "data model turn");
+const model = subA.events.find((e) => e.type === "artifact.applied" && e.payload.artifactType === "data_model");
+assert(model, "AI created a data_model artifact");
+const entityNames = model.payload.content.entities.map((x) => x.name);
+assert(entityNames.includes("orders") && entityNames.some((n) => n.includes("order_placed")), `entities derived from the discussion: ${entityNames.join(", ")}`);
+
+// Auto-apply: Bob edits the data model the AI drafted for Alice (cross-owner) and nobody responds;
+// the proposal applies by itself after the approval timeout (server started with a 2 s timeout).
+const modelId = model.payload.artifactId;
+const versionsBeforeAuto = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === modelId).length;
+const autoEdit = await bob.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${modelId}/versions`, { content: { ...model.payload.content, entities: [...model.payload.content.entities, { name: "audit_log", fields: [{ name: "id", type: "uuid", pk: true }], derivedFrom: [] }] }, rationale: "Add audit log" });
+assert(autoEdit.status === "pending_approval", "cross-owner edit of the data model is a proposal");
+await waitFor(() => subA.events.some((e) => e.type === "proposal.approved" && e.actorKind === "system" && e.payload.proposalId === autoEdit.proposalId), "auto-apply after timeout", 8000);
+assert(subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === modelId).length === versionsBeforeAuto + 1, "auto-applied proposal produced a new version");
+
+// Speaker mode: the speaker's own credential pays; without one the session falls back to another participant's.
+const { id: speakerSession } = await alice.call("POST", `/api/v1/sessions`, { title: "Speaker mode", provider: "fake", payerMode: "speaker" });
+const inv2 = await alice.call("POST", `/api/v1/sessions/${speakerSession}/invites`);
+await bob.call("POST", `/api/v1/invites/${inv2.token}/accept`);
+await alice.call("POST", `/api/v1/sessions/${speakerSession}/consent`);
+await bob.call("POST", `/api/v1/sessions/${speakerSession}/consent`);
+const subS = subscribe(alice, speakerSession);
+await subS.ready;
+await bob.call("POST", `/api/v1/sessions/${speakerSession}/messages`, { text: "Service C calls Service D." });
+await waitFor(() => subS.events.some((e) => e.type === "turn.completed"), "speaker-mode turn without a credential");
+const t1 = subS.events.find((e) => e.type === "turn.started").payload;
+const aliceId = subS.events.find((e) => e.type === "participant.joined" && e.payload.role === "owner").actorUserId;
+const bobId = subS.events.find((e) => e.type === "participant.joined" && e.payload.role === "editor").actorUserId;
+assert(t1.onBehalfOf === bobId && t1.payerUserId === aliceId, "without a credential Bob's turn is funded by Alice but acts for Bob");
+await bob.call("POST", "/api/v1/credentials", { provider: "fake", token: "x", label: "bob-fake" });
+await bob.call("POST", `/api/v1/sessions/${speakerSession}/messages`, { text: "Service D writes to the audit table." });
+await waitFor(() => subS.events.filter((e) => e.type === "turn.completed").length >= 2, "speaker-mode turn with Bob's credential");
+const t2 = subS.events.filter((e) => e.type === "turn.started").pop().payload;
+assert(t2.payerUserId === bobId, "with his own credential Bob's turn is funded by Bob");
+subS.ws.close();
+
+// Fork: a v2 session starts from the current canvas and agreed decisions.
+const fork = await alice.call("POST", `/api/v1/sessions/${sessionId}/fork`, {});
+assert(fork.id && fork.title === "Order platform v2", `fork created a new session titled ${fork.title}`);
+const forkEvents = await alice.call("GET", `/api/v1/sessions/${fork.id}/events`);
+const forkArts = forkEvents.filter((e) => e.type === "artifact.applied");
+const liveBefore = new Set(subA.events.filter((e) => e.type === "artifact.applied").map((e) => e.payload.artifactId));
+assert(forkArts.every((e) => e.payload.versionNo === 1) && forkArts.length >= 3, `forked artifacts start at v1 (${forkArts.length} of ${liveBefore.size} ids seen)`);
+assert(forkEvents.some((e) => e.type === "session.created" && e.payload.forkedFrom?.sessionId === sessionId), "fork records its origin");
+assert(!forkEvents.some((e) => e.type === "decision.recorded" && e.payload.status === "superseded"), "superseded decisions are not carried into the fork");
+assert(forkEvents.some((e) => e.type === "participant.joined" && e.actorUserId === bobId), "participants are carried into the fork");
+const forkMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
+assert(forkMeta.me.consented === false && forkMeta.forkedFrom.sessionId === sessionId, "participants must re-consent in the fork");
 
 // Export.
 const md = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);

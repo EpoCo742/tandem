@@ -71,6 +71,22 @@ export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; s
             {a.versions.map((x) => <option key={x.versionId} value={x.versionNo}>v{x.versionNo} · {participantName(state, x.authorUserId)}</option>)}
           </select>
         )}
+        {a.type === "design_doc" && (
+          <button
+            title="Download this document as Markdown"
+            onClick={() => {
+              const blob = new Blob([(v.content as MarkdownContent).markdown], { type: "text/markdown" });
+              const url = URL.createObjectURL(blob);
+              const el = document.createElement("a");
+              el.href = url;
+              el.download = `${a.title.replace(/[^\w-]+/g, "-")}-v${v.versionNo}.md`;
+              el.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            download .md
+          </button>
+        )}
         {!isDp && a.type !== "source" && <button onClick={() => setEditing(true)} disabled={Boolean(a.blockedByDecisionPoint)}>edit</button>}
       </div>
       {editing && <ArtifactEditor artifact={a} sessionId={sessionId} onClose={() => setEditing(false)} />}

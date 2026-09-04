@@ -9,7 +9,7 @@ import { appendEvent, getState, listEvents, sessionExists } from "../ledger.js";
 import { brokerFor } from "../turn/broker.js";
 import { config } from "../config.js";
 import { findCredentialForUser, listCredentials } from "../credentials.js";
-import { createCommit, requestChange, resolveProposal, revertTo } from "../governance.js";
+import { contentHash, createCommit, requestChange, resolveProposal, revertTo } from "../governance.js";
 import { mintCollabToken } from "../crypto.js";
 import { exportMarkdown } from "../export.js";
 
@@ -68,6 +68,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       pinnedModel: s.pinnedModel,
       provider: s.provider,
       createdBy: s.createdBy,
+      forkedFrom: s.forkedFromSessionId ? { sessionId: s.forkedFromSessionId, commitId: s.forkedAtCommitId } : null,
       me: { role: me.role, consented: Boolean(me.consentedAt), hasCredential: Boolean(findCredentialForUser(user.id, s.provider)) },
       collabToken: mintCollabToken(s.id, user.id),
       lastSeq: getState(s.id).lastSeq,
@@ -283,6 +284,46 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     } catch (e) {
       return reply.code(400).send({ error: (e as Error).message });
     }
+  });
+
+  // Fork: a new session that starts from the current canvas (every live artifact as v1,
+  // every non-superseded decision, participants re-invited). The original stays intact.
+  app.post<{ Params: { id: string }; Body: { title?: string } }>("/api/v1/sessions/:id/fork", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot fork" });
+    const src = db.select().from(schema.sessions).where(eq(schema.sessions.id, req.params.id)).get()!;
+    const state = getState(req.params.id);
+    const id = ulid();
+    const ts = now();
+    const bumped = src.title.match(/^(.*)\bv(\d+)\s*$/i);
+    const title = req.body?.title?.trim() || (bumped ? `${bumped[1]}v${Number(bumped[2]) + 1}` : `${src.title} v2`);
+    db.insert(schema.sessions)
+      .values({ id, title, policy: src.policy, payerMode: src.payerMode, pinnedModel: src.pinnedModel, provider: src.provider, sponsorCredentialId: src.payerMode === "sponsor" ? (findCredentialForUser(user.id, src.provider)?.id ?? src.sponsorCredentialId) : null, forkedFromSessionId: src.id, forkedAtCommitId: state.headCommitId, createdBy: user.id, createdAt: ts, updatedAt: ts })
+      .run();
+    appendEvent(id, { type: "session.created", actorKind: "system", actorUserId: user.id, payload: { title, policy: src.policy as Policy, payerMode: src.payerMode as "sponsor" | "speaker", pinnedModel: src.pinnedModel, forkedFrom: { sessionId: src.id, commitId: state.headCommitId, title: src.title } } });
+    const parts = db.select().from(schema.participants).where(eq(schema.participants.sessionId, src.id)).all();
+    for (const p of parts) {
+      const role = p.userId === user.id ? "owner" : p.role === "owner" ? "editor" : p.role;
+      db.insert(schema.participants).values({ sessionId: id, userId: p.userId, role, credentialId: null, color: p.color, consentedAt: null, joinedAt: ts }).run();
+      const sp = state.participants[p.userId];
+      appendEvent(id, { type: "participant.joined", actorKind: "user", actorUserId: p.userId, payload: { role: role as "owner" | "editor" | "viewer", name: sp?.name ?? p.userId, color: p.color, avatarUrl: sp?.avatarUrl } });
+    }
+    for (const a of Object.values(state.artifacts).filter((x) => !x.deleted && x.type !== "decision_point")) {
+      appendEvent(id, {
+        type: "artifact.applied",
+        actorKind: a.current.authorKind,
+        actorUserId: a.current.authorUserId,
+        causedBy: [],
+        payload: { artifactId: ulid(), artifactType: a.type, title: a.title, versionId: ulid(), versionNo: 1, op: "create", proposalId: null, content: a.current.content, summary: a.current.summary, authorKind: a.current.authorKind, authorUserId: a.current.authorUserId, provenance: a.current.provenance, contentHash: contentHash(a.current.content) },
+      });
+    }
+    for (const d of Object.values(state.decisions).filter((x) => x.status !== "superseded").sort((x, y) => x.label.localeCompare(y.label))) {
+      appendEvent(id, { type: "decision.recorded", actorKind: "system", actorUserId: null, causedBy: [], payload: { decisionId: ulid(), label: d.label, statement: d.statement, status: d.status, supersedes: null, agreedBy: d.agreedBy, evidence: [] } });
+    }
+    appendEvent(id, { type: "brief.updated", actorKind: "system", actorUserId: null, payload: { brief: `Forked from "${src.title}" (session ${src.id}) at commit ${state.headCommitId ?? "none"} on ${ts}. The canvas and agreed decisions were carried over; superseded decisions and resolved decision points were not.`, throughSeq: 0 } });
+    createCommit(id, user.id, null, `Forked from ${src.title}`);
+    return { id, title };
   });
 
   app.get<{ Params: { id: string }; Querystring: { format?: string } }>("/api/v1/sessions/:id/export", async (req, reply) => {

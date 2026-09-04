@@ -8,6 +8,13 @@
       "when": 1788494097034,
       "tag": "0000_young_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788497318383,
+      "tag": "0001_flawless_penance",
+      "breakpoints": true
     }
   ]
 }

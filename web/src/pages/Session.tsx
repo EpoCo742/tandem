@@ -4,6 +4,7 @@ import { useStore } from "../state/store";
 import { connectLedger, disconnectLedger } from "../ws";
 import { connectCollab, type Collab } from "../collab";
 import { TopBar, Avatar } from "../components/TopBar";
+import { navigate } from "../App";
 import { ConversationPane } from "../components/ConversationPane";
 import { Canvas } from "../components/Canvas";
 import { SidePane } from "../components/SidePane";
@@ -73,7 +74,11 @@ export function Session({ sessionId }: { sessionId: string }) {
         </div>
         <button onClick={invite}>Invite</button>
         {inviteUrl && <span className="mono" style={{ userSelect: "all" }}>{inviteUrl}</span>}
-        <button className="primary" title="Ask the AI to assemble a design document from the canvas and decision registry" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/compile`).catch((e) => alert((e as Error).message))}>Compile design doc</button>
+        {state.forkedFrom && (
+          <a className="mono" href={`/s/${state.forkedFrom.sessionId}`} onClick={(e) => { e.preventDefault(); navigate(`/s/${state.forkedFrom!.sessionId}`); }} title="This session was forked from another one">forked from {state.forkedFrom.title}</a>
+        )}
+        <button className="primary" title="Ask the AI to assemble a design document from the canvas and decision registry" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/compile`).catch((e) => setErr((e as Error).message))}>Compile design doc</button>
+        <button title="Start a new session from the current canvas and agreed decisions; this one stays intact" onClick={() => api<{ id: string }>("POST", `/api/v1/sessions/${sessionId}/fork`, {}).then((r) => navigate(`/s/${r.id}`)).catch((e) => setErr((e as Error).message))}>Fork as v2</button>
         <a href={`/api/v1/sessions/${sessionId}/export`} target="_blank" rel="noreferrer"><button>Export .md</button></a>
       </TopBar>
       <ConversationPane sessionId={sessionId} />

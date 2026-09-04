@@ -139,7 +139,17 @@ Clicking **revert to** on the first commit restores the diagram to its original 
 
 ---
 
-## 12. Export
+## 12. Data model and forking a v2
+
+Ask the AI to "draft the data model" and a **data model** card appears with the entities it can infer from the tables and events named so far (rendered as tables with primary and foreign keys, plus a relations line). Like every card it is versioned, attributed, and governed: someone else's edit to it becomes a proposal, and a proposal nobody answers auto-applies after the timeout.
+
+**Fork as v2** in the top bar starts a new session from the current canvas: every live card is carried over as v1, agreed decisions are copied, superseded ones and resolved decision points are left behind, participants are carried over but must consent again, and the new session shows a "forked from" link back to the original, which stays intact.
+
+![Forked v2 session with the data model card](guide/17-fork-and-data-model.jpg)
+
+---
+
+## 13. Export
 
 **Export .md** in the top bar produces a Markdown document with the artifacts, the decision log, and the commit history. Provenance travels along as HTML comments, so attribution survives leaving the app. An excerpt from this run:
 
@@ -172,7 +182,7 @@ flowchart LR
 
 ---
 
-## 13. What happened underneath
+## 14. What happened underneath
 
 The session is an append-only ledger. This run produced about 45 events; the important kinds are:
 
@@ -191,7 +201,7 @@ Every event carries who caused it, and every artifact section carries the messag
 
 ---
 
-## 14. Running with a real Copilot seat
+## 15. Running with a real Copilot seat
 
 1. On the credentials page choose **copilot** and paste a GitHub token (`gho_`, `ghu_`, or a fine-grained `github_pat_`) from an account with an active Copilot seat, or configure a GitHub OAuth App and sign in with GitHub.
 2. Validation lists the models your plan allows. Create the session with `copilot` as the provider; the model pin defaults to `claude-opus-5` when available, otherwise the first model in the list.
@@ -201,7 +211,7 @@ The system prompt asks the model to record decisions, check directives against t
 
 ---
 
-## 15. Troubleshooting
+## 16. Troubleshooting
 
 - **"Connect a fake credential first"** when creating a session: sponsor mode needs a credential on the creator. Connect one on the credentials page.
 - **Consent banner stays**: each participant accepts consent once per session before addressing the AI.

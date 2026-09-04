@@ -195,6 +195,8 @@ Deviations from the plan above:
 
 Added later the same day: uploads and source cards (P3) with `.mmd` files becoming diagram cards and uploaded text wrapped as untrusted source material for the AI; a "compile design document" action that runs as a normal AI turn with every artifact in context and produces a `design_doc` card (diagrams render inline); reducer unit tests.
 
+Also added: an AI-drafted data model card; session forking (M3 item pulled forward: new session from the current canvas with agreed decisions, participants re-consent, origin link); download of the compiled document; smoke coverage for speaker-mode payment (fallback to another participant's credential, then the speaker's own) and proposal auto-apply.
+
 Not yet done: validation against a real Copilot seat, GitHub OAuth end-to-end (routes exist, needs an OAuth App), live Yjs text editing, compaction.
 
 ## 8. Known POC limitations to state in the demo
