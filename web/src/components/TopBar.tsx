@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { useStore } from "../state/store";
+import { usePrefs } from "../state/prefs";
 import { navigate } from "../App";
 
 export function Avatar({ name, color, size = 22 }: { name: string; color: string; size?: number }) {
@@ -16,6 +17,19 @@ export function Avatar({ name, color, size = 22 }: { name: string; color: string
   );
 }
 
+const THEME_LABEL = { system: "auto", light: "light", dark: "dark" } as const;
+const THEME_GLYPH = { system: "◐", light: "☀", dark: "☾" } as const;
+
+export function ThemeToggle() {
+  const theme = usePrefs((s) => s.theme);
+  const cycleTheme = usePrefs((s) => s.cycleTheme);
+  return (
+    <button className="icon" onClick={cycleTheme} title="Theme: follows your OS by default. Click to cycle auto, light, dark.">
+      <span aria-hidden>{THEME_GLYPH[theme]}</span> {THEME_LABEL[theme]}
+    </button>
+  );
+}
+
 export function TopBar({ children }: { children?: React.ReactNode }) {
   const me = useStore((s) => s.me);
   const setMe = useStore((s) => s.setMe);
@@ -28,6 +42,7 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
       <span className="mono">poc</span>
       {children}
       <span className="grow" />
+      <ThemeToggle />
       {user && (
         <div className="who">
           <a href="/settings" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>credentials</a>

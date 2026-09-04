@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ReactFlow, Background, Controls, MiniMap, type Node, type NodeProps, type NodeChange, applyNodeChanges } from "@xyflow/react";
+import { ReactFlow, Background, BackgroundVariant, Controls, MiniMap, Panel, type Node, type NodeProps, type NodeChange, applyNodeChanges } from "@xyflow/react";
 import { liveArtifacts, type Artifact } from "@tandem/shared";
 import type { Collab } from "../collab";
 import { useStore } from "../state/store";
+import { usePrefs, type GridStyle } from "../state/prefs";
 import { ArtifactCard } from "./ArtifactCard";
 
 type ArtNode = Node<{ artifact: Artifact; sessionId: string }, "artifact">;
@@ -18,8 +19,14 @@ function defaultPosition(index: number) {
   return { x: 40 + (index % cols) * 460, y: 40 + Math.floor(index / cols) * 380 };
 }
 
+const GRID_LABEL: Record<GridStyle, string> = { dots: "grid: dots", lines: "grid: lines", off: "grid: off" };
+
 export function Canvas({ sessionId, collab }: { sessionId: string; collab: Collab }) {
   const state = useStore((s) => s.state);
+  const resolved = usePrefs((s) => s.resolved);
+  const grid = usePrefs((s) => s.grid);
+  const cycleGrid = usePrefs((s) => s.cycleGrid);
+  const palette = resolved === "dark" ? { grid: "#2c353e", node: "#3a444e" } : { grid: "#d3dae0", node: "#c9d1d8" };
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
 
   // Mirror the Yjs layout map into React state.
@@ -69,10 +76,23 @@ export function Canvas({ sessionId, collab }: { sessionId: string; collab: Colla
   );
 
   return (
-    <ReactFlow nodes={localNodes} nodeTypes={nodeTypes} onNodesChange={onNodesChange} fitView minZoom={0.2} maxZoom={1.5} proOptions={{ hideAttribution: true }}>
-      <Background gap={24} color="#d3dae0" />
+    <ReactFlow nodes={localNodes} nodeTypes={nodeTypes} onNodesChange={onNodesChange} fitView minZoom={0.2} maxZoom={1.5} proOptions={{ hideAttribution: true }} colorMode={resolved}>
+      {grid !== "off" && (
+        <Background
+          key={grid}
+          variant={grid === "lines" ? BackgroundVariant.Lines : BackgroundVariant.Dots}
+          gap={grid === "lines" ? 40 : 24}
+          size={grid === "lines" ? 1 : 1.5}
+          color={palette.grid}
+        />
+      )}
+      <Panel position="top-right" className="canvas-tools">
+        <button className="icon" onClick={cycleGrid} title="Cycle the canvas backdrop: dots, lines, off">
+          {GRID_LABEL[grid]}
+        </button>
+      </Panel>
       <Controls showInteractive={false} />
-      <MiniMap pannable zoomable nodeColor={() => "#c9d1d8"} />
+      <MiniMap pannable zoomable nodeColor={() => palette.node} />
     </ReactFlow>
   );
 }

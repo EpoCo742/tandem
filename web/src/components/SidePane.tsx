@@ -91,7 +91,7 @@ function Proposals({ sessionId, proposals }: { sessionId: string; proposals: Pro
           <div key={p.id} className="proposal">
             <div className="row" style={{ justifyContent: "space-between" }}>
               <b>{p.op} · {p.title}</b>
-              <span className="chip" style={{ color: "#d4890a" }}>{p.risk.replace(/_/g, " ")}</span>
+              <span className="chip accent">{p.risk.replace(/_/g, " ")}</span>
             </div>
             <div style={{ fontSize: 12 }}>
               by {p.turnId ? "AI for " : ""}{participantName(state, p.proposerUserId)} · needs {p.requiresApprovalFrom.map((u) => participantName(state, u)).join(", ")}

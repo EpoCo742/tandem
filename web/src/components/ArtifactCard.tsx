@@ -47,7 +47,7 @@ export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; s
         <span className="title" title={a.title}>{a.title}</span>
         <span className="mono">v{v.versionNo}</span>
         {a.blockedByDecisionPoint && <span className="chip" style={{ color: "var(--warn)" }} title="blocked until the decision point resolves">blocked</span>}
-        {pending > 0 && <span className="chip" style={{ color: "#d4890a" }}>{pending} pending</span>}
+        {pending > 0 && <span className="chip accent">{pending} pending</span>}
       </div>
       <div className="art-body nodrag nowheel">
         {a.type === "mermaid" && <Mermaid source={(v.content as MermaidContent).source} />}
