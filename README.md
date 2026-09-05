@@ -17,14 +17,54 @@ This repository holds the research, the design package, and the proof-of-concept
 
 ## Run the POC locally
 
-Requirements: Node 22+, pnpm 10.
+Requirements: **Node 22.12 or newer** (24 is what this is developed on) and **pnpm 10**. Only pnpm works: the packages link to each other with `workspace:*`, which npm and yarn cannot resolve, and only pnpm reads `pnpm-lock.yaml`, which pins the Copilot SDK to a version whose runtime is bundled. An install with anything else is refused by a preinstall check.
 
 ```
-pnpm install
-cp .env.example .env        # then edit: SESSION_SECRET, TANDEM_MASTER_KEY, optionally GitHub OAuth
-cp .env server/.env         # the server reads .env from its own directory in dev
-pnpm dev                    # server on :3000, Vite on :5173 (proxies /api, /ws, /collab, /auth)
+npm install -g pnpm@10.34.5         # once; goes to your user profile, no admin rights needed
+pnpm install --frozen-lockfile      # exactly what the lockfile says, nothing newer
+node tools/make-env.mjs             # writes .env and server/.env with fresh secrets (dev auth on, offline provider)
+pnpm dev                            # server on :3000, Vite on :5173 (proxies /api, /ws, /collab, /auth)
 ```
+
+For a single-process run instead of `pnpm dev`: `pnpm build` then `pnpm --filter @tandem/server start`, and open http://localhost:3000.
+
+### If the install or build fails
+
+The one failure that has actually bitten: **the server cannot find or start `@github/copilot-sdk`**, often after a coding agent has "helpfully" edited `server/src/providers/copilot.ts` to resolve the SDK by hand. The cause is a version drift, not the code. On 2026-09-04 the SDK moved its runtime out of the package into per-platform optional packages; the lockfile pins the earlier version that bundles the runtime, and anything that installs without honouring the lockfile picks up the new one and then has no runtime.
+
+Do these steps in order, in the repo root, and do not skip the first two:
+
+1. Throw away the agent's edits to the adapter, if any:
+   ```
+   git checkout -- server/src/providers/copilot.ts
+   git status                      # should show no changes under server/src
+   ```
+2. Remove every `node_modules` so nothing installed by npm, yarn or an older pnpm survives:
+   ```
+   Remove-Item -Recurse -Force node_modules, server/node_modules, web/node_modules, shared/node_modules -ErrorAction SilentlyContinue   # PowerShell
+   rm -rf node_modules server/node_modules web/node_modules shared/node_modules                                                      # bash
+   ```
+3. Make sure it is pnpm 10 that runs the install. `corepack enable` needs an administrator shell on Windows (it writes into Program Files); use npm's global install instead, which needs no elevation:
+   ```
+   npm install -g pnpm@10.34.5
+   pnpm --version                  # 10.x
+   ```
+   If global installs are blocked, `npx pnpm@10.34.5 install --frozen-lockfile` works without installing anything.
+4. Install exactly what the lockfile says:
+   ```
+   pnpm install --frozen-lockfile
+   ```
+   If this errors with "lockfile is out of date", someone has changed a `package.json` without pnpm; run `git status`, restore those files, and try again. Do not run `pnpm add @github/copilot-sdk` or `npm install @github/copilot-sdk` to "fix" it: both upgrade to the latest SDK and cause exactly this problem.
+5. Confirm the SDK that is installed is the pinned one and that it starts:
+   ```
+   node -e "console.log(require('./server/node_modules/@github/copilot-sdk/package.json').version)"   # 1.0.11
+   pnpm typecheck
+   ```
+6. Build and run: `pnpm build`, then `pnpm --filter @tandem/server start`.
+
+Node too old is the other thing that produces confusing SDK errors: `node --version` must be 22.12 or newer (or 20.19+). The preinstall check tells you if not.
+
+Moving to a newer SDK is a deliberate change: bump the exact version in `server/package.json`, run `pnpm install` (not frozen) to update the lockfile, check that the platform runtime package `@github/copilot-sdk-<os>-<arch>` installed under `server/node_modules/@github/`, and commit the lockfile with it. If the runtime has to live elsewhere, `COPILOT_CLI_PATH` points the SDK at it; set it in the environment rather than editing the adapter.
 
 Open http://localhost:5173. With `TANDEM_DEV_AUTH=1` you can log in with any handle; open a private window and log in with a second handle to be the other participant.
 
