@@ -6,6 +6,7 @@ export interface PresenceUser {
   userId: string;
   name: string;
   color: string;
+  avatarUrl?: string | null;
 }
 
 interface Store {

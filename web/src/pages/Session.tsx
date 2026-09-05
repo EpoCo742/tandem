@@ -47,7 +47,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const myParticipant = state.participants[me.user!.id];
   useEffect(() => {
     if (!meta || !myParticipant || collabRef.current) return;
-    const c = connectCollab(sessionId, meta.collabToken, { userId: me.user!.id, name: myParticipant.name, color: myParticipant.color });
+    const c = connectCollab(sessionId, meta.collabToken, { userId: me.user!.id, name: myParticipant.name, color: myParticipant.color, avatarUrl: me.user!.avatarUrl });
     collabRef.current = c;
     setCollab(c);
   }, [meta, myParticipant, sessionId, me.user]);
@@ -72,7 +72,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         <span className="mono">{meta.provider} · {meta.pinnedModel} · {meta.payerMode} · {state.policy}</span>
         <span className="mono" style={{ color: connected ? "var(--ok)" : "var(--warn)" }}>{connected ? "live" : "reconnecting"}</span>
         <div className="presence" title="present now">
-          {presence.map((p) => <Avatar key={p.userId} name={p.name} color={p.color} />)}
+          {presence.map((p) => <Avatar key={p.userId} name={p.name} color={p.color} src={p.avatarUrl} />)}
         </div>
         <button onClick={invite}>Invite</button>
         {inviteUrl && <span className="mono" style={{ userSelect: "all" }}>{inviteUrl}</span>}
