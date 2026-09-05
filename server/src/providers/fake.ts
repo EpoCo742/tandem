@@ -1,4 +1,4 @@
-import { dataModelMarkdown, slugId, type DataModelContent, type ToolResult } from "@tandem/shared";
+import { dataModelMarkdown, slugId, type ArchModelContent, type DataModelContent, type ToolResult } from "@tandem/shared";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
 import { callMcpTool } from "../mcp.js";
 
@@ -378,6 +378,42 @@ export const fakeProvider: ProviderAdapter = {
       if (existing) await call("update_artifact", { artifactId: existing.id, baseVersionNo: existing.versionNo, content, rationale: "Refresh data model from the discussion", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       else await call("create_artifact", { type: "data_model", title: "Data model", content, rationale: "Drafted from the tables and events named so far", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       await emit(`Drafted the data model with ${entities.map((e) => e.name).join(", ")}${relations.length ? ` and ${relations.length} relation(s)` : ""}. Tell me the fields you actually need and I will refine it.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0h. "Explore alternatives": three candidate architectures built from the current model,
+    //     side by side, with the constraints each meets or strains. The model itself is untouched.
+    const explore = batch.find((m) => /\b(explore|compare|propose|show|give)\b.*\balternatives?\b|\balternatives? (for|to)\b/i.test(m.text));
+    if (explore) {
+      const modelArt = artifacts.find((a) => a.type === "arch_model");
+      const cur = modelArt ? ((await call("read_artifact", { artifactId: modelArt.id })) as { content?: ArchModelContent }).content : undefined;
+      if (!cur || cur.components.length === 0) {
+        await emit("There is no architecture model yet to build alternatives from. Describe the systems involved first.");
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const ks = extractConstraints(req.context.prompt);
+      const ids = ks.map((k) => k.id);
+      const strip = (c: ArchModelContent["components"][number]) => ({ id: c.id, name: c.name, kind: c.kind, technology: c.technology, boundary: c.boundary });
+      const rel = (r: ArchModelContent["relationships"][number]) => ({ from: r.from, to: r.to, kind: r.kind, label: r.label });
+      const queues = cur.components.filter((c) => c.kind === "queue").map((c) => c.id);
+      const services = cur.components.filter((c) => c.kind === "service").map((c) => c.id);
+      const asIs = { title: "Keep the current design", summary: "The architecture as it stands on the model today.", components: cur.components.map(strip), relationships: cur.relationships.map(rel), pros: ["No rework", "Already agreed piece by piece"], cons: ["Nothing improves"], constraintsMet: ids, constraintsAtRisk: [] as string[] };
+      let second;
+      if (queues.length) {
+        const direct: ReturnType<typeof rel>[] = cur.relationships.filter((r) => !queues.includes(r.from) && !queues.includes(r.to)).map(rel);
+        for (const q of queues) {
+          const pubs = cur.relationships.filter((r) => r.to === q && r.kind === "publishes");
+          const subs = cur.relationships.filter((r) => r.to === q && r.kind === "subscribes");
+          for (const p of pubs) for (const s of subs) if (p.from !== s.from) direct.push({ from: p.from, to: s.from, kind: "calls", label: p.label });
+        }
+        second = { title: "Direct calls instead of the queue", summary: `Drop ${queues.map((q) => cur.components.find((c) => c.id === q)?.name ?? q).join(", ")}; producers call consumers synchronously.`, components: cur.components.filter((c) => !queues.includes(c.id)).map(strip), relationships: direct, pros: ["Simpler to operate", "Lower end-to-end latency"], cons: ["Callers fail when a consumer is down", "Tighter coupling"], constraintsMet: ks.filter((k) => k.category === "latency").map((k) => k.id), constraintsAtRisk: ks.filter((k) => k.category === "availability").map((k) => k.id) };
+      } else {
+        second = { title: "Introduce an event bus", summary: "Services publish events to a bus instead of calling each other.", components: [...cur.components.map(strip), { id: "event-bus", name: "Event bus", kind: "queue" as const }], relationships: [...cur.relationships.filter((r) => !(services.includes(r.from) && services.includes(r.to))).map(rel), ...services.flatMap((s) => [{ from: s, to: "event-bus", kind: "publishes" as const }, { from: s, to: "event-bus", kind: "subscribes" as const }])], pros: ["Loose coupling", "Replayable history"], cons: ["Eventual consistency", "One more system to run"], constraintsMet: ks.filter((k) => k.category === "availability").map((k) => k.id), constraintsAtRisk: ks.filter((k) => k.category === "latency").map((k) => k.id) };
+      }
+      const third = { title: "Add a read model", summary: "Keep the current flow and add a read-optimised store the services query.", components: [...cur.components.map(strip), { id: "read-model", name: "Read model", kind: "database" as const, technology: "Redis" }], relationships: [...cur.relationships.map(rel), ...services.map((s) => ({ from: s, to: "read-model", kind: "reads" as const, label: "hot reads" }))], pros: ["Fast reads", "Isolates read load"], cons: ["Another store to keep in sync"], constraintsMet: ids, constraintsAtRisk: ks.filter((k) => k.category === "budget").map((k) => k.id) };
+      const r = (await call("propose_alternatives", { question: explore.text.replace(/^(explore|compare|propose|show|give)( (me|us))?( (the|some|two|three))? alternatives?( (for|to))?\s*/i, "").replace(/[.?]$/, "").trim() ? `Which architecture for ${explore.text.replace(/^(explore|compare|propose|show|give)( (me|us))?( (the|some|two|three))? alternatives?( (for|to))?\s*/i, "").replace(/[.?]$/, "").trim()}?` : "Which architecture should we adopt?", candidates: [asIs, second, third], derivedFrom: [explore.eventId], rationale: `Alternatives requested by ${explore.speaker}` })) as { status: string; candidates?: { id: string; title: string }[] };
+      if (r.status === "alternatives_proposed") await emit(`Three candidates side by side: ${r.candidates!.map((c) => `${c.id.toUpperCase()}. ${c.title}`).join("; ")}. The model is unchanged; press Decide on the card to vote, and the winner becomes the model.`);
+      else await emit(`Could not propose alternatives: ${r.status}.`);
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 

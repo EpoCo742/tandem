@@ -166,7 +166,12 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 /* canvas cards */
 .canvas-wrap { position: relative; min-height: 0; background: var(--ground); }
 .art { width: 420px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--ai); box-shadow: var(--shadow); border-radius: 3px; font-size: 13px; display: flex; flex-direction: column; }
+.art.type-alternatives:not(.sized) { width: 820px; }
 .art.sized { width: 100%; height: 100%; }
+.alts { display: grid; gap: 10px; }
+.alt { border: 1px solid var(--line); border-radius: 3px; padding: 8px; min-width: 0; }
+.alt.chosen { border-color: var(--ok); }
+.alt.dim { opacity: .75; }
 .art.sized .art-body { max-height: none; flex: 1; min-height: 0; }
 .art.sized .mermaid-box svg, .modal .modal-body.diagram-full .mermaid-box svg { max-width: none !important; width: 100%; height: auto; }
 .art.sized .art-body img { width: 100%; height: auto; }

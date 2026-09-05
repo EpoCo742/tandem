@@ -160,6 +160,35 @@ export const upsertConstraintsInput = z.object({
   rationale: z.string(),
 });
 
+export const proposeAlternativesInput = z.object({
+  question: z.string().describe("What is being decided, as a question: 'How should orders reach fulfilment?'"),
+  candidates: z
+    .array(
+      z.object({
+        title: z.string().describe("Short name: 'Event-driven with Kafka'"),
+        summary: z.string().describe("One or two sentences on the shape of this candidate"),
+        components: z.array(
+          z.object({
+            id: z.string().optional().describe("Stable slug; reuse the current model's ids for components that carry over"),
+            name: z.string(),
+            kind: componentKind,
+            technology: z.string().optional(),
+            boundary: z.string().optional(),
+          }),
+        ).min(1),
+        relationships: z.array(z.object({ from: z.string(), to: z.string(), kind: relationshipKind, label: z.string().optional() })),
+        pros: z.array(z.string()),
+        cons: z.array(z.string()),
+        constraintsMet: z.array(z.string()).optional().describe("Constraint ids (C-01) this candidate satisfies"),
+        constraintsAtRisk: z.array(z.string()).optional().describe("Constraint ids this candidate strains or breaks"),
+      }),
+    )
+    .min(2)
+    .max(3),
+  derivedFrom: z.array(z.string()),
+  rationale: z.string(),
+});
+
 export const removeConstraintsInput = z.object({
   constraintIds: z.array(z.string()).min(1),
   rationale: z.string(),
@@ -219,6 +248,7 @@ export const toolSchemas = {
   render_adr: renderAdrInput,
   upsert_constraints: upsertConstraintsInput,
   remove_constraints: removeConstraintsInput,
+  propose_alternatives: proposeAlternativesInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -245,6 +275,8 @@ export const toolDescriptions: Record<ToolName, string> = {
     "Render decisions as architecture decision record files (filename + Markdown), ready to write into a repository's docs/adr with an external tool. Omit decisionId to get all of them.",
   upsert_constraints:
     "Record non-functional targets and hard limits the design must respect (latency, data residency, budget, mandated platforms, compliance). Use when a person states one, or when an uploaded document contains one (cite it as the source). Every later change is checked against these. To relax someone else's constraint, add a new one with exceptionTo; amending a constraint another person set is proposed to that person and applies only when they approve.",
+  propose_alternatives:
+    "Put two or three candidate architectures side by side on one card, each a complete model of its own with what speaks for and against it and which constraints it meets or puts at risk. The architecture model is not changed; people choose with the card's Decide button, the majority's pick becomes the model and the decision is recorded automatically.",
   remove_constraints: "Drop constraints that no longer apply. Removing a constraint someone else set is proposed to that person. Prefer an exception (upsert_constraints with exceptionTo) or a decision when people disagree.",
 };
 
@@ -261,4 +293,5 @@ export type ToolResult =
   | { status: "model_updated"; artifactId: string; versionNo: number; components: number; relationships: number; unknown?: string[] }
   | { status: "adrs"; files: { filename: string; markdown: string; label: string }[] }
   | { status: "constraints_updated"; artifactId: string; versionNo: number; constraints: { id: string; statement: string }[] }
+  | { status: "alternatives_proposed"; artifactId: string; candidates: { id: string; title: string }[] }
   | { status: "error"; message: string };

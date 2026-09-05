@@ -50,6 +50,7 @@ export interface DecisionPointContent {
   deadline?: string; // ISO time by which a majority is needed
   expired?: boolean; // the deadline passed without one; the point is closed and its artifacts unblocked
   violatesConstraintIds?: string[]; // raised because a directive conflicted with these constraints
+  alternativesArtifactId?: string; // this point chooses between the candidates on that card; the winner becomes the model
 }
 
 export interface SourceContent {
@@ -82,6 +83,25 @@ export interface ConstraintsContent {
   sections: Section[];
 }
 
+/** One candidate architecture on an alternatives card: a complete model of its own plus the case for and against it. */
+export interface Candidate {
+  id: string; // a, b, c
+  title: string;
+  summary: string;
+  model: ArchModelContent;
+  pros: string[];
+  cons: string[];
+  constraintsMet: string[]; // constraint ids
+  constraintsAtRisk: string[];
+}
+
+export interface AlternativesContent {
+  question: string;
+  candidates: Candidate[];
+  chosen?: string; // candidate id, once a vote picked one; the others stay as what was considered
+  sections: Section[];
+}
+
 export interface CodeContent {
   language: string;
   source: string;
@@ -92,6 +112,7 @@ export type ArtifactContent =
   | ArchModelContent
   | ViewContent
   | ConstraintsContent
+  | AlternativesContent
   | MermaidContent
   | MarkdownContent
   | DataModelContent
@@ -157,6 +178,13 @@ export function contentText(type: string, content: unknown): string {
       const cc = content as ConstraintsContent;
       return cc.constraints.length ? cc.constraints.map((k) => `- ${k.id} [${k.kind}, ${k.category}]${k.exceptionTo ? ` [exception to ${k.exceptionTo}]` : ""} ${k.statement}${k.value ? ` (${k.value})` : ""}`).join("\n") : "(no constraints yet)";
     }
+    case "alternatives": {
+      const ac = content as AlternativesContent;
+      return [
+        `Question: ${ac.question}${ac.chosen ? ` (chosen: ${ac.chosen.toUpperCase()})` : " (not decided yet; people choose with the Decide button on the card)"}`,
+        ...ac.candidates.map((c) => `${c.id.toUpperCase()}. ${c.title}${ac.chosen === c.id ? " [chosen]" : ac.chosen ? " [not chosen]" : ""}: ${c.summary}\n   components: ${c.model.components.map((x) => x.name).join(", ") || "-"}\n   for: ${c.pros.join("; ") || "-"}\n   against: ${c.cons.join("; ") || "-"}\n   constraints met: ${c.constraintsMet.join(", ") || "-"}; at risk: ${c.constraintsAtRisk.join(", ") || "-"}`),
+      ].join("\n");
+    }
     case "view": {
       const v = content as ViewContent;
       return `${v.kind} view${v.focus ? ` of ${v.focus}` : ""}${v.note ? `: ${v.note}` : ""} (rendered from the architecture model)`;
@@ -202,6 +230,8 @@ export function contentProblem(type: ArtifactType, content: unknown): string | n
       return need("kind", "string");
     case "constraints":
       return need("constraints", "array");
+    case "alternatives":
+      return need("question", "string") ?? need("candidates", "array");
     case "decision_point":
       return need("question", "string") ?? need("options", "array") ?? need("votes", "object") ?? need("blocksArtifactIds", "array");
     case "source":

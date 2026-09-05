@@ -2,11 +2,12 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, threadsFor, AI_COLOR, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
+import { participantName, modelToMermaid, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
 import { ArtifactEditor } from "./ArtifactEditor";
+import { AlternativesView } from "./AlternativesView";
 
 // Render ```mermaid fences inside Markdown cards as diagrams instead of code.
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
@@ -77,7 +78,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
   }
 
   return (
-    <div className={"art" + (sized ? " sized" : "") + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "")} style={{ borderTopColor: isDp ? undefined : authorColor }}>
+    <div className={"art type-" + a.type + (sized ? " sized" : "") + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "")} style={{ borderTopColor: isDp ? undefined : authorColor }}>
       <div className="art-head">
         <span className="chip" style={{ color: isDp ? "var(--warn)" : AI_COLOR }}>{a.type.replace("_", " ")}</span>
         {renaming === null ? (
@@ -180,6 +181,7 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
       {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
       {a.type === "arch_model" && <ModelTable content={v.content as ArchModelContent} artifactId={a.id} />}
       {a.type === "constraints" && <ConstraintsTable content={v.content as ConstraintsContent} />}
+      {a.type === "alternatives" && <AlternativesView content={v.content as AlternativesContent} artifactId={a.id} sessionId={sessionId} large={large} />}
       {a.type === "view" && <ModelView content={v.content as ViewContent} />}
       {a.type === "decision_point" && <DecisionPoint content={v.content as DecisionPointContent} myId={myId} onVote={onVote} sessionId={sessionId} artifactId={a.id} />}
     </>

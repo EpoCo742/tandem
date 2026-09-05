@@ -68,6 +68,7 @@ export interface ChangeRequest {
   causedBy: string[];
   provenance?: Provenance[];
   approvalFrom?: string[]; // people who must approve regardless of card ownership (e.g. whoever set a constraint being amended)
+  force?: boolean; // apply without the gate: only for outcomes people already voted on
 }
 
 export type ChangeOutcome =
@@ -85,6 +86,9 @@ export function requestChange(req: ChangeRequest): ChangeOutcome {
   if (req.op === "create" || req.op === "update") {
     const problem = contentProblem(req.artifactType, req.content);
     if (problem) return { status: "invalid_content", artifactId, message: problem };
+  }
+  if (req.force) {
+    return applyVersion({ ...req, artifactId, proposalId: null, provenance: req.provenance ?? provenanceOf(req.artifactType, req.content) });
   }
   if (existing?.blockedByDecisionPoint && req.op !== "restore") {
     return { status: "blocked_by_decision_point", artifactId, decisionPointArtifactId: existing.blockedByDecisionPoint };

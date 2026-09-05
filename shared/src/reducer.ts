@@ -266,6 +266,12 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       ];
       return s;
     }
+    case "alternative.adopted": {
+      const p = ev.payload as Payloads["alternative.adopted"];
+      const by = p.byUserIds.map((u) => s.participants[u]?.name ?? u).join(", ");
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `Alternative "${p.title}" was chosen (${by}). The architecture model is now set from it (v${p.modelVersionNo}) and every view follows; the other candidates stay on the card as what was considered. Recorded ${p.decisionLabel}.`, turnId: null, createdAt: ev.createdAt }];
+      return s;
+    }
     case "thread.resolved": {
       const p = ev.payload as Payloads["thread.resolved"];
       s.messages = s.messages.map((m) => (m.eventId === p.rootEventId ? { ...m, resolved: p.resolved } : m));

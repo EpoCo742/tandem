@@ -479,6 +479,41 @@ assert(resolved.resolved === true && subA.events.some((e) => e.type === "thread.
 const notRoot = await bob.call("POST", `/api/v1/sessions/${sessionId}/messages/${threadReply.eventId}/resolve`, { resolved: true }).catch((e) => ({ error: String(e.message) }));
 assert(notRoot.error, "only the first message of a thread can be resolved");
 
+// Alternatives: candidate architectures side by side; a vote picks one; the server sets the model
+// from the winner and records the decision with every candidate considered, without an AI turn.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Explore alternatives for the order pipeline." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "alternatives turn");
+const altCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "alternatives").pop().payload;
+assert(altCard.content.candidates.length === 3 && altCard.content.candidates.every((c) => c.model.components.length > 0), "the AI proposed three candidate architectures, each with its own model");
+const modelBeforeAlt = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "arch_model").pop().payload;
+const decide = await bob.call("POST", `/api/v1/sessions/${sessionId}/alternatives/${altCard.artifactId}/decide`);
+const altDp = subA.events.find((e) => e.type === "artifact.applied" && e.payload.artifactId === decide.decisionPointArtifactId).payload;
+assert(altDp.content.options.length === 3 && altDp.content.blocksArtifactIds.includes(modelBeforeAlt.artifactId) && altDp.content.alternativesArtifactId === altCard.artifactId, "the decision point offers every candidate and blocks the model");
+const decideAgain = await alice.call("POST", `/api/v1/sessions/${sessionId}/alternatives/${altCard.artifactId}/decide`);
+assert(decideAgain.decisionPointArtifactId === decide.decisionPointArtifactId, "opening the decision twice returns the open decision point");
+const pick = altCard.content.candidates[1];
+const turnsAtVote = subA.events.filter((e) => e.type === "turn.started").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/decision-points/${altDp.artifactId}/vote`, { optionId: pick.id });
+const voted = await bob.call("POST", `/api/v1/sessions/${sessionId}/decision-points/${altDp.artifactId}/vote`, { optionId: pick.id });
+assert(voted.resolved && voted.adopted && /^D-\d+$/.test(voted.decisionLabel), "the majority vote adopts the candidate at once");
+await waitFor(() => subA.events.some((e) => e.type === "alternative.adopted" && e.payload.candidateId === pick.id), "alternative adopted");
+await wait(400);
+assert(subA.events.filter((e) => e.type === "turn.started").length === turnsAtVote, "adopting an alternative spent no AI turn");
+const modelAfterAlt = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "arch_model").pop().payload.content;
+assert(JSON.stringify(modelAfterAlt.components.map((c) => c.id).sort()) === JSON.stringify(pick.model.components.map((c) => c.id).sort()), "the architecture model was set from the chosen candidate");
+assert(modelAfterAlt.components.every((c) => c.derivedFrom.length > 0), "components on the adopted model keep provenance");
+const altAfter = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === altCard.artifactId).pop().payload.content;
+assert(altAfter.chosen === pick.id, "the card marks the chosen candidate");
+const altDecision = subA.events.filter((e) => e.type === "decision.recorded").pop().payload;
+assert(altDecision.options?.length === 3 && altDecision.options.filter((o) => o.chosen).length === 1 && altDecision.agreedBy.includes(aliceId) && altDecision.agreedBy.includes(bobId), "the decision records every candidate as an option considered, agreed by the voters");
+const altSystemMsg = subA.events.find((e) => e.type === "alternative.adopted").payload;
+assert(altSystemMsg.decisionLabel === altDecision.label && altSystemMsg.byUserIds.length === 2, "the adoption names the decision and the voters");
+const mdAlt = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(mdAlt.includes(`${pick.id.toUpperCase()}. ${pick.title} (chosen)`) && mdAlt.includes("(not chosen)"), "the export shows the chosen and the not-chosen candidates");
+const blockedAfter = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${modelBeforeAlt.artifactId}/versions`, { content: modelAfterAlt, rationale: "touch" });
+assert(blockedAfter.status !== "blocked_by_decision_point", "the model is editable again after the choice");
+
 // Brief: a forced compaction folds older messages into an attributed summary that later prompts use.
 const briefRes = await alice.call("POST", `/api/v1/sessions/${sessionId}/brief`);
 assert(briefRes.status === "compacted" && briefRes.folded >= 3, `forced compaction folded ${briefRes.folded} messages`);

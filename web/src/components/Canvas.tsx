@@ -77,9 +77,28 @@ function ArtifactNode({ data, selected }: NodeProps<ArtNode>) {
 
 const nodeTypes = { artifact: ArtifactNode };
 
-function defaultPosition(index: number) {
+// Default slots: three columns, and a wide card (alternatives side by side) takes two of them
+// so it never lands under its neighbour.
+const WIDE_TYPES = new Set<Artifact["type"]>(["alternatives"]);
+function defaultPositions(artifacts: Artifact[]): Map<string, { x: number; y: number }> {
   const cols = 3;
-  return { x: 40 + (index % cols) * 460, y: 40 + Math.floor(index / cols) * 380 };
+  const out = new Map<string, { x: number; y: number }>();
+  let col = 0;
+  let row = 0;
+  for (const a of artifacts) {
+    const span = WIDE_TYPES.has(a.type) ? 2 : 1;
+    if (col + span > cols) {
+      col = 0;
+      row += 1;
+    }
+    out.set(a.id, { x: 40 + col * 460, y: 40 + row * 380 });
+    col += span;
+    if (col >= cols) {
+      col = 0;
+      row += 1;
+    }
+  }
+  return out;
 }
 
 const GRID_LABEL: Record<GridStyle, string> = { dots: "grid: dots", lines: "grid: lines", off: "grid: off" };
@@ -92,9 +111,10 @@ const animMs = () => (typeof document !== "undefined" && document.visibilityStat
 // change threw that away, which made cards render at zero size and the minimap go blank.
 function mergeNodes(prev: ArtNode[], artifacts: Artifact[], layout: Record<string, Layout>, sessionId: string, resetSize: (id: string) => void): ArtNode[] {
   const byId = new Map(prev.map((n) => [n.id, n]));
-  return artifacts.map((a, i) => {
+  const defaults = defaultPositions(artifacts);
+  return artifacts.map((a) => {
     const l = layout[a.id];
-    const pos = l ? { x: l.x, y: l.y } : defaultPosition(i);
+    const pos = l ? { x: l.x, y: l.y } : defaults.get(a.id)!;
     const sized = Boolean(l?.w && l?.h);
     const existing = byId.get(a.id);
     const data = { artifact: a, sessionId, sized, resetSize };
@@ -148,9 +168,10 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
   // Give every new artifact a slot; the first client to notice writes it.
   useEffect(() => {
     if (!synced) return;
-    artifacts.forEach((a, i) => {
-      if (!collab.nodes.has(a.id)) collab.nodes.set(a.id, defaultPosition(i));
-    });
+    const defaults = defaultPositions(artifacts);
+    for (const a of artifacts) {
+      if (!collab.nodes.has(a.id)) collab.nodes.set(a.id, defaults.get(a.id)!);
+    }
   }, [artifacts, collab, synced]);
 
   // Drop the stored size so the card goes back to its natural height and default width.

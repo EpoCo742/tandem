@@ -27,7 +27,8 @@ export type ArtifactType =
   | "design_doc"
   | "arch_model"
   | "view"
-  | "constraints";
+  | "constraints"
+  | "alternatives";
 
 export type TurnStatus =
   | "collecting"
@@ -80,6 +81,7 @@ export type Payloads = {
   "participant.consented": { providers: string[] };
   "message.posted": { text: string; mode: MessageMode; attachments: string[]; replyTo?: string; fromNoteEventId?: string; intent?: "compile"; mentions?: string[]; anchor?: MessageAnchor };
   "thread.resolved": { rootEventId: string; resolved: boolean }; // a thread anchored to a card is closed (or reopened) by a person
+  "alternative.adopted": { alternativesArtifactId: string; candidateId: string; title: string; decisionLabel: string; byUserIds: string[]; modelVersionNo: number }; // a vote picked a candidate architecture and the model was set from it
   "turn.started": { payerUserId: string; provider: string; modelRequested: string; batchEventIds: string[]; onBehalfOf: string };
   "turn.model_degraded": { requested: string; used: string; reason: string };
   "ai.message": { text: string; addressedTo: string[]; toolCallsCount: number; partial?: boolean; onBehalfOf: string; provider: string; model: string; payerUserId: string };

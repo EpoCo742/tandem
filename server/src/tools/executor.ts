@@ -1,6 +1,6 @@
 import { ulid } from "ulid";
 import { allAdrs, emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
-import type { ConstraintsContent, DecisionPointContent, SessionState } from "@tandem/shared";
+import type { AlternativesContent, ConstraintsContent, DecisionPointContent, SessionState } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
@@ -124,6 +124,19 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       const content: ConstraintsContent = { ...cur, constraints: cur.constraints.filter((k) => !drop.has(k.id)).map((k) => (k.exceptionTo && drop.has(k.exceptionTo) ? { ...k, exceptionTo: undefined } : k)) };
       const r = requestChange({ ...common, op: "update", artifactId: existing.id, artifactType: "constraints", title: existing.title, content, summary: `${content.constraints.length} constraint${content.constraints.length === 1 ? "" : "s"}`, rationale: input.rationale, baseVersionNo: existing.current.versionNo, provenance: existing.current.provenance, approvalFrom: [...guardians] });
       if (r.status === "applied") return { status: "constraints_updated", artifactId: r.artifactId, versionNo: r.versionNo, constraints: content.constraints.map((k) => ({ id: k.id, statement: k.statement })) };
+      return r as ToolResult;
+    }),
+
+    bind("propose_alternatives", async (input) => {
+      const letters = ["a", "b", "c"];
+      const candidates = input.candidates.map((c, i) => {
+        const base = upsertComponents(emptyModel(), c.components, input.derivedFrom);
+        const { model } = upsertRelationships(base, c.relationships, input.derivedFrom);
+        return { id: letters[i]!, title: c.title, summary: c.summary, model, pros: c.pros, cons: c.cons, constraintsMet: c.constraintsMet ?? [], constraintsAtRisk: c.constraintsAtRisk ?? [] };
+      });
+      const content: AlternativesContent = { question: input.question, candidates, sections: [{ id: "alternatives", derivedFrom: input.derivedFrom }] };
+      const r = requestChange({ ...common, op: "create", artifactId: null, artifactType: "alternatives", title: `Alternatives: ${input.question}`, content, summary: candidates.map((c) => `${c.id.toUpperCase()}. ${c.title}`).join(" · "), rationale: input.rationale, baseVersionNo: null, provenance: [{ sectionId: "alternatives", derivedFrom: input.derivedFrom }] });
+      if (r.status === "applied") return { status: "alternatives_proposed", artifactId: r.artifactId, candidates: candidates.map((c) => ({ id: c.id, title: c.title })) };
       return r as ToolResult;
     }),
 

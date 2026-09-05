@@ -261,6 +261,25 @@ Fake architect: a constraint belongs to whoever set it, whatever card it sits on
 
 Point at: the Constraints card's "set by" column and the message link; the export's constraints table with the exception against its constraint; the compiled design document's Constraints section.
 
+## Stage 12e: alternatives side by side
+
+Feature: "explore alternatives" puts two or three candidate architectures on one card, each with its own model, the case for and against, and the constraints it meets or strains. Choosing is a vote; the winner becomes the architecture model without an AI turn, the losers stay folded on the card, and the decision records every candidate as an option considered.
+
+| Who | Does |
+|---|---|
+| Alice | "Explore alternatives for the order pipeline." |
+
+Fake architect: an **Alternatives** card with A. Keep the current design, B. Direct calls instead of the queue, C. Add a read model, each with a diagram, pros and cons, and a constraints table. The model is unchanged.
+
+| Who | Does |
+|---|---|
+| Bob | Presses **Decide** on the card. A decision point with the three candidates opens; the model and its views are blocked. |
+| Alice, Bob | Vote **B** on the decision point (or from the vote link). |
+
+On the majority: the architecture model is set from B (every view follows), the card shows "chosen: B" with A and C folded under "not chosen", a system message names the voters, and the Decisions tab shows the new decision with all three candidates as options considered. No AI turn was spent.
+
+Point at: the comparison table on the card; the decision record's options; the export's chosen and not-chosen sections.
+
 ## Stage 12c: people who are not in the room
 
 Feature: a decision point can carry a deadline and expires without a majority instead of staying open; anyone can vote from a link without opening the canvas; the home page opens with what is waiting on you and what changed since you last looked; "@name" in a message or note reaches that person's digest.

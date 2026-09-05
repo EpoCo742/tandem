@@ -1,4 +1,4 @@
-import { allAdrs, contentText, dataModelMarkdown, describeAnchor, liveArtifacts, modelToMermaid, participantName, threads, type ArchModelContent, type ConstraintsContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { allAdrs, contentText, dataModelMarkdown, describeAnchor, liveArtifacts, modelToMermaid, participantName, threads, type AlternativesContent, type ArchModelContent, type ConstraintsContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 
 function modelMarkdown(m: ArchModelContent): string[] {
   const out: string[] = ["| Component | Kind | Technology | Boundary | Description |", "|---|---|---|---|---|"];
@@ -48,6 +48,15 @@ export function exportMarkdown(s: SessionState): string {
       if (model) out.push("```mermaid", modelToMermaid(model, vc), "```", "");
       else out.push("*(view without an architecture model)*", "");
       if (vc.note) out.push(`*${vc.note}*`, "");
+    } else if (a.type === "alternatives") {
+      const ac = v.content as AlternativesContent;
+      out.push(ac.question, "");
+      for (const c of ac.candidates) {
+        out.push(`#### ${c.id.toUpperCase()}. ${c.title}${ac.chosen === c.id ? " (chosen)" : ac.chosen ? " (not chosen)" : ""}`, "", c.summary, "", "```mermaid", modelToMermaid(c.model, { kind: "container" }), "```", "");
+        if (c.pros.length) out.push(`For: ${c.pros.join("; ")}`, "");
+        if (c.cons.length) out.push(`Against: ${c.cons.join("; ")}`, "");
+        if (c.constraintsMet.length || c.constraintsAtRisk.length) out.push(`Constraints met: ${c.constraintsMet.join(", ") || "none"}. At risk: ${c.constraintsAtRisk.join(", ") || "none"}.`, "");
+      }
     } else if (a.type === "arch_model") out.push(...modelMarkdown(v.content as ArchModelContent));
     else if (a.type === "constraints") {
       const cc = v.content as ConstraintsContent;

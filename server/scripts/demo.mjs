@@ -174,6 +174,19 @@ const STAGES = [
     await say(alice, "Draft the data model for this.");
     await waitForTurns(n + 1, "data model turn");
   }],
+  ["alternatives", "three candidate architectures side by side; a vote picks one and the model follows", async () => {
+    const n = await completedTurns();
+    await say(alice, "Explore alternatives for the order pipeline.");
+    await waitForTurns(n + 1, "alternatives turn");
+    const alt = await latestArtifact("alternatives");
+    console.log(`   AI proposed: ${alt.content.candidates.map((c) => `${c.id.toUpperCase()}. ${c.title}`).join("; ")} (model unchanged)`);
+    const d = await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/alternatives/${alt.artifactId}/decide`);
+    console.log("   Bob presses Decide: a decision point with the three candidates opens; the model is blocked");
+    const pick = alt.content.candidates[1];
+    await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/decision-points/${d.decisionPointArtifactId}/vote`, { optionId: pick.id });
+    const r = await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/decision-points/${d.decisionPointArtifactId}/vote`, { optionId: pick.id });
+    console.log(`   Both vote ${pick.id.toUpperCase()} -> adopted without an AI turn; the model is set from "${pick.title}", ${r.decisionLabel} recorded with all three as options considered`);
+  }],
   ["fork", "a v2 session starts from the current canvas; participants re-consent", async () => {
     const fork = await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/fork`, {});
     ctx.forkId = fork.id;

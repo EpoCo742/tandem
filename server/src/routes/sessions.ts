@@ -15,6 +15,7 @@ import { resolveExternalCall } from "../external.js";
 import { digestFor, markSeen, parseMentions, scheduleExpiry } from "../async.js";
 import { mintCollabToken } from "../crypto.js";
 import { exportMarkdown } from "../export.js";
+import { adoptAlternative, openAlternativesDecision } from "../alternatives.js";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -275,6 +276,16 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     }
   });
 
+  // Open the vote between the candidates on an alternatives card.
+  app.post<{ Params: { id: string; artifactId: string } }>("/api/v1/sessions/:id/alternatives/:artifactId/decide", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot open decisions" });
+    const r = openAlternativesDecision(req.params.id, req.params.artifactId, user.id);
+    if ("error" in r) return reply.code(400).send({ error: r.error });
+    return r;
+  });
+
   app.post<{ Params: { id: string; artifactId: string }; Body: { optionId: string } }>("/api/v1/sessions/:id/decision-points/:artifactId/vote", async (req, reply) => {
     const user = requireUser(req, reply);
     const me = participantOr403(req.params.id, user.id);
@@ -298,6 +309,13 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     if (!winner) return { resolved: false, votes };
 
     appendEvent(req.params.id, { type: "decision.resolved", actorKind: "system", actorUserId: null, causedBy: [dp.current.eventId], payload: { decisionPointArtifactId: dp.id, optionId: winner, decisionId: null } });
+    // A choice between alternatives is applied here, deterministically: no AI turn is needed.
+    if (content.alternativesArtifactId) {
+      const voters = Object.entries(votes).filter(([, v]) => v === winner).map(([u]) => u);
+      const adopted = adoptAlternative(req.params.id, content.alternativesArtifactId, winner, voters, [dp.current.eventId]);
+      if (!adopted.ok) return reply.code(500).send({ error: adopted.error });
+      return { resolved: true, optionId: winner, adopted: true, decisionLabel: adopted.label };
+    }
     const conflict = Object.values(after.conflicts).find((c) => c.decisionPointArtifactId === dp.id);
     const option = content.options.find((o) => o.id === winner)!;
     const voters = Object.entries(votes).filter(([, v]) => v === winner).map(([u]) => after.participants[u]?.name ?? u);
