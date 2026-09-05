@@ -16,6 +16,8 @@ const env = [
   `SESSION_SECRET=${randomBytes(32).toString("hex")}`,
   `TANDEM_MASTER_KEY=${randomBytes(32).toString("hex")}`,
   "GITHUB_CLIENT_ID=",
+  "# OAuth scopes to request; add read:org only for organisation-assigned Copilot seats (an org that restricts OAuth apps must approve this app first)",
+  "GITHUB_OAUTH_SCOPES=read:user",
   "GITHUB_CLIENT_SECRET=",
   "TANDEM_DEV_AUTH=1",
   "TANDEM_PROVIDER=fake",

@@ -27,6 +27,7 @@ export const config = {
   masterKeyHex: env("TANDEM_MASTER_KEY", "0".repeat(64)),
   github: {
     clientId: process.env.GITHUB_CLIENT_ID ?? "",
+    scopes: process.env.GITHUB_OAUTH_SCOPES?.trim() || "read:user",
     clientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
   },
   devAuth: env("TANDEM_DEV_AUTH", "0") === "1",

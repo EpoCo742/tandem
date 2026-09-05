@@ -88,8 +88,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const url = new URL("https://github.com/login/oauth/authorize");
     url.searchParams.set("client_id", config.github.clientId);
     url.searchParams.set("redirect_uri", `${config.appUrl}/auth/github/callback`);
-    // read:org lets Copilot see organisation-assigned seats; without it a Business seat can look absent.
-    url.searchParams.set("scope", "read:user read:org");
+    // read:user is all sign-in needs. read:org (opt in with GITHUB_OAUTH_SCOPES) lets the runtime see
+    // an organisation-assigned Copilot seat, but it also makes GitHub list every organisation on the
+    // consent screen, and organisations that restrict third-party OAuth apps show as "disallowed"
+    // until an admin approves this app.
+    url.searchParams.set("scope", config.github.scopes);
     url.searchParams.set("state", state);
     return reply.redirect(url.toString());
   });
