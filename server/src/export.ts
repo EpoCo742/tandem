@@ -1,4 +1,4 @@
-import { allAdrs, contentText, dataModelMarkdown, liveArtifacts, modelToMermaid, participantName, type ArchModelContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { allAdrs, contentText, dataModelMarkdown, liveArtifacts, modelToMermaid, participantName, type ArchModelContent, type ConstraintsContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 
 function modelMarkdown(m: ArchModelContent): string[] {
   const out: string[] = ["| Component | Kind | Technology | Boundary | Description |", "|---|---|---|---|---|"];
@@ -49,6 +49,12 @@ export function exportMarkdown(s: SessionState): string {
       else out.push("*(view without an architecture model)*", "");
       if (vc.note) out.push(`*${vc.note}*`, "");
     } else if (a.type === "arch_model") out.push(...modelMarkdown(v.content as ArchModelContent));
+    else if (a.type === "constraints") {
+      const cc = v.content as ConstraintsContent;
+      out.push("| Id | Constraint | Kind | Area | Set by |", "|---|---|---|---|---|");
+      for (const k of cc.constraints) out.push(`| ${k.id} | ${k.statement}${k.value ? ` (${k.value})` : ""} | ${k.kind.replace("_", " ")} | ${k.category.replace(/_/g, " ")} | ${k.setBy ? participantName(s, k.setBy) : k.source && s.artifacts[k.source] ? `document: ${s.artifacts[k.source]!.title}` : "document"} |`);
+      out.push("");
+    }
     else if (a.type === "decision_point") {
       const c = v.content as DecisionPointContent;
       out.push(c.context, "");

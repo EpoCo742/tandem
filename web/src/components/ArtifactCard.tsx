@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, AI_COLOR, type Artifact, type ArchModelContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
+import { participantName, modelToMermaid, AI_COLOR, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -176,6 +176,7 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
       {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
       {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
       {a.type === "arch_model" && <ModelTable content={v.content as ArchModelContent} />}
+      {a.type === "constraints" && <ConstraintsTable content={v.content as ConstraintsContent} />}
       {a.type === "view" && <ModelView content={v.content as ViewContent} />}
       {a.type === "decision_point" && <DecisionPoint content={v.content as DecisionPointContent} myId={myId} onVote={onVote} sessionId={sessionId} artifactId={a.id} />}
     </>
@@ -194,6 +195,42 @@ function SourceView({ sessionId, content, full = false }: { sessionId: string; c
       <div className="mono" style={{ marginBottom: 6 }}>{content.kind} &middot; {content.mime} &middot; <a href={url} target="_blank" rel="noreferrer">open original</a></div>
       {content.kind === "markdown" ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{shown}</ReactMarkdown></div> : <pre>{shown}</pre>}
       {clipped && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Showing the first {LIMIT.toLocaleString()} characters. Open the card full size for all of it.</div>}
+    </div>
+  );
+}
+
+// The rules the design has to respect: who set each one and where it came from.
+function ConstraintsTable({ content }: { content: ConstraintsContent }) {
+  const state = useStore((s) => s.state);
+  const setHighlight = useStore((s) => s.setHighlight);
+  const sourceLabel = (k: ConstraintsContent["constraints"][number]) => {
+    if (!k.source) return null;
+    const art = state.artifacts[k.source];
+    if (art) return <span className="mono" title="from an uploaded document">from {art.title}</span>;
+    if (state.eventsById[k.source]) return <button className="icon" style={{ padding: "0 5px" }} onClick={() => setHighlight([k.source!])} title="Highlight the message that set it">message</button>;
+    return null;
+  };
+  const kindLabel = { must: "must", must_not: "must not", target: "target" } as const;
+  return (
+    <div className="stack">
+      <div className="muted" style={{ fontSize: 12 }}>Every change the AI makes is checked against these; a directive that breaks one becomes a decision point rather than a change.</div>
+      <table>
+        <thead><tr><th>Constraint</th><th>Kind</th><th>Area</th><th>Set by</th></tr></thead>
+        <tbody>
+          {content.constraints.map((k) => (
+            <tr key={k.id}>
+              <td><span className="mono">{k.id}</span> {k.statement}{k.value ? <span className="mono" style={{ marginLeft: 6 }}>{k.value}</span> : null}</td>
+              <td className="mono">{kindLabel[k.kind]}</td>
+              <td className="mono">{k.category.replace(/_/g, " ")}</td>
+              <td>
+                {k.setBy ? <span style={{ color: state.participants[k.setBy]?.color }}>{participantName(state, k.setBy)}</span> : <span className="muted">document</span>}
+                {" "}{sourceLabel(k)}
+              </td>
+            </tr>
+          ))}
+          {content.constraints.length === 0 && <tr><td colSpan={4} className="muted">none yet</td></tr>}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -294,6 +331,9 @@ function DecisionPoint({ content, myId, onVote, sessionId, artifactId }: { conte
   return (
     <div>
       <div style={{ marginBottom: 8 }}>{content.context}</div>
+      {content.violatesConstraintIds && content.violatesConstraintIds.length > 0 && (
+        <div className="chip" style={{ color: "var(--warn)", marginBottom: 8 }} title="Raised because a directive would break a recorded constraint">breaks {content.violatesConstraintIds.join(", ")}</div>
+      )}
       {content.expired && <div className="consent" style={{ marginBottom: 8 }}>Expired without a majority. The blocked cards are editable again; the question is still open if anyone wants to raise it.</div>}
       {!closed && (
         <div className="row" style={{ flexWrap: "wrap", marginBottom: 8, fontSize: 12 }}>

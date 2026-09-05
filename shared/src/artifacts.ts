@@ -49,6 +49,7 @@ export interface DecisionPointContent {
   blocksArtifactIds: string[];
   deadline?: string; // ISO time by which a majority is needed
   expired?: boolean; // the deadline passed without one; the point is closed and its artifacts unblocked
+  violatesConstraintIds?: string[]; // raised because a directive conflicted with these constraints
 }
 
 export interface SourceContent {
@@ -60,6 +61,26 @@ export interface SourceContent {
   aiSummary: string;
 }
 
+export type ConstraintKind = "must" | "must_not" | "target";
+export type ConstraintCategory = "latency" | "availability" | "data_residency" | "security" | "compliance" | "budget" | "platform" | "capacity" | "other";
+
+/** One thing the design has to respect. Attributed to who set it and where it came from. */
+export interface Constraint {
+  id: string; // C-01, C-02, …
+  statement: string;
+  kind: ConstraintKind;
+  category: ConstraintCategory;
+  value?: string; // the measurable part, e.g. "p95 < 200 ms", "EU only", "$5k/month"
+  setBy: string | null; // participant id, or null when it came from a document
+  source?: string; // event id of the message, or artifact id of the upload, that established it
+  derivedFrom: string[];
+}
+
+export interface ConstraintsContent {
+  constraints: Constraint[];
+  sections: Section[];
+}
+
 export interface CodeContent {
   language: string;
   source: string;
@@ -69,6 +90,7 @@ export interface CodeContent {
 export type ArtifactContent =
   | ArchModelContent
   | ViewContent
+  | ConstraintsContent
   | MermaidContent
   | MarkdownContent
   | DataModelContent
@@ -130,6 +152,10 @@ export function contentText(type: string, content: unknown): string {
       return String(c.extractedText ?? c.aiSummary ?? "");
     case "arch_model":
       return modelToText(content as ArchModelContent);
+    case "constraints": {
+      const cc = content as ConstraintsContent;
+      return cc.constraints.length ? cc.constraints.map((k) => `- ${k.id} [${k.kind}, ${k.category}] ${k.statement}${k.value ? ` (${k.value})` : ""}`).join("\n") : "(no constraints yet)";
+    }
     case "view": {
       const v = content as ViewContent;
       return `${v.kind} view${v.focus ? ` of ${v.focus}` : ""}${v.note ? `: ${v.note}` : ""} (rendered from the architecture model)`;

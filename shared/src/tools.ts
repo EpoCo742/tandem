@@ -139,6 +139,31 @@ export const recordDecisionInput = z.object({
   consequences: z.string().optional().describe("ADR consequences: what becomes easier or harder because of this decision"),
 });
 
+const constraintKind = z.enum(["must", "must_not", "target"]);
+const constraintCategory = z.enum(["latency", "availability", "data_residency", "security", "compliance", "budget", "platform", "capacity", "other"]);
+
+export const upsertConstraintsInput = z.object({
+  constraints: z
+    .array(
+      z.object({
+        id: z.string().optional().describe("Existing constraint id (C-01) to update; omit to add"),
+        statement: z.string().describe("One sentence, testable: 'No customer data leaves the EU'"),
+        kind: constraintKind,
+        category: constraintCategory,
+        value: z.string().optional().describe("The measurable part, e.g. 'p95 < 200 ms'"),
+        source: z.string().optional().describe("Event id of the message, or artifact id of the uploaded document, that established it"),
+      }),
+    )
+    .min(1),
+  derivedFrom: z.array(z.string()),
+  rationale: z.string(),
+});
+
+export const removeConstraintsInput = z.object({
+  constraintIds: z.array(z.string()).min(1),
+  rationale: z.string(),
+});
+
 export const renderAdrInput = z.object({
   decisionId: z.string().optional().describe("One decision; omit for every decision in the registry"),
 });
@@ -160,6 +185,7 @@ export const createDecisionPointInput = z.object({
   blocksArtifactIds: z.array(z.string()).describe("Artifacts that must not change until this is resolved"),
   directiveEventIds: z.array(z.string()),
   contradictsDecisionId: z.string().nullable(),
+  violatesConstraintIds: z.array(z.string()).optional().describe("Constraint ids (C-01) the directive would break, when that is why the point is raised"),
 });
 
 export const askClarificationInput = z.object({
@@ -190,6 +216,8 @@ export const toolSchemas = {
   upsert_relationships: upsertRelationshipsInput,
   remove_from_model: removeFromModelInput,
   render_adr: renderAdrInput,
+  upsert_constraints: upsertConstraintsInput,
+  remove_constraints: removeConstraintsInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -214,6 +242,9 @@ export const toolDescriptions: Record<ToolName, string> = {
   remove_from_model: "Remove components (and their relationships) or specific relationships from the architecture model.",
   render_adr:
     "Render decisions as architecture decision record files (filename + Markdown), ready to write into a repository's docs/adr with an external tool. Omit decisionId to get all of them.",
+  upsert_constraints:
+    "Record non-functional targets and hard limits the design must respect (latency, data residency, budget, mandated platforms, compliance). Use when a person states one, or when an uploaded document contains one (cite it as the source). Every later change is checked against these.",
+  remove_constraints: "Drop constraints that no longer apply. Prefer superseding through a decision when people disagree.",
 };
 
 export type ToolResult =
@@ -227,4 +258,5 @@ export type ToolResult =
   | { status: "pinned"; artifactId: string; pinned: boolean }
   | { status: "model_updated"; artifactId: string; versionNo: number; components: number; relationships: number; unknown?: string[] }
   | { status: "adrs"; files: { filename: string; markdown: string; label: string }[] }
+  | { status: "constraints_updated"; artifactId: string; versionNo: number; constraints: { id: string; statement: string }[] }
   | { status: "error"; message: string };

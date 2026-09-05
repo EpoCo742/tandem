@@ -217,6 +217,8 @@ Validated against a real Copilot seat on 2026-09-04: the model drives the canvas
 
 2026-09-05, roadmap item B1: asynchronous participation. Decision points take a deadline and expire without a majority (cards unblocked, question kept open); a vote page at `/s/:id/vote/:artifactId` works from a link; the home page opens with a digest (what waits on you: decision points, proposals, outbound writes; what changed since you last looked, including mentions); `@name` mentions are recorded on messages; the session reports how far each person has read.
 
+2026-09-05, roadmap item A3: constraints. A `constraints` card (id, statement, must / must not / target, category, who set it or which document it came from) is always in the prompt; `upsert_constraints` and `remove_constraints` tools; the system prompt requires a check before structural changes and a decision point with `violatesConstraintIds` when one would break; the offline provider records stated limits and refuses region-crossing placements; export and the compiled document carry a constraints table.
+
 Not yet done: see `09-roadmap.md` (per-user MCP servers first, then collapsed source cards, an editing indicator, live text editing, GitHub App tokens, M4).
 
 ## 8. Known POC limitations to state in the demo

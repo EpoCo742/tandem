@@ -20,7 +20,8 @@ export type ArtifactType =
   | "code"
   | "design_doc"
   | "arch_model"
-  | "view";
+  | "view"
+  | "constraints";
 
 export type TurnStatus =
   | "collecting"

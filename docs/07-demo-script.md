@@ -2,7 +2,7 @@
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
-This file tracks the features as they land. Last updated 2026-09-05 (asynchronous participation: deadlines, vote page, digest, mentions).
+This file tracks the features as they land. Last updated 2026-09-05 (constraints the AI designs against).
 
 ## Two ways to run it
 
@@ -217,6 +217,24 @@ Feature: every decision is an architecture decision record: context, options con
 Fake architect: renders every decision as a file and proposes the first write through the file tool. Alice picks **Approve, always for repo acme/order-platform**; the remaining files are written without asking; the reply counts them. A real model does the same through a registered GitHub MCP server with `render_adr` and its file tool.
 
 Point at: D-03, the resolved decision point, lists the three options with "Combine both" chosen; the History tab shows one external action per file; the demo repository under `data/mcp-demo/repos` holds the files.
+
+## Stage 12d: constraints
+
+Feature: non-functional targets and hard limits are recorded on a Constraints card, attributed to who set them (or to the uploaded document they came from), kept in every prompt, and enforced: a directive that would break one becomes a decision point naming the constraint, and nothing changes on the canvas.
+
+| Who | Says |
+|---|---|
+| Alice | "No customer data must leave the EU." |
+
+Fake architect: records **C-01** (must not, data residency) set by Alice; the Constraints card appears.
+
+| Who | Says |
+|---|---|
+| Bob | "Back up the orders table to a US bucket in S3 every night." |
+
+Fake architect: refuses to change the model and raises a decision point "Keep C-01 or make an exception for Bob's request?" with options keep, exception, amend; the card carries a "breaks C-01" chip. Voting works as in stage 4. A real model does the same check from the constraints card in its prompt, and also records constraints it finds in uploaded documents with the document as the source.
+
+Point at: the Constraints card's "set by" column and the message link; the export's constraints table; the compiled design document's Constraints section.
 
 ## Stage 12c: people who are not in the room
 

@@ -1,6 +1,6 @@
 import { ulid } from "ulid";
 import { allAdrs, emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
-import type { DecisionPointContent, SessionState } from "@tandem/shared";
+import type { ConstraintsContent, DecisionPointContent, SessionState } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
@@ -66,6 +66,46 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       const { model, unknown } = upsertRelationships(currentModel(), input.relationships, input.derivedFrom);
       if (unknown.length === input.relationships.length * 2) return { status: "error", message: `Unknown component ids: ${unknown.join(", ")}. Call upsert_components first.` };
       return writeModel(model, input.rationale, `Model: ${model.components.length} components, ${model.relationships.length} relationships`, unknown);
+    }),
+
+    bind("upsert_constraints", async (input) => {
+      const state = getState(scope.sessionId);
+      const existing = Object.values(state.artifacts).find((a) => a.type === "constraints" && !a.deleted);
+      const cur: ConstraintsContent = (existing?.current.content as ConstraintsContent | undefined) ?? { constraints: [], sections: [] };
+      const list = [...cur.constraints];
+      let n = list.reduce((m, k) => Math.max(m, Number(k.id.replace(/^C-/, "")) || 0), 0);
+      for (const raw of input.constraints) {
+        const i = raw.id ? list.findIndex((k) => k.id === raw.id) : -1;
+        const fromDocument = Boolean(raw.source && state.artifacts[raw.source]);
+        const next = {
+          id: i >= 0 ? list[i]!.id : `C-${String(++n).padStart(2, "0")}`,
+          statement: raw.statement.replace(/\.$/, ""),
+          kind: raw.kind,
+          category: raw.category,
+          value: raw.value,
+          setBy: fromDocument ? null : scope.onBehalfOf,
+          source: raw.source ?? input.derivedFrom[0],
+          derivedFrom: [...new Set([...(i >= 0 ? list[i]!.derivedFrom : []), ...input.derivedFrom])],
+        };
+        if (i >= 0) list[i] = { ...list[i]!, ...next };
+        else list.push(next);
+      }
+      const content: ConstraintsContent = { constraints: list, sections: [{ id: "constraints", derivedFrom: input.derivedFrom }] };
+      const r = requestChange({ ...common, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "constraints", title: existing?.title ?? "Constraints", content, summary: `${list.length} constraint${list.length === 1 ? "" : "s"}`, rationale: input.rationale, baseVersionNo: existing?.current.versionNo ?? null, provenance: [{ sectionId: "constraints", derivedFrom: input.derivedFrom }] });
+      if (r.status === "applied") return { status: "constraints_updated", artifactId: r.artifactId, versionNo: r.versionNo, constraints: list.map((k) => ({ id: k.id, statement: k.statement })) };
+      return r as ToolResult;
+    }),
+
+    bind("remove_constraints", async (input) => {
+      const state = getState(scope.sessionId);
+      const existing = Object.values(state.artifacts).find((a) => a.type === "constraints" && !a.deleted);
+      if (!existing) return { status: "error", message: "No constraints card" };
+      const cur = existing.current.content as ConstraintsContent;
+      const drop = new Set(input.constraintIds);
+      const content: ConstraintsContent = { ...cur, constraints: cur.constraints.filter((k) => !drop.has(k.id)) };
+      const r = requestChange({ ...common, op: "update", artifactId: existing.id, artifactType: "constraints", title: existing.title, content, summary: `${content.constraints.length} constraint${content.constraints.length === 1 ? "" : "s"}`, rationale: input.rationale, baseVersionNo: existing.current.versionNo, provenance: existing.current.provenance });
+      if (r.status === "applied") return { status: "constraints_updated", artifactId: r.artifactId, versionNo: r.versionNo, constraints: content.constraints.map((k) => ({ id: k.id, statement: k.statement })) };
+      return r as ToolResult;
     }),
 
     bind("render_adr", async (input) => {
@@ -137,6 +177,7 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
         options: input.options,
         votes: {},
         blocksArtifactIds: input.blocksArtifactIds.filter((id) => state.artifacts[id]),
+        ...(input.violatesConstraintIds?.length ? { violatesConstraintIds: input.violatesConstraintIds } : {}),
       };
       appendEvent(scope.sessionId, {
         type: "artifact.applied",

@@ -33,6 +33,7 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
   const arts = liveArtifacts(state);
   const model = arts.find((a) => a.type === "arch_model")?.current.content as ArchModelContent | undefined;
   if (model) lines.push("(The arch_model card is the source of truth for structure; every view card is generated from it. Change structure with upsert_components / upsert_relationships / remove_from_model, not by drawing.)");
+  if (arts.some((a) => a.type === "constraints")) lines.push("(The constraints card lists what the design must respect; check every structural change against it and raise a decision point with violatesConstraintIds instead of applying a change that breaks one.)");
   else lines.push("(No architecture model yet. When people describe systems, services, queues or stores, build the model with upsert_components and upsert_relationships and create a container view titled \"System architecture\".)");
   if (arts.length === 0) lines.push("(empty canvas)");
   const batchText = batch.map((b) => JSON.stringify(b.payload)).join(" ").toLowerCase();
@@ -59,7 +60,7 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
     }
     const mentioned = attached || batchText.includes(a.id.toLowerCase()) || batchText.includes(a.title.toLowerCase());
     const recent = state.lastSeq - (state.eventsById[a.current.eventId]?.seq ?? 0) < 40;
-    if ((compiling || a.pinned || mentioned || recent || a.type === "decision_point" || a.type === "arch_model" || a.type === "view") && (budget > 0 || attached)) {
+    if ((compiling || a.pinned || mentioned || recent || a.type === "decision_point" || a.type === "arch_model" || a.type === "view" || a.type === "constraints") && (budget > 0 || attached)) {
       const text = a.type === "view" && model ? modelToMermaid(model, a.current.content as ViewContent) : contentText(a.type, a.current.content);
       // Attached cards get their own, much larger allowance so a spec can be read whole.
       const allowance = attached ? Math.max(budget, attachBudget) : budget;

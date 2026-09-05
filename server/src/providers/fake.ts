@@ -59,6 +59,7 @@ function buildDesignDoc(
   const allDecisions = [...prompt.matchAll(/^- (D-\d+) \[(\w+)\] \(id (\S+)\) (.+?)(?: — by (.+?))?(?: — supersedes (\S+))?$/gm)].map((m) => ({ label: m[1]!, status: m[2]!, statement: m[4]!, by: m[5] ?? "", supersedes: m[6] ?? "" }));
   const diagrams = artifacts.filter((a) => a.type === "mermaid" || a.type === "view");
   const archModel = artifacts.find((a) => a.type === "arch_model");
+  const constraintsCard = artifacts.find((a) => a.type === "constraints");
   const models = artifacts.filter((a) => a.type === "data_model");
   const notes = artifacts.filter((a) => a.type === "markdown");
   const sources = artifacts.filter((a) => a.type === "source");
@@ -81,6 +82,9 @@ function buildDesignDoc(
     }
     md.push(`### ${m.title} (v${m.versionNo})`, "", body, "");
   }
+  md.push("## Constraints", "");
+  if (constraintsCard) md.push(...(contents.get(constraintsCard.id) ?? "").split("\n"), "");
+  else md.push("None recorded.", "");
   md.push("## Sources", "");
   if (!sources.length) md.push("No uploaded material.", "");
   for (const s of sources) md.push(`- **${s.title}**: ${(contents.get(s.id) ?? "").split("\n").find((l) => l.trim())?.slice(0, 160) ?? "(binary)"}`);
@@ -98,6 +102,30 @@ function buildDesignDoc(
     { id: "decisions", heading: "Decision log", derivedFrom: decisions.map((d) => d.id) },
   ];
   return { markdown: md.join("\n"), sections };
+}
+
+function extractConstraints(prompt: string): { id: string; kind: string; category: string; statement: string }[] {
+  const out: { id: string; kind: string; category: string; statement: string }[] = [];
+  const re = /^- (C-\d+) \[(\w+), (\w+)\] (.+?)(?: \((.+)\))?$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(prompt))) out.push({ id: m[1]!, kind: m[2]!, category: m[3]!, statement: m[4]! });
+  return out;
+}
+
+const REGION = /\b(eu|europe|european|us|usa|america|uk|apac|asia|india|china|germany|ireland|canada|australia)\b/i;
+const PLACEMENT = /\b(bucket|region|store|stored|backup|back up|replicate|replicat\w*|host|hosted|deploy|deployed|copy|copies|datacenter|data center|cloud|s3|blob)\b/i;
+
+/** A stated non-functional target or hard limit, or null. */
+function constraintIn(text: string): { kind: "must" | "must_not" | "target"; category: "latency" | "availability" | "data_residency" | "security" | "compliance" | "budget" | "platform" | "capacity" | "other" } | null {
+  const t = text.toLowerCase();
+  if (/\b(must not|never|no|not)\b.*\b(leave|leaves|outside|off)\b/.test(t) && REGION.test(t)) return { kind: "must_not", category: "data_residency" };
+  if (/\b(must|only|always)\b.*\b(stay|remain|kept|reside)\b.*\bin\b/.test(t) && REGION.test(t)) return { kind: "must", category: "data_residency" };
+  if (/\b(p9\d|latency|response time)\b|\b(under|within|below) \d+ ?ms\b/.test(t)) return { kind: "target", category: "latency" };
+  if (/\b(99\.9|uptime|availability|rpo|rto)\b/.test(t)) return { kind: "target", category: "availability" };
+  if (/\b(budget|per month|a month|\$\d)/.test(t)) return { kind: "must", category: "budget" };
+  if (/\b(gdpr|soc ?2|hipaa|pci|iso ?27001|compliance|audit trail)\b/.test(t)) return { kind: "must", category: "compliance" };
+  if (/\b(must (use|run on|be built on|be hosted on)|only (use|run on))\b/.test(t)) return { kind: "must", category: "platform" };
+  return null;
 }
 
 function userIdFor(prompt: string, speaker: string): string {
@@ -293,6 +321,51 @@ export const fakeProvider: ProviderAdapter = {
       if (existing) await call("update_artifact", { artifactId: existing.id, baseVersionNo: existing.versionNo, content, rationale: "Refresh data model from the discussion", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       else await call("create_artifact", { type: "data_model", title: "Data model", content, rationale: "Drafted from the tables and events named so far", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       await emit(`Drafted the data model with ${entities.map((e) => e.name).join(", ")}${relations.length ? ` and ${relations.length} relation(s)` : ""}. Tell me the fields you actually need and I will refine it.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0d. A stated constraint: record it, attributed to the speaker.
+    const stated = batch.map((m) => ({ m, k: constraintIn(m.text) })).filter((x): x is { m: (typeof batch)[number]; k: NonNullable<ReturnType<typeof constraintIn>> } => Boolean(x.k));
+    if (stated.length && !batch.some((m) => /decision point .* resolved/i.test(m.text))) {
+      const r = (await call("upsert_constraints", {
+        constraints: stated.map(({ m, k }) => ({ statement: m.text.replace(/\.$/, ""), kind: k.kind, category: k.category, source: m.eventId })),
+        derivedFrom: stated.map(({ m }) => m.eventId),
+        rationale: `Stated by ${stated.map(({ m }) => m.speaker).join(", ")}`,
+      })) as { status: string; constraints?: { id: string; statement: string }[] };
+      const ids = (r.constraints ?? []).slice(-stated.length).map((k) => k.id);
+      await emit(`Recorded ${ids.length === 1 ? `constraint ${ids[0]}` : `constraints ${ids.join(", ")}`} for ${stated.map(({ m }) => m.speaker).join(", ")}; every change from here is checked against ${ids.length === 1 ? "it" : "them"}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0e. A directive that would break a recorded constraint: raise a decision point, change nothing.
+    const constraints = extractConstraints(req.context.prompt);
+    for (const msg of batch) {
+      const t = msg.text.toLowerCase();
+      const hit = constraints.find((k) => {
+        if (k.kind !== "must_not") return false;
+        const kr = k.statement.match(REGION)?.[1]?.toLowerCase();
+        const mr = t.match(REGION)?.[1]?.toLowerCase();
+        if (kr && mr && kr !== mr && PLACEMENT.test(t)) return true; // data must stay in one region, directive puts it in another
+        const named = tokenise(k.statement).filter((w) => !["data", "must", "leave", "leaves", "outside"].includes(w));
+        return named.length > 0 && named.every((w) => t.includes(w)) && !/\b(not|never|no)\b/.test(t);
+      });
+      if (!hit) continue;
+      const blocks = artifacts.filter((a) => a.type === "mermaid" || a.type === "view" || a.type === "arch_model").map((a) => a.id);
+      await emit(`${msg.speaker}, that would break ${hit.id} ("${hit.statement}"). I have not changed the canvas. `);
+      await call("create_decision_point", {
+        question: `Keep ${hit.id} or make an exception for ${msg.speaker}'s request?`,
+        context: `${hit.id} says: ${hit.statement}. ${msg.speaker} now asks: "${msg.text}".`,
+        options: [
+          { id: "keep", title: `Keep ${hit.id}`, tradeoffs: "The request is declined; the constraint holds.", canvasImpact: "No change." },
+          { id: "exception", title: "Make an exception for this case", tradeoffs: "The constraint stands in general but this case is allowed and recorded.", canvasImpact: "The change is applied with a note.", proposedBy: userIdFor(req.context.prompt, msg.speaker) },
+          { id: "amend", title: `Amend ${hit.id}`, tradeoffs: "The constraint is rewritten; whoever set it should agree.", canvasImpact: "The constraints card changes, then the request is applied." },
+        ],
+        blocksArtifactIds: blocks,
+        directiveEventIds: [msg.eventId],
+        contradictsDecisionId: null,
+        violatesConstraintIds: [hit.id],
+      });
+      await emit("I raised a decision point naming the constraint; vote on the card and I will apply the outcome.");
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 

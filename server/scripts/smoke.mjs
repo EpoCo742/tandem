@@ -373,6 +373,26 @@ const adrCommits = JSON.parse(fs.readFileSync(path.join(demoDir, "commits.json")
 assert(adrCommits.length === adrs.files.length && adrCommits.every((c) => c.repo === "acme/order-platform"), `${adrCommits.length} ADR files committed, the rest pre-approved for the repository`);
 assert(fs.existsSync(path.join(demoDir, "repos", "acme_order-platform", "docs", "adr", adrs.files[0].filename)), "the ADR file exists in the demo repository");
 
+// Constraints: a stated limit is recorded and attributed; a directive that would break it becomes
+// a decision point naming the constraint, with no change to the canvas.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "No customer data must leave the EU." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "constraint turn");
+const constraintsCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "constraints").pop();
+assert(constraintsCard && constraintsCard.payload.content.constraints[0].id === "C-01" && constraintsCard.payload.content.constraints[0].kind === "must_not" && constraintsCard.payload.content.constraints[0].setBy === aliceId, "the constraint is recorded as C-01, must not, set by alice");
+const modelVersionsBefore = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === diagram.artifactId).length;
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Back up the orders table to a US bucket in S3 every night." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "violation turn");
+const violation = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "decision_point").pop().payload;
+assert(violation.content.violatesConstraintIds?.[0] === "C-01" && /Keep C-01/.test(violation.content.question), "the violating directive became a decision point naming C-01");
+assert(subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === diagram.artifactId).length === modelVersionsBefore, "the model was not changed by the violating directive");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/decision-points/${violation.artifactId}/vote`, { optionId: "keep" });
+await bob.call("POST", `/api/v1/sessions/${sessionId}/decision-points/${violation.artifactId}/vote`, { optionId: "keep" });
+await waitFor(() => subA.events.some((e) => e.type === "decision.resolved" && e.payload.decisionPointArtifactId === violation.artifactId), "constraint decision resolved");
+const mdWithConstraints = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(mdWithConstraints.includes("| C-01 | No customer data must leave the EU | must not | data residency | Alice |"), "the export lists the constraint with who set it");
+
 // Asynchronous participation: a decision point with a deadline expires instead of staying open,
 // the digest shows what waits on a person and what changed since they last looked, mentions land.
 turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
