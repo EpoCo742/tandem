@@ -2,12 +2,19 @@ import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { useStore, type PresenceUser } from "./state/store";
 
-// Yjs layout document: Y.Map "nodes" (artifactId -> {x, y}). Awareness carries presence.
+// Yjs layout document: Y.Map "nodes" (artifactId -> {x, y, w?, h?}). Awareness carries presence.
+
+export interface Layout {
+  x: number;
+  y: number;
+  w?: number;
+  h?: number;
+}
 
 export interface Collab {
   doc: Y.Doc;
   provider: HocuspocusProvider;
-  nodes: Y.Map<{ x: number; y: number }>;
+  nodes: Y.Map<Layout>;
   destroy: () => void;
 }
 
@@ -20,7 +27,7 @@ export function connectCollab(sessionId: string, token: string, me: PresenceUser
     document: doc,
     token,
   });
-  const nodes = doc.getMap<{ x: number; y: number }>("nodes");
+  const nodes = doc.getMap<Layout>("nodes");
   provider.setAwarenessField("user", me);
   const onAwareness = () => {
     const states = provider.awareness?.getStates() ?? new Map();

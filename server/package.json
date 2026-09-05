@@ -29,6 +29,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@hocuspocus/provider": "4.6.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.4.1",
     "@types/ws": "^8.18.1",

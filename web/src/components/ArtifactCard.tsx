@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import { participantName, AI_COLOR, type Artifact, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent } from "@tandem/shared";
 import { api } from "../api";
@@ -15,13 +16,15 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   },
 };
 
-export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; sessionId: string }) {
+export function ArtifactCard({ artifact: a, sessionId, sized = false }: { artifact: Artifact; sessionId: string; sized?: boolean }) {
   const state = useStore((s) => s.state);
   const me = useStore((s) => s.me)!;
   const setHighlight = useStore((s) => s.setHighlight);
   const [editing, setEditing] = useState(false);
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const v = viewVersion ? a.versions.find((x) => x.versionNo === viewVersion) ?? a.current : a.current;
   const authorColor = state.participants[v.authorUserId]?.color ?? AI_COLOR;
@@ -29,6 +32,18 @@ export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; s
   const derived = [...new Set(v.provenance.flatMap((p) => p.derivedFrom))].filter((id) => state.eventsById[id]);
   const isDp = a.type === "decision_point";
   const pending = Object.values(state.proposals).filter((p) => p.artifactId === a.id && p.status === "pending").length;
+
+  async function remove() {
+    setConfirmDelete(false);
+    setMsg(null);
+    try {
+      const r = await api<{ status: string; approvers?: string[] }>("DELETE", `/api/v1/sessions/${sessionId}/artifacts/${a.id}`, { rationale: "Removed from the canvas" });
+      if (r.status === "pending_approval") setMsg(`Removal proposed; waiting for ${(r.approvers ?? []).map((u) => participantName(state, u)).join(", ")}.`);
+      else if (r.status !== "applied") setMsg(`Could not remove: ${r.status.replace(/_/g, " ")}.`);
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
+  }
 
   async function vote(optionId: string) {
     setMsg(null);
@@ -41,23 +56,17 @@ export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; s
   }
 
   return (
-    <div className={"art" + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "")} style={{ borderTopColor: isDp ? undefined : authorColor }}>
+    <div className={"art" + (sized ? " sized" : "") + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "")} style={{ borderTopColor: isDp ? undefined : authorColor }}>
       <div className="art-head">
         <span className="chip" style={{ color: isDp ? "var(--warn)" : AI_COLOR }}>{a.type.replace("_", " ")}</span>
         <span className="title" title={a.title}>{a.title}</span>
         <span className="mono">v{v.versionNo}</span>
         {a.blockedByDecisionPoint && <span className="chip" style={{ color: "var(--warn)" }} title="blocked until the decision point resolves">blocked</span>}
         {pending > 0 && <span className="chip accent">{pending} pending</span>}
+        <button className="icon nodrag" style={{ padding: "0 5px" }} title="Open this card full size" onClick={() => setExpanded(true)}>&#x2922;</button>
       </div>
       <div className="art-body nodrag nowheel">
-        {a.type === "mermaid" && <Mermaid source={(v.content as MermaidContent).source} />}
-        {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
-        {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
-        {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
-        {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} />}
-        {isDp && (
-          <DecisionPoint content={v.content as DecisionPointContent} myId={me.user!.id} onVote={vote} />
-        )}
+        <ArtifactBody artifact={a} version={v} sessionId={sessionId} myId={me.user!.id} onVote={vote} />
         {msg && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{msg}</div>}
       </div>
       <div className="art-foot">
@@ -88,20 +97,60 @@ export function ArtifactCard({ artifact: a, sessionId }: { artifact: Artifact; s
           </button>
         )}
         {!isDp && a.type !== "source" && <button onClick={() => setEditing(true)} disabled={Boolean(a.blockedByDecisionPoint)}>edit</button>}
+        {!isDp && !confirmDelete && <button title="Remove this card from the canvas (it stays in history)" onClick={() => setConfirmDelete(true)} disabled={Boolean(a.blockedByDecisionPoint)}>delete</button>}
+        {confirmDelete && (
+          <span className="confirm">
+            <button className="danger" onClick={remove}>confirm delete</button>
+            <button onClick={() => setConfirmDelete(false)}>cancel</button>
+          </span>
+        )}
       </div>
       {editing && <ArtifactEditor artifact={a} sessionId={sessionId} onClose={() => setEditing(false)} />}
+      {expanded && createPortal(
+        <div className="modal-bg nodrag nowheel" onClick={() => setExpanded(false)}>
+          <div className="modal wide" onClick={(e) => e.stopPropagation()}>
+            <div className="row">
+              <span className="chip" style={{ color: AI_COLOR }}>{a.type.replace("_", " ")}</span>
+              <b style={{ flex: 1 }}>{a.title}</b>
+              <span className="mono">v{v.versionNo} &middot; {authorLabel}</span>
+              <button onClick={() => setExpanded(false)}>close</button>
+            </div>
+            <div className={"modal-body" + (a.type === "mermaid" ? "" : " md-doc")}>
+              <ArtifactBody artifact={a} version={v} sessionId={sessionId} myId={me.user!.id} onVote={vote} large />
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
 
-function SourceView({ sessionId, content }: { sessionId: string; content: SourceContent }) {
+function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large = false }: { artifact: Artifact; version: Artifact["current"]; sessionId: string; myId: string; onVote: (id: string) => void; large?: boolean }) {
+  return (
+    <>
+      {a.type === "mermaid" && <Mermaid source={(v.content as MermaidContent).source} />}
+      {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
+      {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
+      {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
+      {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
+      {a.type === "decision_point" && <DecisionPoint content={v.content as DecisionPointContent} myId={myId} onVote={onVote} />}
+    </>
+  );
+}
+
+function SourceView({ sessionId, content, full = false }: { sessionId: string; content: SourceContent; full?: boolean }) {
   const url = `/api/v1/sessions/${sessionId}/files/${content.uploadId}`;
   if (content.kind === "image") return <a href={url} target="_blank" rel="noreferrer"><img src={url} alt={content.name} style={{ maxWidth: "100%", display: "block" }} /></a>;
   const text = content.extractedText ?? content.aiSummary;
+  const LIMIT = 6000;
+  const clipped = !full && text.length > LIMIT;
+  const shown = clipped ? text.slice(0, LIMIT) : text;
   return (
     <div>
-      <div className="mono" style={{ marginBottom: 6 }}>{content.mime} · <a href={url} target="_blank" rel="noreferrer">open</a></div>
-      <pre>{text.length > 1500 ? text.slice(0, 1500) + "\n…" : text}</pre>
+      <div className="mono" style={{ marginBottom: 6 }}>{content.kind} &middot; {content.mime} &middot; <a href={url} target="_blank" rel="noreferrer">open original</a></div>
+      {content.kind === "markdown" ? <div className="md"><ReactMarkdown components={mdComponents}>{shown}</ReactMarkdown></div> : <pre>{shown}</pre>}
+      {clipped && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Showing the first {LIMIT.toLocaleString()} characters. Open the card full size for all of it.</div>}
     </div>
   );
 }

@@ -17,23 +17,18 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const [text, setText] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [staged, setStaged] = useState<File | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function upload(file: File) {
-    setUploading(true);
-    setErr(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/api/v1/sessions/${sessionId}/uploads`, { method: "POST", body: fd, credentials: "same-origin" });
-      if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
-    } catch (e) {
-      setErr((e as Error).message);
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
+  // A chosen file waits in the composer so the message sent with it can say what to do with it.
+  // Sending with an empty message just uploads the file as a source card.
+  async function upload(file: File): Promise<{ artifactId: string; kind: string }> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/v1/sessions/${sessionId}/uploads`, { method: "POST", body: fd, credentials: "same-origin" });
+    if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? res.statusText);
+    return (await res.json()) as { artifactId: string; kind: string };
   }
 
   const myId = me.user!.id;
@@ -53,11 +48,25 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
 
   async function send() {
     const t = text.trim();
-    if (!t) return;
+    const file = staged;
+    if (!t && !file) return;
     setErr(null);
     setText(""); // clear at once so a fast second message never inherits the first
+    setStaged(null);
+    if (fileRef.current) fileRef.current.value = "";
     try {
-      await api("POST", `/api/v1/sessions/${sessionId}/messages`, { text: t, mode: "directive" });
+      const attachments: string[] = [];
+      if (file) {
+        setUploading(true);
+        try {
+          const up = await upload(file);
+          attachments.push(up.artifactId);
+        } finally {
+          setUploading(false);
+        }
+      }
+      if (!t) return; // upload only
+      await api("POST", `/api/v1/sessions/${sessionId}/messages`, { text: t, mode: "directive", attachments });
     } catch (e) {
       setErr((e as Error).message);
       setText(t);
@@ -98,6 +107,13 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
                 {m.kind === "system" && <span>system</span>}
               </div>
               <div className="text">{m.intent === "compile" ? <em>asked the AI to compile the design document from the canvas</em> : m.text}</div>
+              {m.attachments && m.attachments.length > 0 && (
+                <div>
+                  {m.attachments.map((id) => (
+                    <span key={id} className="attach-chip" title="Attached source card">&#x1F4CE; {state.artifacts[id]?.title ?? "attachment"}</span>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -131,12 +147,19 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
               onChange={(e) => { setText(e.target.value); signalTyping("ai"); }}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
             />
+            {staged && (
+              <div className="attach" title={staged.name}>
+                <span>&#x1F4CE; {staged.name} ({Math.max(1, Math.round(staged.size / 1024))} KB)</span>
+                <span className="muted">{text.trim() ? "sent with your message" : "will upload as a source card"}</span>
+                <button className="x" title="Remove attachment" onClick={() => { setStaged(null); if (fileRef.current) fileRef.current.value = ""; }}>&times;</button>
+              </div>
+            )}
             <div className="actions">
-              <button className="primary" onClick={send} disabled={!text.trim()}>Send to AI</button>
+              <button className="primary" onClick={send} disabled={(!text.trim() && !staged) || uploading}>{uploading ? "Uploading…" : staged && !text.trim() ? "Upload" : "Send to AI"}</button>
               <button onClick={() => api("POST", `/api/v1/sessions/${sessionId}/turns/send-now`)} disabled={turn.state !== "collecting"} title="Close the batch window now">Send now</button>
               <button className="danger" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/turns/current/interrupt`)} disabled={turn.state !== "generating"}>Stop</button>
-              <input ref={fileRef} type="file" style={{ display: "none" }} accept="image/*,.md,.markdown,.txt,.mmd,.json,.yaml,.yml,.csv" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-              <button onClick={() => fileRef.current?.click()} disabled={uploading} title="Upload a screenshot, Markdown, text or .mmd diagram as a source card">{uploading ? "Uploading…" : "Upload"}</button>
+              <input ref={fileRef} type="file" style={{ display: "none" }} accept="image/*,.md,.markdown,.txt,.mmd,.json,.yaml,.yml,.csv" onChange={(e) => setStaged(e.target.files?.[0] ?? null)} />
+              <button onClick={() => fileRef.current?.click()} disabled={uploading} title="Attach a screenshot, Markdown, text or .mmd diagram. Type what the AI should do with it, then send.">Attach file</button>
               <span className="grow" />
               {err && <span className="err">{err}</span>}
             </div>

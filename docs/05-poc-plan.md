@@ -199,7 +199,11 @@ Also added: an AI-drafted data model card; session forking (M3 item pulled forwa
 
 2026-09-04: light and dark themes (auto follows the OS; toggle in the top bar, stored per browser) and a canvas backdrop toggle (dots, lines, off) in the canvas corner. Mermaid diagrams and the React Flow chrome follow the theme.
 
-Not yet done: validation against a real Copilot seat, GitHub OAuth end-to-end (routes exist, needs an OAuth App), live Yjs text editing, compaction.
+2026-09-04, later: first user feedback round. Cards resize (size shared through the layout document) and open full size; zoom ceiling raised; Markdown uploads render as Markdown; a file can be attached to a message and the AI sees it named in the batch with its content in context; cards can be deleted (your own sole-authored work applies at once, anything else is a proposal); a Sources tab lists uploads with locate; export opens a preview before download. Two real bugs fixed underneath: the canvas rebuilt every node object on each change and lost React Flow's measurements (cards vanishing, blank minimap), and the embedded Hocuspocus was never fed the socket frames, so layout had been browser-local since the start. The smoke test now covers the layout round-trip, attachments and delete.
+
+Validated against a real Copilot seat on 2026-09-04: the model drives the canvas tools through the same prompt the offline provider is scripted against.
+
+Not yet done: GitHub OAuth end-to-end (routes exist, needs an OAuth App; the OAuth scope may need widening beyond read:user), live Yjs text editing, compaction.
 
 ## 8. Known POC limitations to state in the demo
 

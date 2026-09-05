@@ -72,9 +72,10 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
 
   lines.push("## Current messages");
   for (const b of batch) {
-    const p = b.payload as { text: string };
+    const p = b.payload as { text: string; attachments?: string[] };
     const who = b.actorKind === "system" ? "System" : participantName(state, b.actorUserId);
-    lines.push(`[${who}] (event ${b.id}) ${p.text}`);
+    const attached = (p.attachments ?? []).map((id) => state.artifacts[id]).filter(Boolean).map((a) => `${a!.title} (artifact ${a!.id})`);
+    lines.push(`[${who}] (event ${b.id}) ${p.text}${attached.length ? ` [attached: ${attached.join(", ")}]` : ""}`);
   }
 
   return { system: SYSTEM_PROMPT, prompt: lines.join("\n") };

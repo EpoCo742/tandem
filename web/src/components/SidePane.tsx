@@ -4,7 +4,7 @@ import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
 
-type Tab = "side" | "proposals" | "decisions" | "history";
+type Tab = "side" | "proposals" | "decisions" | "history" | "sources";
 
 export function SidePane({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
@@ -20,11 +20,13 @@ export function SidePane({ sessionId }: { sessionId: string }) {
         <button className={tab === "proposals" ? "active" : ""} onClick={() => setTab("proposals")}>Proposals{myPending ? <span className="badge">{myPending}</span> : null}</button>
         <button className={tab === "decisions" ? "active" : ""} onClick={() => setTab("decisions")}>Decisions</button>
         <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>History</button>
+        <button className={tab === "sources" ? "active" : ""} onClick={() => setTab("sources")}>Sources</button>
       </div>
       {tab === "side" && <SideChannel sessionId={sessionId} />}
       {tab === "proposals" && <Proposals sessionId={sessionId} proposals={pending} />}
       {tab === "decisions" && <Decisions />}
       {tab === "history" && <History sessionId={sessionId} />}
+      {tab === "sources" && <Sources sessionId={sessionId} />}
     </div>
   );
 }
@@ -141,6 +143,42 @@ function Decisions() {
           {d.supersedes && <div className="mono">supersedes {state.decisions[d.supersedes]?.label}</div>}
         </div>
       ))}
+    </div>
+  );
+}
+
+function Sources({ sessionId }: { sessionId: string }) {
+  const state = useStore((s) => s.state);
+  const me = useStore((s) => s.me)!;
+  const setFocusArtifact = useStore((s) => s.setFocusArtifact);
+  const [mineOnly, setMineOnly] = useState(false);
+  const uploads = Object.values(state.uploads)
+    .filter((u) => !mineOnly || u.uploaderUserId === me.user!.id)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return (
+    <div className="pane-body">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <span className="muted" style={{ fontSize: 12 }}>Files uploaded to this session. Each became a card; removed cards stay listed with their file.</span>
+      </div>
+      <label className="row mono" style={{ gap: 6 }}>
+        <input type="checkbox" style={{ width: "auto" }} checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} /> mine only
+      </label>
+      {uploads.length === 0 && <div className="muted">Nothing uploaded yet. Use "Attach file" in the composer.</div>}
+      {uploads.map((u) => {
+        const art = u.artifactId ? state.artifacts[u.artifactId] : undefined;
+        const gone = !art || art.deleted;
+        const color = state.participants[u.uploaderUserId ?? ""]?.color;
+        return (
+          <div key={u.uploadId} className={"source-row" + (gone ? " gone" : "")}>
+            <span className="name" title={u.name}>{u.name}</span>
+            <span className="mono" style={{ color }}>{participantName(state, u.uploaderUserId)}</span>
+            <span className="mono">{Math.max(1, Math.round(u.bytes / 1024))} KB</span>
+            <a className="mono" href={`/api/v1/sessions/${sessionId}/files/${u.uploadId}`} target="_blank" rel="noreferrer">open</a>
+            {!gone && <button onClick={() => setFocusArtifact(u.artifactId)} title="Centre the canvas on this card">locate</button>}
+            {gone && <span className="mono">removed</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }

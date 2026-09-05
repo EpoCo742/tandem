@@ -157,8 +157,19 @@ export interface SessionState {
   conflicts: Record<string, Conflict>;
   brief: string;
   forkedFrom: { sessionId: string; commitId: string | null; title: string } | null;
+  uploads: Record<string, UploadInfo>;
   lastSeq: number;
   eventsById: Record<string, AnyLedgerEvent>;
+}
+
+export interface UploadInfo {
+  uploadId: string;
+  name: string;
+  mime: string;
+  bytes: number;
+  uploaderUserId: string | null;
+  artifactId: string | null;
+  createdAt: string;
 }
 
 export function emptyState(sessionId: string): SessionState {
@@ -180,6 +191,7 @@ export function emptyState(sessionId: string): SessionState {
     conflicts: {},
     brief: "",
     forkedFrom: null,
+    uploads: {},
     lastSeq: 0,
     eventsById: {},
   };
@@ -456,6 +468,17 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
         { id: p.commitId, parentId: p.parentCommitId, message: p.message, actorUserId: ev.actorUserId, turnId: ev.turnId, artifactVersions: p.artifactVersions, artifactVersionNos: p.artifactVersionNos, createdAt: ev.createdAt, seq: ev.seq },
       ];
       s.headCommitId = p.commitId;
+      return s;
+    }
+    case "upload.added": {
+      const p = ev.payload as Payloads["upload.added"];
+      s.uploads = { ...s.uploads, [p.uploadId]: { uploadId: p.uploadId, name: p.name, mime: p.mime, bytes: p.bytes, uploaderUserId: ev.actorUserId, artifactId: null, createdAt: ev.createdAt } };
+      return s;
+    }
+    case "source.ingested": {
+      const p = ev.payload as Payloads["source.ingested"];
+      const u = s.uploads[p.uploadId];
+      if (u) s.uploads = { ...s.uploads, [p.uploadId]: { ...u, artifactId: p.artifactId } };
       return s;
     }
     case "brief.updated": {

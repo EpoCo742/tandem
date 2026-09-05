@@ -21,10 +21,15 @@ export function gate(policy: Policy, risk: Risk): Gate {
 }
 
 export function classifyRisk(state: SessionState, op: ProposalOp, artifactId: string | null, actorUserId: string): Risk {
-  if (op === "delete") return "destructive";
   if (op === "create" || !artifactId) return "additive";
   const a = state.artifacts[artifactId];
   if (!a) return "additive";
+  if (op === "delete") {
+    // Removing a card that only you (or the AI acting for you) ever wrote is tidying your own
+    // work; removing anything someone else has contributed to is destructive and needs consent.
+    const soleAuthor = a.ownerUserId === actorUserId && a.versions.every((v) => v.authorUserId === actorUserId);
+    return soleAuthor ? "additive" : "destructive";
+  }
   const lastAuthor = a.current.authorUserId;
   if (lastAuthor === actorUserId || a.ownerUserId === actorUserId) return "additive";
   return "cross_owner_edit";

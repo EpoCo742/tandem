@@ -2,6 +2,8 @@
 //   TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake pnpm --filter @tandem/server dev
 // Usage: node scripts/smoke.mjs [baseUrl]
 import WebSocket from "ws";
+import * as Y from "yjs";
+import { HocuspocusProvider } from "@hocuspocus/provider";
 
 const BASE = process.argv[2] ?? "http://localhost:3000";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -179,6 +181,24 @@ assert(sourceCard && sourceCard.payload.artifactType === "source" && sourceCard.
 const fileRes = await fetch(`${BASE}/api/v1/sessions/${sessionId}/files/${up1.uploadId}`, { headers: { Cookie: alice.cookie } });
 assert(fileRes.ok && (await fileRes.text()).includes("Business rules"), "uploaded file is served to participants");
 
+// A message can carry an attachment (the source card id); the AI sees it named in the batch.
+const turnsBeforeAttach = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Fold the attached rules into the notes.", attachments: [up1.artifactId, "not-an-artifact"] });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeAttach, "attachment turn");
+const attachedMsg = subA.events.filter((e) => e.type === "message.posted").pop();
+assert(attachedMsg.payload.attachments.length === 1 && attachedMsg.payload.attachments[0] === up1.artifactId, "unknown attachment ids are dropped, known ones kept");
+
+// Deleting your own upload is tidying (applies at once); deleting someone else's work is a proposal.
+const del1 = await bob.call("DELETE", `/api/v1/sessions/${sessionId}/artifacts/${up1.artifactId}`, { rationale: "no longer needed" });
+assert(del1.status === "applied", "bob removed his own source card without approval");
+await wait(200);
+assert(subA.events.some((e) => e.type === "artifact.applied" && e.payload.artifactId === up1.artifactId && e.payload.op === "delete"), "delete recorded as a forward version");
+const del2 = await bob.call("DELETE", `/api/v1/sessions/${sessionId}/artifacts/${up2.artifactId}`, {});
+assert(del2.status === "pending_approval", "removing alice's upload becomes a proposal");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/proposals/${del2.proposalId}/resolve`, { decision: "reject" });
+const gone = await bob.call("DELETE", `/api/v1/sessions/${sessionId}/artifacts/${up1.artifactId}`, {}).catch((e) => e.message);
+assert(String(gone).includes("404"), "a removed card cannot be removed twice");
+
 // Compile the design document.
 const turnsBeforeCompile = subA.events.filter((e) => e.type === "turn.completed").length;
 await alice.call("POST", `/api/v1/sessions/${sessionId}/compile`);
@@ -186,7 +206,7 @@ await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").lengt
 const designDoc = subA.events.find((e) => e.type === "artifact.applied" && e.payload.artifactType === "design_doc");
 assert(designDoc, "compile produced a design_doc artifact");
 const docText = designDoc.payload.content.markdown;
-assert(docText.includes("## Decision log") && docText.includes("D-01") && docText.includes("```mermaid") && docText.includes("business-rules.md"), "design document contains decisions, diagrams and sources");
+assert(docText.includes("## Decision log") && docText.includes("D-01") && docText.includes("```mermaid") && !docText.includes("**business-rules.md**"), "design document contains decisions and diagrams; the removed upload is not listed under sources");
 
 // Data model drafted by the AI from the tables and events named so far.
 const turnsBeforeModel = subA.events.filter((e) => e.type === "turn.completed").length;
@@ -239,6 +259,35 @@ assert(!forkEvents.some((e) => e.type === "decision.recorded" && e.payload.statu
 assert(forkEvents.some((e) => e.type === "participant.joined" && e.actorUserId === bobId), "participants are carried into the fork");
 const forkMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
 assert(forkMeta.me.consented === false && forkMeta.forkedFrom.sessionId === sessionId, "participants must re-consent in the fork");
+
+// Canvas layout round-trips through the embedded Hocuspocus: a second client sees the first
+// client's write after the first has disconnected (this regressed silently once).
+const meta = await alice.call("GET", `/api/v1/sessions/${sessionId}`);
+function layoutClient() {
+  const doc = new Y.Doc();
+  const seen = [];
+  const provider = new HocuspocusProvider({
+    url: BASE.replace(/^http/, "ws") + "/collab",
+    name: `session:${sessionId}:layout`,
+    document: doc,
+    token: meta.collabToken,
+    WebSocketPolyfill: WebSocket,
+    onAuthenticated: () => seen.push("authenticated"),
+    onSynced: () => seen.push("synced"),
+  });
+  return { doc, provider, seen };
+}
+const l1 = layoutClient();
+await waitFor(() => l1.seen.includes("synced"), "layout client 1 sync", 8000);
+assert(l1.seen.includes("authenticated"), "layout client authenticated with the collab token");
+l1.doc.getMap("nodes").set("smoke-probe", { x: 10, y: 20, w: 640, h: 400 });
+await wait(400);
+l1.provider.destroy();
+const l2 = layoutClient();
+await waitFor(() => l2.seen.includes("synced"), "layout client 2 sync", 8000);
+const probe = l2.doc.getMap("nodes").get("smoke-probe");
+assert(probe && probe.w === 640, "layout written by one client is served to the next");
+l2.provider.destroy();
 
 // Export.
 const md = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);

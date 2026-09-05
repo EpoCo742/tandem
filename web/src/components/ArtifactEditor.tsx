@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { contentText, type Artifact } from "@tandem/shared";
 import { api } from "../api";
 
@@ -41,7 +42,7 @@ export function ArtifactEditor({ artifact: a, sessionId, onClose }: { artifact: 
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal-bg nodrag nowheel" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <h3>Edit {a.type} · v{a.current.versionNo}</h3>
@@ -54,6 +55,7 @@ export function ArtifactEditor({ artifact: a, sessionId, onClose }: { artifact: 
           {result && <span className="muted">{result}</span>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

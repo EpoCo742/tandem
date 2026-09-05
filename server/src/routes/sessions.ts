@@ -112,7 +112,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.post<{ Params: { id: string }; Body: { text: string; mode?: "directive" | "note"; replyTo?: string } }>("/api/v1/sessions/:id/messages", async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { text: string; mode?: "directive" | "note"; replyTo?: string; attachments?: string[] } }>("/api/v1/sessions/:id/messages", async (req, reply) => {
     const user = requireUser(req, reply);
     const me = participantOr403(req.params.id, user.id);
     if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot post" });
@@ -120,7 +120,10 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     if (mode === "directive" && !me.consentedAt) return reply.code(403).send({ error: "consent required before addressing the AI" });
     const text = String(req.body.text ?? "").trim();
     if (!text) return reply.code(400).send({ error: "empty message" });
-    const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: user.id, payload: { text, mode, attachments: [], replyTo: req.body.replyTo } });
+    // Attachments are artifact ids of source cards created by this user's uploads.
+    const state = getState(req.params.id);
+    const attachments = (req.body.attachments ?? []).filter((id) => typeof id === "string" && state.artifacts[id] && !state.artifacts[id]!.deleted).slice(0, 8);
+    const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: user.id, payload: { text, mode, attachments, replyTo: req.body.replyTo } });
     if (mode === "directive") brokerFor(req.params.id).onDirective(ev);
     db.update(schema.sessions).set({ updatedAt: now() }).where(eq(schema.sessions.id, req.params.id)).run();
     return { eventId: ev.id, seq: ev.seq };
@@ -177,6 +180,33 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       provenance: [{ sectionId: "edit", derivedFrom: [] }],
     });
     if (outcome.status === "applied") createCommit(req.params.id, user.id, null, `${user.displayName || user.handle} edited ${a.title}`);
+    return outcome;
+  });
+
+  app.delete<{ Params: { id: string; artifactId: string }; Body: { rationale?: string } | undefined }>("/api/v1/sessions/:id/artifacts/:artifactId", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot delete" });
+    const state = getState(req.params.id);
+    const a = state.artifacts[req.params.artifactId];
+    if (!a || a.deleted) return reply.code(404).send({ error: "artifact not found" });
+    const outcome = requestChange({
+      sessionId: req.params.id,
+      turnId: null,
+      actorKind: "user",
+      actorUserId: user.id,
+      op: "delete",
+      artifactId: a.id,
+      artifactType: a.type,
+      title: a.title,
+      content: a.current.content,
+      summary: a.current.summary,
+      rationale: req.body?.rationale ?? "Removed by hand",
+      baseVersionNo: null,
+      causedBy: [],
+      provenance: a.current.provenance,
+    });
+    if (outcome.status === "applied") createCommit(req.params.id, user.id, null, `${user.displayName || user.handle} removed ${a.title}`);
     return outcome;
   });
 

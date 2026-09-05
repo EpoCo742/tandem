@@ -27,6 +27,8 @@ interface Store {
   setHighlight: (ids: string[]) => void;
   connected: boolean;
   setConnected: (c: boolean) => void;
+  focusArtifactId: string | null;
+  setFocusArtifact: (id: string | null) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -71,4 +73,6 @@ export const useStore = create<Store>((set, get) => ({
   setHighlight: (highlight) => set({ highlight }),
   connected: false,
   setConnected: (connected) => set({ connected }),
+  focusArtifactId: null,
+  setFocusArtifact: (focusArtifactId) => set({ focusArtifactId }),
 }));

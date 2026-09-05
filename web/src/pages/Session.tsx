@@ -8,6 +8,7 @@ import { navigate } from "../App";
 import { ConversationPane } from "../components/ConversationPane";
 import { Canvas } from "../components/Canvas";
 import { SidePane } from "../components/SidePane";
+import { ExportPreview } from "../components/ExportPreview";
 
 export function Session({ sessionId }: { sessionId: string }) {
   const me = useStore((s) => s.me)!;
@@ -19,6 +20,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const connected = useStore((s) => s.connected);
   const [err, setErr] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const collabRef = useRef<Collab | null>(null);
   const [collab, setCollab] = useState<Collab | null>(null);
 
@@ -79,8 +81,9 @@ export function Session({ sessionId }: { sessionId: string }) {
         )}
         <button className="primary" title="Ask the AI to assemble a design document from the canvas and decision registry" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/compile`).catch((e) => setErr((e as Error).message))}>Compile design doc</button>
         <button title="Start a new session from the current canvas and agreed decisions; this one stays intact" onClick={() => api<{ id: string }>("POST", `/api/v1/sessions/${sessionId}/fork`, {}).then((r) => navigate(`/s/${r.id}`)).catch((e) => setErr((e as Error).message))}>Fork as v2</button>
-        <a href={`/api/v1/sessions/${sessionId}/export`} target="_blank" rel="noreferrer"><button>Export .md</button></a>
+        <button onClick={() => setExporting(true)} title="Preview the Markdown export, then copy or download it">Export .md</button>
       </TopBar>
+      {exporting && <ExportPreview sessionId={sessionId} title={state.title || meta.title} onClose={() => setExporting(false)} />}
       <ConversationPane sessionId={sessionId} />
       <div className="canvas-wrap">{collab ? <Canvas sessionId={sessionId} collab={collab} /> : <div className="page muted">Connecting canvas…</div>}</div>
       <SidePane sessionId={sessionId} />

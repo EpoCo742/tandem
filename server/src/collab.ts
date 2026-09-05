@@ -46,6 +46,15 @@ function toFetchRequest(req: IncomingMessage): Request {
 
 export async function registerCollabSocket(app: FastifyInstance) {
   app.get("/collab", { websocket: true }, (socket: WebSocket, req) => {
-    hocuspocus.handleConnection(socket as never, toFetchRequest(req.raw));
+    // Hocuspocus 4 does not subscribe to the socket itself: the integration must feed it every
+    // frame and tell it when the socket closes. Without this the client never authenticates,
+    // the server times the connection out, and layout changes never leave the browser.
+    const conn = hocuspocus.handleConnection(socket as never, toFetchRequest(req.raw));
+    socket.on("message", (data: Buffer | ArrayBuffer | Buffer[]) => {
+      const buf = Array.isArray(data) ? Buffer.concat(data) : Buffer.isBuffer(data) ? data : Buffer.from(data);
+      conn.handleMessage(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength));
+    });
+    socket.on("close", (code: number, reason: Buffer) => conn.handleClose({ code, reason: reason.toString() } as never));
+    socket.on("error", () => conn.handleClose(undefined));
   });
 }

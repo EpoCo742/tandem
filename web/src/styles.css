@@ -117,8 +117,8 @@ button.icon { padding: 3px 7px; font-family: var(--mono); font-size: 11px; lette
 .pane-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .msg .who .chip { white-space: normal; }
 .pane-foot { border-top: 1px solid var(--line); padding: 10px 12px; }
-.tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--line); }
-.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 8px; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.tabs { display: flex; flex-wrap: wrap; gap: 0 2px; padding: 4px 6px 0; border-bottom: 1px solid var(--line); }
+.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 5px 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
 .tabs button.active { color: var(--ink); border-bottom-color: var(--ink); }
 .tabs button .badge { margin-left: 4px; background: var(--warn); color: var(--panel); border-radius: 8px; padding: 0 5px; font-size: 10px; }
 
@@ -144,12 +144,29 @@ button.icon { padding: 3px 7px; font-family: var(--mono); font-size: 11px; lette
 
 /* canvas cards */
 .canvas-wrap { position: relative; min-height: 0; background: var(--ground); }
-.art { width: 420px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--ai); box-shadow: var(--shadow); border-radius: 3px; font-size: 13px; }
+.art { width: 420px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--ai); box-shadow: var(--shadow); border-radius: 3px; font-size: 13px; display: flex; flex-direction: column; }
+.art.sized { width: 100%; height: 100%; }
+.art.sized .art-body { max-height: none; flex: 1; min-height: 0; }
+.art.sized .mermaid-box svg, .modal .modal-body .mermaid-box svg { max-width: none !important; width: 100%; height: auto; }
+.react-flow__node.selected .art { outline: 2px solid var(--link); outline-offset: 1px; }
+.art-resize-line { border-color: var(--link) !important; }
+.art-resize-handle { width: 9px !important; height: 9px !important; border-radius: 2px !important; background: var(--link) !important; border: 1px solid var(--panel) !important; }
 .art.blocked { border-color: var(--warn); }
 .art.dp { border-top-color: var(--warn); }
 .art-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); cursor: grab; }
 .art-head .title { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .art-body { padding: 10px; max-height: 420px; overflow: auto; }
+.art-body .md pre, .art-body .md code { font-family: var(--mono); font-size: 12px; }
+.art-body .md pre { background: var(--panel-2); padding: 6px; overflow-x: auto; }
+.art-body .md ul, .art-body .md ol { padding-left: 18px; margin: 4px 0; }
+.attach { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); border: 1px dashed var(--line); padding: 2px 8px; border-radius: 3px; max-width: 100%; }
+.attach .x { border: none; background: none; padding: 0 2px; color: var(--ink-3); font-size: 13px; line-height: 1; }
+.attach-chip { display: inline-block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; margin-top: 4px; }
+.source-row { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.source-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-row.gone { color: var(--ink-3); }
+.source-row button { padding: 1px 6px; font-size: 10.5px; font-family: var(--mono); }
+.confirm { display: inline-flex; gap: 4px; align-items: center; }
 .art-body pre { margin: 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
 .art-body .md p { margin: 0 0 6px; }
 .art-body .md h1, .art-body .md h2, .art-body .md h3 { font-size: 14px; margin: 8px 0 4px; }
@@ -180,6 +197,17 @@ button.icon { padding: 3px 7px; font-family: var(--mono); font-size: 11px; lette
 .modal-bg { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 50; }
 .modal { background: var(--panel); border: 1px solid var(--line); width: min(760px, 92vw); max-height: 90vh; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .modal textarea { min-height: 280px; font-family: var(--mono); font-size: 12.5px; }
+.modal.wide { width: min(1200px, 94vw); height: 90vh; }
+.modal .modal-body { flex: 1; min-height: 0; overflow: auto; }
+.modal .modal-body.md-doc { padding: 4px 8px; line-height: 1.5; }
+.modal .modal-body.md-doc h1 { font-size: 22px; margin: 12px 0 6px; }
+.modal .modal-body.md-doc h2 { font-size: 17px; margin: 14px 0 6px; }
+.modal .modal-body.md-doc h3 { font-size: 14px; margin: 10px 0 4px; }
+.modal .modal-body.md-doc pre { background: var(--panel-2); padding: 8px; overflow-x: auto; font-family: var(--mono); font-size: 12px; }
+.modal .modal-body.md-doc table { border-collapse: collapse; }
+.modal .modal-body.md-doc td, .modal .modal-body.md-doc th { border-bottom: 1px solid var(--line); padding: 3px 8px; text-align: left; }
+.modal .modal-body pre.raw { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; margin: 0; }
+.modal .modal-body .mermaid-box svg { max-width: 100%; height: auto; }
 
 .presence { display: flex; gap: 4px; }
 
