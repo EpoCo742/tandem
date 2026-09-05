@@ -100,6 +100,7 @@ export interface Decision {
   supersededBy: string | null;
   agreedBy: string[];
   evidence: string[];
+  about: string[];
   eventId: string;
   createdAt: string;
 }
@@ -409,6 +410,7 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
         supersededBy: null,
         agreedBy: p.agreedBy,
         evidence: p.evidence,
+        about: p.about ?? [],
         eventId: ev.id,
         createdAt: ev.createdAt,
       };

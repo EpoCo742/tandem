@@ -1,6 +1,6 @@
 import { ulid } from "ulid";
-import { nextDecisionLabel, toolDescriptions, toolSchemas, type ToolName, type ToolResult } from "@tandem/shared";
-import type { DecisionPointContent } from "@tandem/shared";
+import { emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
+import type { DecisionPointContent, SessionState } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
@@ -33,7 +33,46 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
 
   const common = { sessionId: scope.sessionId, turnId: scope.turnId, actorKind: "ai" as const, actorUserId: scope.onBehalfOf, causedBy: scope.batchEventIds };
 
+  // The architecture model is one artifact per session; the model tools read-modify-write it
+  // through the same governance as any other change (someone else's model -> proposal).
+  const modelArtifact = (state: SessionState) => Object.values(state.artifacts).find((a) => a.type === "arch_model" && !a.deleted);
+  const writeModel = (next: ArchModelContent, rationale: string, summary: string, unknown?: string[]): ToolResult => {
+    const state = getState(scope.sessionId);
+    const existing = modelArtifact(state);
+    const r = requestChange({
+      ...common,
+      op: existing ? "update" : "create",
+      artifactId: existing?.id ?? null,
+      artifactType: "arch_model",
+      title: existing?.title ?? "Architecture model",
+      content: next,
+      summary,
+      rationale,
+      baseVersionNo: existing?.current.versionNo ?? null,
+      provenance: [{ sectionId: "model", derivedFrom: scope.batchEventIds }],
+    });
+    if (r.status === "applied") return { status: "model_updated", artifactId: r.artifactId, versionNo: r.versionNo, components: next.components.length, relationships: next.relationships.length, ...(unknown?.length ? { unknown } : {}) };
+    return r as ToolResult;
+  };
+  const currentModel = (): ArchModelContent => (modelArtifact(getState(scope.sessionId))?.current.content as ArchModelContent | undefined) ?? emptyModel();
+
   return [
+    bind("upsert_components", async (input) => {
+      const next = upsertComponents(currentModel(), input.components, input.derivedFrom);
+      return writeModel(next, input.rationale, `Model: ${next.components.length} components, ${next.relationships.length} relationships`);
+    }),
+
+    bind("upsert_relationships", async (input) => {
+      const { model, unknown } = upsertRelationships(currentModel(), input.relationships, input.derivedFrom);
+      if (unknown.length === input.relationships.length * 2) return { status: "error", message: `Unknown component ids: ${unknown.join(", ")}. Call upsert_components first.` };
+      return writeModel(model, input.rationale, `Model: ${model.components.length} components, ${model.relationships.length} relationships`, unknown);
+    }),
+
+    bind("remove_from_model", async (input) => {
+      const next = removeFromModel(currentModel(), input.componentIds ?? [], input.relationshipIds ?? []);
+      return writeModel(next, input.rationale, `Model: ${next.components.length} components, ${next.relationships.length} relationships`);
+    }),
+
     bind("create_artifact", async (input) => {
       const r = requestChange({ ...common, op: "create", artifactId: null, artifactType: input.type, title: input.title, content: input.content, summary: input.summary, rationale: input.rationale, baseVersionNo: null });
       return r as ToolResult;
@@ -77,7 +116,7 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
         actorUserId: scope.onBehalfOf,
         turnId: scope.turnId,
         causedBy: input.evidence.length ? input.evidence : scope.batchEventIds,
-        payload: { decisionId, label, statement: input.statement, status, supersedes: input.supersedes, agreedBy: input.agreedBy, evidence: input.evidence },
+        payload: { decisionId, label, statement: input.statement, status, supersedes: input.supersedes, agreedBy: input.agreedBy, evidence: input.evidence, about: input.about ?? [] },
       });
       return { status: "recorded", decisionId, label };
     }),

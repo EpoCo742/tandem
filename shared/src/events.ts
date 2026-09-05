@@ -18,7 +18,9 @@ export type ArtifactType =
   | "source"
   | "sketch"
   | "code"
-  | "design_doc";
+  | "design_doc"
+  | "arch_model"
+  | "view";
 
 export type TurnStatus =
   | "collecting"
@@ -116,6 +118,7 @@ export type Payloads = {
     supersedes: string | null;
     agreedBy: string[];
     evidence: string[];
+    about?: string[]; // architecture model component ids this decision concerns
   };
   "decision.voted": { decisionPointArtifactId: string; optionId: string };
   "decision.resolved": { decisionPointArtifactId: string; optionId: string; decisionId: string | null };

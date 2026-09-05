@@ -12,6 +12,10 @@ export function SidePane({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
   const me = useStore((s) => s.me)!;
   const [tab, setTab] = useState<Tab>("side");
+  const focusComponent = useStore((s) => s.focusComponentId);
+  useEffect(() => {
+    if (focusComponent) setTab("decisions");
+  }, [focusComponent]);
   const pending = pendingProposals(state);
   const myCalls = Object.values(state.externalCalls).filter((c) => c.status === "pending" && c.ownerUserId === me.user!.id).length;
   const myPending = pending.filter((p) => p.requiresApprovalFrom.includes(me.user!.id)).length + myCalls;
@@ -159,10 +163,22 @@ function diffPreview(a: string, b: string): string {
 function Decisions() {
   const state = useStore((s) => s.state);
   const setHighlight = useStore((s) => s.setHighlight);
-  const decisions = Object.values(state.decisions).sort((a, b) => a.label.localeCompare(b.label));
+  const focus = useStore((s) => s.focusComponentId);
+  const setFocus = useStore((s) => s.setFocusComponent);
+  const model = Object.values(state.artifacts).find((x) => x.type === "arch_model" && !x.deleted)?.current.content as { components: { id: string; name: string }[] } | undefined;
+  const cname = (id: string) => model?.components.find((c) => c.id === id)?.name ?? id;
+  const all = Object.values(state.decisions).sort((a, b) => a.label.localeCompare(b.label));
+  const decisions = focus ? all.filter((d) => d.about.includes(focus)) : all;
   return (
     <div className="pane-body">
-      {decisions.length === 0 && <div className="muted">The AI records settled statements here and checks new directives against them.</div>}
+      {focus && (
+        <div className="row" style={{ fontSize: 12 }}>
+          <span>Decisions about <b>{cname(focus)}</b></span>
+          <button style={{ padding: "0 6px", fontSize: 10.5 }} onClick={() => setFocus(null)}>show all</button>
+        </div>
+      )}
+      {all.length === 0 && <div className="muted">The AI records settled statements here and checks new directives against them.</div>}
+      {focus && decisions.length === 0 && all.length > 0 && <div className="muted">No decision names this component yet.</div>}
       {decisions.map((d) => (
         <div key={d.id} className={"decision " + d.status} onClick={() => setHighlight(d.evidence)} style={{ cursor: "pointer" }} title="Highlight the evidence messages">
           <div className="row" style={{ justifyContent: "space-between" }}>
@@ -170,6 +186,7 @@ function Decisions() {
             <span>{d.agreedBy.map((u) => <span key={u} className="chip solid" style={{ background: state.participants[u]?.color ?? AI_COLOR, marginLeft: 3 }}>{participantName(state, u)}</span>)}</span>
           </div>
           <div>{d.statement}</div>
+          {d.about.length > 0 && <div style={{ marginTop: 3 }}>{d.about.map((id) => <span key={id} className="chip" style={{ marginRight: 4, color: "var(--ink-2)", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setFocus(id); }}>{cname(id)}</span>)}</div>}
           {d.supersedes && <div className="mono">supersedes {state.decisions[d.supersedes]?.label}</div>}
         </div>
       ))}

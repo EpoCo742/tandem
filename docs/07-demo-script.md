@@ -2,7 +2,7 @@
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
-This file tracks the features as they land. Last updated 2026-09-05 (standing permissions for external writes, external actions in the export, print to PDF).
+This file tracks the features as they land. Last updated 2026-09-05 (architecture model under the diagrams).
 
 ## Two ways to run it
 
@@ -52,9 +52,17 @@ Feature: near-simultaneous directives batched into one turn, streaming to both, 
 | Alice | "Service A publishes an OrderPlaced event to Kafka." |
 | Bob (within ~1.5 s) | "Service B subscribes to OrderPlaced and writes to the orders table in Postgres." |
 
-Fake architect: creates the **System architecture** diagram (Service A → Kafka, Service B → Postgres), records **D-01** for Alice and **D-02** for Bob, asks whether to draft the data model next.
+Fake architect: builds the **Architecture model** (Service A, Kafka, Service B, Postgres with their kinds and two relationships), creates the **System architecture** view drawn from it, records **D-01** for Alice and **D-02** for Bob naming the components they concern, asks whether to draft the data model next.
 
-Point at: one AI reply for two people; the badge "ran on alice's fake (sponsor)"; the card footer "AI for Alice · from 2 msgs" and the highlight when clicked; the Decisions tab.
+Point at: one AI reply for two people; the badge "ran on alice's fake (sponsor)"; the model card's table, where clicking Kafka switches the side pane to the decisions about it; the view card, which is generated from the model rather than drawn; the card footer "AI for Alice · from 2 msgs" and the highlight when clicked.
+
+## Stage 2b: the model is the truth
+
+| Who | Does |
+|---|---|
+| Alice | **edit** on the Architecture model card, changes Service B's `name` to `Fulfilment`, saves. |
+
+Point at: the System architecture view redraws with the new name without anyone touching it; the decision recorded against Service B still lists the component, now under its new name. A real model does the same rename with one tool call.
 
 ## Stage 3: proposal
 
@@ -62,10 +70,10 @@ Feature: hybrid policy. A cross-owner edit waits for the owner; auto-applies aft
 
 | Who | Does |
 |---|---|
-| Bob | **edit** on the diagram card, appends a line such as `  %% retry policy: 3x with backoff`, saves. |
+| Bob | **edit** on the Architecture model card (Alice's turn created it), adds a component such as `{ "id": "cache", "name": "Cache", "kind": "database", "technology": "Redis", "derivedFrom": [] }`, saves. |
 | Alice | Sees the badge on **Proposals**, the risk label *cross owner edit*, the diff, the countdown. Clicks **Approve**. |
 
-Point at: the card is now v2 attributed to Bob; the version dropdown; the History tab gained a commit. To show auto-apply instead, let the countdown run out.
+Point at: the model card is now v2 attributed to Bob, and the view shows the cache; the version dropdown; the History tab gained a commit. To show auto-apply instead, let the countdown run out.
 
 ## Stage 4: decision point
 
@@ -82,7 +90,7 @@ Fake architect: this shares words with D-01 and contains "drop"/"instead", so it
 | Bob | Votes **Combine both**. |
 | Alice | Tries **edit** on the diagram: disabled while blocked. Votes **Combine both**. |
 
-Fake architect (resolution turn, no one types anything): records **D-03** agreed by both voters, supersedes D-01, updates the diagram with the chosen option.
+Fake architect (resolution turn, no one types anything): records **D-03** agreed by both voters, supersedes D-01, captions the System architecture view with the chosen option.
 
 Point at: the Decisions tab with D-01 struck through and D-03 "supersedes D-01"; clicking a decision highlights its evidence.
 

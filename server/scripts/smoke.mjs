@@ -106,7 +106,12 @@ const turns = subA.events.filter((e) => e.type === "turn.started");
 assert(turns.length === 1, "both directives batched into a single turn");
 assert(turns[0].payload.batchEventIds.length === 2, "turn batch has two messages");
 const artifacts = subA.events.filter((e) => e.type === "artifact.applied");
-assert(artifacts.some((e) => e.payload.artifactType === "mermaid"), "AI created a mermaid artifact");
+assert(artifacts.some((e) => e.payload.artifactType === "arch_model"), "AI built the architecture model");
+assert(artifacts.some((e) => e.payload.artifactType === "view"), "AI created a view of the model");
+const modelNow = artifacts.filter((e) => e.payload.artifactType === "arch_model").pop().payload.content;
+assert(modelNow.components.length === 4 && modelNow.relationships.length === 2, `model has ${modelNow.components.length} components and ${modelNow.relationships.length} relationships`);
+assert(modelNow.components.find((c) => c.id === "kafka")?.kind === "queue" && modelNow.components.find((c) => c.id === "postgres")?.kind === "database", "component kinds are inferred");
+assert(subA.events.filter((e) => e.type === "decision.recorded").every((e) => e.payload.about.length >= 2), "decisions name the components they concern");
 assert(subA.events.filter((e) => e.type === "decision.recorded").length >= 2, "AI recorded a decision per speaker");
 assert(subA.events.some((e) => e.type === "commit.created"), "a commit was created after the turn");
 assert(subA.ephemeral.some((e) => e.kind === "ai.delta"), "tokens streamed to alice");
@@ -115,14 +120,24 @@ await waitFor(() => subB.events.length === subA.events.length, "bob's client to 
 assert(subB.events.length === subA.events.length, "both clients see the same ledger");
 
 // Bob edits Alice's-turn artifact directly -> under hybrid this is a cross-owner edit -> proposal.
-const diagram = artifacts.find((e) => e.payload.artifactType === "mermaid").payload;
+const diagram = artifacts.filter((e) => e.payload.artifactType === "arch_model").pop().payload;
 const edit = await bob.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${diagram.artifactId}/versions`, {
-  content: { ...diagram.content, source: diagram.content.source + "\n  %% retry policy: 3x with backoff" },
-  rationale: "Add retry note",
+  content: { ...diagram.content, components: [...diagram.content.components, { id: "cache", name: "Cache", kind: "database", technology: "Redis", derivedFrom: [] }] },
+  rationale: "Add a cache",
 });
 assert(edit.status === "pending_approval", "bob's edit of an artifact owned by alice became a proposal");
 const approved = await alice.call("POST", `/api/v1/sessions/${sessionId}/proposals/${edit.proposalId}/resolve`, { decision: "approve" });
-assert(approved.status === "applied" && approved.versionNo === 2, "alice approved; artifact is now v2");
+assert(approved.status === "applied" && approved.versionNo === diagram.versionNo + 1, `alice approved; artifact is now v${approved.versionNo}`);
+
+// Renaming a component in the model shows up in every view, since views are drawn from the model.
+const modelV2 = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === diagram.artifactId).pop().payload.content;
+const renamed = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${diagram.artifactId}/versions`, {
+  content: { ...modelV2, components: modelV2.components.map((c) => (c.id === "service-b" ? { ...c, name: "Fulfilment" } : c)) },
+  rationale: "Rename Service B",
+});
+assert(renamed.status === "applied", "alice renamed a component in her own model");
+const mdAfterRename = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(mdAfterRename.includes("Fulfilment") && !/n_service_b\["Service B/.test(mdAfterRename), "the generated view uses the new name");
 
 // Contradiction: Alice reverses an agreed decision -> decision point, no artifact change.
 const versionsBefore = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === diagram.artifactId).length;
@@ -130,6 +145,8 @@ await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Drop
 await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length >= 2, "conflict turn");
 const dp = subA.events.find((e) => e.type === "artifact.applied" && e.payload.artifactType === "decision_point");
 assert(dp, "AI raised a decision point");
+const viewArt = artifacts.find((e) => e.payload.artifactType === "view").payload;
+assert(dp.payload.content.blocksArtifactIds.includes(diagram.artifactId) && dp.payload.content.blocksArtifactIds.includes(viewArt.artifactId), "the decision point blocks the model and its views");
 assert(subA.events.some((e) => e.type === "conflict.flagged"), "conflict flagged");
 const versionsAfter = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === diagram.artifactId).length;
 assert(versionsAfter === versionsBefore, "contested diagram was not changed");
@@ -147,8 +164,8 @@ await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").lengt
 assert(subA.events.some((e) => e.type === "decision.resolved"), "decision.resolved emitted");
 const superseded = subA.events.filter((e) => e.type === "decision.recorded").find((e) => e.payload.supersedes);
 assert(superseded, "resolution recorded a superseding decision");
-const diagramVersions = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === diagram.artifactId);
-assert(diagramVersions.length > versionsAfter, "diagram updated after the decision point resolved");
+const viewVersions = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === viewArt.artifactId);
+assert(viewVersions.length >= 2 && /Resolved:/.test(viewVersions.pop().payload.content.note ?? ""), "view captioned after the decision point resolved");
 
 // Revert to the first commit.
 const commits = subA.events.filter((e) => e.type === "commit.created");

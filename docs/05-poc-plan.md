@@ -211,6 +211,8 @@ Validated against a real Copilot seat on 2026-09-04: the model drives the canvas
 
 2026-09-05, fourth batch: standing permissions for outbound writes (approve once for a target, listed and revocable per server), external actions in the History tab and the export, and print-to-PDF from the export preview. Also card renaming, images scaling with resized cards, and a reset-to-automatic-size button.
 
+2026-09-05, roadmap item A1: the architecture model. One `arch_model` card per session (components with kinds, technology and boundaries; relationships with kinds and labels) is the source of truth for structure; `view` cards (context, container, component) are generated from it at render time, in the prompt and in the export, so a rename propagates everywhere; three model tools with the usual governance; decisions carry `about` component ids and the model card filters the Decisions tab by component. The offline provider is model-first.
+
 Not yet done: see `09-roadmap.md` (per-user MCP servers first, then collapsed source cards, an editing indicator, live text editing, GitHub App tokens, M4).
 
 ## 8. Known POC limitations to state in the demo

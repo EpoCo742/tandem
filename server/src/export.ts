@@ -1,4 +1,17 @@
-import { contentText, dataModelMarkdown, liveArtifacts, participantName, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent } from "@tandem/shared";
+import { contentText, dataModelMarkdown, liveArtifacts, modelToMermaid, participantName, type ArchModelContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+
+function modelMarkdown(m: ArchModelContent): string[] {
+  const out: string[] = ["| Component | Kind | Technology | Boundary | Description |", "|---|---|---|---|---|"];
+  const bname = (id?: string) => (id ? m.boundaries.find((b) => b.id === id)?.name ?? id : "");
+  for (const c of m.components) out.push(`| ${c.name} | ${c.kind} | ${c.technology ?? ""} | ${bname(c.boundary)} | ${c.description ?? ""} |`);
+  if (m.relationships.length) {
+    out.push("", "Relationships:", "");
+    const name = (id: string) => m.components.find((c) => c.id === id)?.name ?? id;
+    for (const r of m.relationships) out.push(`- ${name(r.from)} ${r.kind.replace("_", " ")} ${name(r.to)}${r.label ? ` (${r.label})` : ""}`);
+  }
+  out.push("");
+  return out;
+}
 
 const EXCERPT_LINES = 40;
 
@@ -23,12 +36,19 @@ export function exportMarkdown(s: SessionState): string {
   if (s.brief) out.push("## Brief", "", s.brief, "");
 
   out.push("## Artifacts", "");
+  const model = liveArtifacts(s).find((a) => a.type === "arch_model")?.current.content as ArchModelContent | undefined;
   for (const a of liveArtifacts(s)) {
     const v = a.current;
     out.push(`### ${a.title}`, "");
     out.push(`<!-- artifact ${a.id} v${v.versionNo}; author ${v.authorKind}:${participantName(s, v.authorUserId)}; provenance ${JSON.stringify(v.provenance)} -->`);
     out.push(`*${a.type} · v${v.versionNo} · ${v.authorKind === "ai" ? "AI for " : ""}${participantName(s, v.authorUserId)}*`, "");
     if (a.type === "mermaid") out.push("```mermaid", contentText(a.type, v.content), "```", "");
+    else if (a.type === "view") {
+      const vc = v.content as ViewContent;
+      if (model) out.push("```mermaid", modelToMermaid(model, vc), "```", "");
+      else out.push("*(view without an architecture model)*", "");
+      if (vc.note) out.push(`*${vc.note}*`, "");
+    } else if (a.type === "arch_model") out.push(...modelMarkdown(v.content as ArchModelContent));
     else if (a.type === "decision_point") {
       const c = v.content as DecisionPointContent;
       out.push(c.context, "");

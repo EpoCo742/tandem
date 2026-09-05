@@ -1,4 +1,5 @@
 import type { Option, Provenance } from "./events.js";
+import { modelToText, type ArchModelContent, type ViewContent } from "./model.js";
 
 export interface Section {
   id: string;
@@ -63,6 +64,8 @@ export interface CodeContent {
 }
 
 export type ArtifactContent =
+  | ArchModelContent
+  | ViewContent
   | MermaidContent
   | MarkdownContent
   | DataModelContent
@@ -122,6 +125,12 @@ export function contentText(type: string, content: unknown): string {
       return `${c.question}\n${c.context}`;
     case "source":
       return String(c.extractedText ?? c.aiSummary ?? "");
+    case "arch_model":
+      return modelToText(content as ArchModelContent);
+    case "view": {
+      const v = content as ViewContent;
+      return `${v.kind} view${v.focus ? ` of ${v.focus}` : ""}${v.note ? `: ${v.note}` : ""} (rendered from the architecture model)`;
+    }
     default:
       return JSON.stringify(content);
   }

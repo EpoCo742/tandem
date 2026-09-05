@@ -27,7 +27,8 @@ export function ArtifactEditor({ artifact: a, sessionId, onClose }: { artifact: 
     let content: unknown;
     if (a.type === "mermaid") content = { ...base, source: text };
     else if (a.type === "code") content = { ...base, source: text };
-    else if (a.type === "data_model") {
+    else if (a.type === "view") content = { ...base, note: text.trim() || undefined };
+    else if (a.type === "data_model" || a.type === "arch_model") {
       try {
         content = { ...base, ...JSON.parse(text) };
       } catch (e) {

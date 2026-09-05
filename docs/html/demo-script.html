@@ -44,13 +44,13 @@ strong{font-weight:600}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
 </style>
 <div class="page">
-<nav class="toc"><div class="k">Contents</div><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-13-external-tools-mcp">Stage 13: external tools (MCP)</a><a href="#stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</a><a href="#stage-14-theme-and-canvas-grid-no-script">Stage 14: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
+<nav class="toc"><div class="k">Contents</div><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-2b-the-model-is-the-truth">Stage 2b: the model is the truth</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-13-external-tools-mcp">Stage 13: external tools (MCP)</a><a href="#stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</a><a href="#stage-14-theme-and-canvas-grid-no-script">Stage 14: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
 <article>
 <div class="eyebrow"><span>Tandem design package · 07 · Demo script</span><span>2026-09-03</span></div>
 <h1>Tandem POC: Demo Script</h1>
 
 <p>The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.</p>
-<p>This file tracks the features as they land. Last updated 2026-09-05 (standing permissions for external writes, external actions in the export, print to PDF).</p>
+<p>This file tracks the features as they land. Last updated 2026-09-05 (architecture model under the diagrams).</p>
 <h2 id="two-ways-to-run-it">Two ways to run it</h2>
 <p><strong>By hand.</strong> Alice in a normal browser window, Bob in a private window (or via <code>bob.mjs</code> below). Type the quoted lines exactly; the fake architect keys off specific words (see the trigger table at the end).</p>
 <p><strong>Seeded.</strong> With a dev-auth server running (<code>TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake</code>):</p>
@@ -119,8 +119,24 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 </tbody>
 </table></div>
-<p>Fake architect: creates the <strong>System architecture</strong> diagram (Service A → Kafka, Service B → Postgres), records <strong>D-01</strong> for Alice and <strong>D-02</strong> for Bob, asks whether to draft the data model next.</p>
-<p>Point at: one AI reply for two people; the badge "ran on alice's fake (sponsor)"; the card footer "AI for Alice · from 2 msgs" and the highlight when clicked; the Decisions tab.</p>
+<p>Fake architect: builds the <strong>Architecture model</strong> (Service A, Kafka, Service B, Postgres with their kinds and two relationships), creates the <strong>System architecture</strong> view drawn from it, records <strong>D-01</strong> for Alice and <strong>D-02</strong> for Bob naming the components they concern, asks whether to draft the data model next.</p>
+<p>Point at: one AI reply for two people; the badge "ran on alice's fake (sponsor)"; the model card's table, where clicking Kafka switches the side pane to the decisions about it; the view card, which is generated from the model rather than drawn; the card footer "AI for Alice · from 2 msgs" and the highlight when clicked.</p>
+<h2 id="stage-2b-the-model-is-the-truth">Stage 2b: the model is the truth</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice</td>
+<td><strong>edit</strong> on the Architecture model card, changes Service B's <code>name</code> to <code>Fulfilment</code>, saves.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Point at: the System architecture view redraws with the new name without anyone touching it; the decision recorded against Service B still lists the component, now under its new name. A real model does the same rename with one tool call.</p>
 <h2 id="stage-3-proposal">Stage 3: proposal</h2>
 <p>Feature: hybrid policy. A cross-owner edit waits for the owner; auto-applies after the timeout.</p>
 <div class="table-wrap"><table>
@@ -133,7 +149,7 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 <tbody>
 <tr>
 <td>Bob</td>
-<td><strong>edit</strong> on the diagram card, appends a line such as <code>%% retry policy: 3x with backoff</code>, saves.</td>
+<td><strong>edit</strong> on the Architecture model card (Alice's turn created it), adds a component such as <code>{ "id": "cache", "name": "Cache", "kind": "database", "technology": "Redis", "derivedFrom": [] }</code>, saves.</td>
 </tr>
 <tr>
 <td>Alice</td>
@@ -141,7 +157,7 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 </tbody>
 </table></div>
-<p>Point at: the card is now v2 attributed to Bob; the version dropdown; the History tab gained a commit. To show auto-apply instead, let the countdown run out.</p>
+<p>Point at: the model card is now v2 attributed to Bob, and the view shows the cache; the version dropdown; the History tab gained a commit. To show auto-apply instead, let the countdown run out.</p>
 <h2 id="stage-4-decision-point">Stage 4: decision point</h2>
 <p>Feature: contradiction detection against the decision registry; blocked artifacts; majority vote; resolution turn; supersession.</p>
 <div class="table-wrap"><table>
@@ -177,7 +193,7 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 </tbody>
 </table></div>
-<p>Fake architect (resolution turn, no one types anything): records <strong>D-03</strong> agreed by both voters, supersedes D-01, updates the diagram with the chosen option.</p>
+<p>Fake architect (resolution turn, no one types anything): records <strong>D-03</strong> agreed by both voters, supersedes D-01, captions the System architecture view with the chosen option.</p>
 <p>Point at: the Decisions tab with D-01 struck through and D-03 "supersedes D-01"; clicking a decision highlights its evidence.</p>
 <h2 id="stage-5-side-channel">Stage 5: side channel</h2>
 <p>Feature: human-only lane; promotion keeps the original author.</p>

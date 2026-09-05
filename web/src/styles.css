@@ -183,6 +183,7 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .art-body .md h1, .art-body .md h2, .art-body .md h3 { font-size: 14px; margin: 8px 0 4px; }
 .art-body table { border-collapse: collapse; width: 100%; font-size: 12px; }
 .art-body td, .art-body th { border-bottom: 1px solid var(--line); padding: 3px 6px; text-align: left; }
+.art-body tr.focus td { background: var(--accent-soft); }
 .art-foot { display: flex; gap: 8px; align-items: center; padding: 5px 10px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); flex-wrap: wrap; }
 .art-foot button { padding: 1px 6px; font-size: 10.5px; font-family: var(--mono); }
 .mermaid-box svg { max-width: 100%; height: auto; }

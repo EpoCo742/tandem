@@ -48,6 +48,13 @@ export const dataModelContentSchema = z.object({
   sections: z.array(sectionSchema),
 });
 
+export const viewContentSchema = z.object({
+  kind: z.enum(["context", "container", "component"]),
+  focus: z.string().optional().describe("Component id, for a component view"),
+  note: z.string().optional().describe("Caption under the diagram"),
+  sections: z.array(sectionSchema),
+});
+
 export const codeContentSchema = z.object({
   language: z.string(),
   source: z.string(),
@@ -55,9 +62,9 @@ export const codeContentSchema = z.object({
 });
 
 export const createArtifactInput = z.object({
-  type: z.enum(["mermaid", "markdown", "data_model", "code", "design_doc"]).describe("design_doc is a Markdown document assembled from the canvas; use markdownContent for it"),
+  type: z.enum(["mermaid", "markdown", "data_model", "code", "design_doc", "view"]).describe("design_doc is a Markdown document assembled from the canvas; use markdownContent for it. view is a diagram generated from the architecture model; use viewContent"),
   title: z.string(),
-  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema]),
+  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema]),
   rationale: z.string().describe("One sentence on why this artifact exists"),
   summary: z.string().describe("One line describing the artifact for the index"),
 });
@@ -65,9 +72,50 @@ export const createArtifactInput = z.object({
 export const updateArtifactInput = z.object({
   artifactId: z.string(),
   baseVersionNo: z.number().int().describe("The version you read; the update is rejected as stale if it moved"),
-  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema]),
+  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema]),
   rationale: z.string(),
   summary: z.string(),
+});
+
+const componentKind = z.enum(["service", "database", "queue", "external", "ui", "person", "storage", "function", "other"]);
+const relationshipKind = z.enum(["calls", "publishes", "subscribes", "reads", "writes", "uses", "depends_on"]);
+
+export const upsertComponentsInput = z.object({
+  components: z
+    .array(
+      z.object({
+        id: z.string().optional().describe("Stable slug; omit to derive from the name. Pass an existing id to rename or re-describe a component"),
+        name: z.string(),
+        kind: componentKind,
+        description: z.string().optional(),
+        technology: z.string().optional().describe("e.g. 'Kafka', 'PostgreSQL 16', 'Node service'"),
+        boundary: z.string().optional().describe("Boundary id (a system, team or trust zone); created if new"),
+      }),
+    )
+    .min(1),
+  derivedFrom: z.array(z.string()).describe("Ledger event ids of the messages that motivated this"),
+  rationale: z.string(),
+});
+
+export const upsertRelationshipsInput = z.object({
+  relationships: z
+    .array(
+      z.object({
+        from: z.string().describe("Component id"),
+        to: z.string().describe("Component id"),
+        kind: relationshipKind,
+        label: z.string().optional().describe("e.g. 'OrderPlaced', 'REST', 'nightly batch'"),
+      }),
+    )
+    .min(1),
+  derivedFrom: z.array(z.string()),
+  rationale: z.string(),
+});
+
+export const removeFromModelInput = z.object({
+  componentIds: z.array(z.string()).optional(),
+  relationshipIds: z.array(z.string()).optional(),
+  rationale: z.string(),
 });
 
 export const deleteArtifactInput = z.object({
@@ -81,6 +129,7 @@ export const recordDecisionInput = z.object({
   agreedBy: z.array(z.string()).describe("User ids of participants who stated or accepted it. 'agreed' requires every listed user to have authored evidence"),
   supersedes: z.string().nullable().describe("Decision id this replaces, or null"),
   evidence: z.array(z.string()).describe("Ledger event ids of the messages that establish it"),
+  about: z.array(z.string()).optional().describe("Architecture model component ids this decision concerns"),
 });
 
 export const createDecisionPointInput = z.object({
@@ -126,6 +175,9 @@ export const toolSchemas = {
   ask_clarification: askClarificationInput,
   read_artifact: readArtifactInput,
   pin_artifact: pinArtifactInput,
+  upsert_components: upsertComponentsInput,
+  upsert_relationships: upsertRelationshipsInput,
+  remove_from_model: removeFromModelInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -144,6 +196,10 @@ export const toolDescriptions: Record<ToolName, string> = {
   ask_clarification: "Ask one or more participants a specific question before acting.",
   read_artifact: "Read the full content of an artifact that is not included in the index.",
   pin_artifact: "Pin or unpin an artifact so its full content is always in context.",
+  upsert_components:
+    "Add components to the session's architecture model, or update existing ones by id (rename, change kind, describe, move into a boundary). The model is the source of truth for structure; diagrams are views of it. Prefer this over drawing free Mermaid for system structure.",
+  upsert_relationships: "Add or update relationships between components of the architecture model by component id. Both ends must exist; the result names any unknown ids.",
+  remove_from_model: "Remove components (and their relationships) or specific relationships from the architecture model.",
 };
 
 export type ToolResult =
@@ -155,4 +211,5 @@ export type ToolResult =
   | { status: "asked" }
   | { status: "content"; artifactId: string; versionNo: number; content: unknown }
   | { status: "pinned"; artifactId: string; pinned: boolean }
+  | { status: "model_updated"; artifactId: string; versionNo: number; components: number; relationships: number; unknown?: string[] }
   | { status: "error"; message: string };

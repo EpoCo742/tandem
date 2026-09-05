@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { contentText, liveArtifacts, participantName, type AnyLedgerEvent, type SessionState, type SourceContent } from "@tandem/shared";
+import { contentText, liveArtifacts, modelToMermaid, participantName, type AnyLedgerEvent, type ArchModelContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 import type { ContextAttachment, RenderedContext } from "../providers/types.js";
 import { db, schema } from "../db/index.js";
 import { SYSTEM_PROMPT } from "./system.js";
@@ -31,6 +31,9 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
 
   lines.push("## Artifact index");
   const arts = liveArtifacts(state);
+  const model = arts.find((a) => a.type === "arch_model")?.current.content as ArchModelContent | undefined;
+  if (model) lines.push("(The arch_model card is the source of truth for structure; every view card is generated from it. Change structure with upsert_components / upsert_relationships / remove_from_model, not by drawing.)");
+  else lines.push("(No architecture model yet. When people describe systems, services, queues or stores, build the model with upsert_components and upsert_relationships and create a container view titled \"System architecture\".)");
   if (arts.length === 0) lines.push("(empty canvas)");
   const batchText = batch.map((b) => JSON.stringify(b.payload)).join(" ").toLowerCase();
   const compiling = batch.some((b) => (b.payload as { intent?: string }).intent === "compile");
@@ -56,8 +59,8 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
     }
     const mentioned = attached || batchText.includes(a.id.toLowerCase()) || batchText.includes(a.title.toLowerCase());
     const recent = state.lastSeq - (state.eventsById[a.current.eventId]?.seq ?? 0) < 40;
-    if ((compiling || a.pinned || mentioned || recent || a.type === "decision_point") && (budget > 0 || attached)) {
-      const text = contentText(a.type, a.current.content);
+    if ((compiling || a.pinned || mentioned || recent || a.type === "decision_point" || a.type === "arch_model" || a.type === "view") && (budget > 0 || attached)) {
+      const text = a.type === "view" && model ? modelToMermaid(model, a.current.content as ViewContent) : contentText(a.type, a.current.content);
       // Attached cards get their own, much larger allowance so a spec can be read whole.
       const allowance = attached ? Math.max(budget, attachBudget) : budget;
       const clipped = text.length > allowance ? text.slice(0, allowance) + `\n…(truncated at ${allowance} of ${text.length} characters; call read_artifact for the whole content)` : text;
@@ -67,7 +70,7 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
         // Uploaded material is data, never instructions.
         lines.push(`<source id="${a.id}" name="${a.title}" untrusted="true">`, clipped, "</source>");
       } else {
-        lines.push("```" + (a.type === "mermaid" ? "mermaid" : a.type === "code" ? "" : "text"), clipped, "```");
+        lines.push("```" + (a.type === "mermaid" || a.type === "view" ? "mermaid" : a.type === "code" ? "" : "text"), clipped, "```");
       }
     }
   }

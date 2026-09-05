@@ -32,6 +32,8 @@ interface Store {
   setConnected: (c: boolean) => void;
   focusArtifactId: string | null;
   setFocusArtifact: (id: string | null) => void;
+  focusComponentId: string | null; // architecture model component whose decisions the side pane shows
+  setFocusComponent: (id: string | null) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -80,4 +82,6 @@ export const useStore = create<Store>((set, get) => ({
   setConnected: (connected) => set({ connected }),
   focusArtifactId: null,
   setFocusArtifact: (focusArtifactId) => set({ focusArtifactId }),
+  focusComponentId: null,
+  setFocusComponent: (focusComponentId) => set({ focusComponentId }),
 }));

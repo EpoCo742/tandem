@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, AI_COLOR, type Artifact, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent } from "@tandem/shared";
+import { participantName, modelToMermaid, AI_COLOR, type Artifact, type ArchModelContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -175,6 +175,8 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
       {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
       {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
       {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
+      {a.type === "arch_model" && <ModelTable content={v.content as ArchModelContent} />}
+      {a.type === "view" && <ModelView content={v.content as ViewContent} />}
       {a.type === "decision_point" && <DecisionPoint content={v.content as DecisionPointContent} myId={myId} onVote={onVote} />}
     </>
   );
@@ -192,6 +194,57 @@ function SourceView({ sessionId, content, full = false }: { sessionId: string; c
       <div className="mono" style={{ marginBottom: 6 }}>{content.kind} &middot; {content.mime} &middot; <a href={url} target="_blank" rel="noreferrer">open original</a></div>
       {content.kind === "markdown" ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{shown}</ReactMarkdown></div> : <pre>{shown}</pre>}
       {clipped && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Showing the first {LIMIT.toLocaleString()} characters. Open the card full size for all of it.</div>}
+    </div>
+  );
+}
+
+// A view card draws itself from the session's architecture model, so it never goes stale.
+function ModelView({ content }: { content: ViewContent }) {
+  const state = useStore((s) => s.state);
+  const model = Object.values(state.artifacts).find((x) => x.type === "arch_model" && !x.deleted)?.current.content as ArchModelContent | undefined;
+  if (!model) return <div className="muted">No architecture model yet. Describe the systems involved and the AI will build one.</div>;
+  const focusName = content.focus ? model.components.find((c) => c.id === content.focus)?.name : undefined;
+  return (
+    <div>
+      <div className="mono" style={{ marginBottom: 6 }}>{content.kind} view{focusName ? ` of ${focusName}` : ""} · {model.components.length} components</div>
+      <Mermaid source={modelToMermaid(model, content)} />
+      {content.note && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{content.note}</div>}
+    </div>
+  );
+}
+
+function ModelTable({ content }: { content: ArchModelContent }) {
+  const state = useStore((s) => s.state);
+  const focus = useStore((s) => s.focusComponentId);
+  const setFocus = useStore((s) => s.setFocusComponent);
+  const bname = (id?: string) => (id ? content.boundaries.find((b) => b.id === id)?.name ?? id : "");
+  const name = (id: string) => content.components.find((c) => c.id === id)?.name ?? id;
+  const decisionsAbout = (id: string) => Object.values(state.decisions).filter((d) => d.about.includes(id) && d.status !== "superseded").length;
+  return (
+    <div className="stack">
+      <div className="muted" style={{ fontSize: 12 }}>The source of truth for structure. Views are drawn from it; click a component to see its decisions.</div>
+      <table>
+        <thead><tr><th>Component</th><th>Kind</th><th>Technology</th><th>Boundary</th></tr></thead>
+        <tbody>
+          {content.components.map((c) => {
+            const n = decisionsAbout(c.id);
+            return (
+              <tr key={c.id} className={focus === c.id ? "focus" : ""} onClick={() => setFocus(focus === c.id ? null : c.id)} style={{ cursor: "pointer" }} title={c.description ?? c.id}>
+                <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}</td>
+                <td className="mono">{c.kind}</td>
+                <td className="mono">{c.technology ?? ""}</td>
+                <td className="mono">{bname(c.boundary)}</td>
+              </tr>
+            );
+          })}
+          {content.components.length === 0 && <tr><td colSpan={4} className="muted">empty</td></tr>}
+        </tbody>
+      </table>
+      {content.relationships.length > 0 && (
+        <div className="mono" style={{ lineHeight: 1.6 }}>
+          {content.relationships.map((r) => <div key={r.id}>{name(r.from)} <span className="muted">{r.kind.replace("_", " ")}</span> {name(r.to)}{r.label ? <span className="muted"> ({r.label})</span> : null}</div>)}
+        </div>
+      )}
     </div>
   );
 }

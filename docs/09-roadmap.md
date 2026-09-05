@@ -156,4 +156,4 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices. Each item adds its stage to `07-demo-script.md` and its assertions to the smoke test before it is called done.
 
-**Started 2026-09-05:** A1, the architecture model.
+**Shipped 2026-09-05:** A1, the architecture model (first slice: model, generated views, tools, decision links; the data-model `ownedBy` link follows with A2).

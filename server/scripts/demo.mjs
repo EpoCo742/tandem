@@ -98,18 +98,18 @@ const STAGES = [
     await say(alice, "Service A publishes an OrderPlaced event to Kafka.");
     await say(bob, "Service B subscribes to OrderPlaced and writes to the orders table in Postgres.");
     await waitForTurns(n + 1, "first turn");
-    ctx.diagramId = (await latestArtifact("mermaid")).artifactId;
+    ctx.diagramId = (await latestArtifact("arch_model")).artifactId;
     ctx.firstCommitId = (await events()).find((e) => e.type === "commit.created").payload.commitId;
   }],
-  ["proposal", "Bob's edit of Alice's diagram becomes a proposal; Alice approves; card is v2", async () => {
-    const d = await latestArtifact("mermaid");
+  ["proposal", "Bob's edit of Alice's architecture model becomes a proposal; Alice approves", async () => {
+    const d = await latestArtifact("arch_model");
     const edit = await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/artifacts/${d.artifactId}/versions`, {
-      content: { ...d.content, source: d.content.source + "\n  %% retry policy: 3x with backoff" },
-      rationale: "Add retry note",
+      content: { ...d.content, components: [...d.content.components, { id: "cache", name: "Cache", kind: "database", technology: "Redis", derivedFrom: [] }] },
+      rationale: "Add a cache",
     });
-    console.log(`   Bob edits the diagram -> ${edit.status}`);
+    console.log(`   Bob adds a cache to the model -> ${edit.status}`);
     await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/proposals/${edit.proposalId}/resolve`, { decision: "approve" });
-    console.log("   Alice approves -> diagram v2");
+    console.log("   Alice approves -> the model has a new version and the view shows the cache");
   }],
   ["decision-point", "a contradiction raises a decision point; both vote; the AI applies the resolution", async () => {
     const n = await completedTurns();

@@ -1,4 +1,4 @@
-import { dataModelMarkdown, type DataModelContent, type ToolResult } from "@tandem/shared";
+import { dataModelMarkdown, slugId, type DataModelContent, type ToolResult } from "@tandem/shared";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
 import { callMcpTool } from "../mcp.js";
 
@@ -57,7 +57,8 @@ function buildDesignDoc(
   const participants = [...prompt.matchAll(/^- (.+?) \(id \S+, role (\w+)\)/gm)].map((m) => `${m[1]} (${m[2]})`);
   const contents = extractContents(prompt);
   const allDecisions = [...prompt.matchAll(/^- (D-\d+) \[(\w+)\] \(id (\S+)\) (.+?)(?: — by (.+?))?(?: — supersedes (\S+))?$/gm)].map((m) => ({ label: m[1]!, status: m[2]!, statement: m[4]!, by: m[5] ?? "", supersedes: m[6] ?? "" }));
-  const diagrams = artifacts.filter((a) => a.type === "mermaid");
+  const diagrams = artifacts.filter((a) => a.type === "mermaid" || a.type === "view");
+  const archModel = artifacts.find((a) => a.type === "arch_model");
   const models = artifacts.filter((a) => a.type === "data_model");
   const notes = artifacts.filter((a) => a.type === "markdown");
   const sources = artifacts.filter((a) => a.type === "source");
@@ -67,6 +68,7 @@ function buildDesignDoc(
   md.push("## Architecture", "");
   if (!diagrams.length) md.push("No diagrams on the canvas yet.", "");
   for (const d of diagrams) md.push(`### ${d.title} (v${d.versionNo})`, "", "```mermaid", contents.get(d.id) ?? "flowchart LR", "```", "");
+  if (archModel) md.push(`### Components (from the architecture model, v${archModel.versionNo})`, "", "```text", contents.get(archModel.id) ?? "", "```", "");
   for (const n of notes) md.push(`### ${n.title}`, "", contents.get(n.id) ?? "", "");
   md.push("## Data model", "");
   if (!models.length) md.push("No data model has been drafted yet.", "");
@@ -267,7 +269,7 @@ export const fakeProvider: ProviderAdapter = {
       const words = new Set(tokenise(msg.text));
       const hit = decisions.find((d) => d.status === "agreed" && tokenise(d.statement).filter((w) => words.has(w)).length >= 2);
       if (hit) {
-        const blocks = artifacts.filter((a) => a.type === "mermaid").map((a) => a.id);
+        const blocks = artifacts.filter((a) => a.type === "mermaid" || a.type === "view" || a.type === "arch_model").map((a) => a.id);
         await emit(`${msg.speaker}, that contradicts ${hit.label} ("${hit.statement}"), which was agreed earlier. I have not changed the canvas. `);
         await call("create_decision_point", {
           question: `Keep ${hit.label} or adopt ${msg.speaker}'s change?`,
@@ -299,56 +301,67 @@ export const fakeProvider: ProviderAdapter = {
         supersedes,
         evidence: [resolution.eventId],
       });
-      const diagram = artifacts.find((a) => a.type === "mermaid");
-      if (diagram) {
-        const cur = await call("read_artifact", { artifactId: diagram.id });
-        const src = (cur as { content?: { source?: string } }).content?.source ?? "flowchart LR";
+      const view = artifacts.find((a) => a.type === "view") ?? artifacts.find((a) => a.type === "mermaid");
+      if (view && view.type === "view") {
+        const cur = await call("read_artifact", { artifactId: view.id });
+        const content = ((cur as { content?: Record<string, unknown> }).content ?? { kind: "container", sections: [] }) as Record<string, unknown>;
         await call("update_artifact", {
-          artifactId: diagram.id,
-          baseVersionNo: diagram.versionNo,
-          content: { source: `${src}\n  note[/"${chosen}"/]`, kind: "flowchart", sections: [{ id: "resolution", derivedFrom: [resolution.eventId] }] },
+          artifactId: view.id,
+          baseVersionNo: view.versionNo,
+          content: { ...content, note: `Resolved: ${chosen}`, sections: [{ id: "resolution", derivedFrom: [resolution.eventId] }] },
           rationale: "Apply the resolved decision point",
-          summary: `${diagram.title} (updated for ${chosen})`,
+          summary: `${view.title} (updated for ${chosen})`,
         });
+      } else if (view) {
+        const cur = await call("read_artifact", { artifactId: view.id });
+        const src = (cur as { content?: { source?: string } }).content?.source ?? "flowchart LR";
+        await call("update_artifact", { artifactId: view.id, baseVersionNo: view.versionNo, content: { source: `${src}\n  note[/"${chosen}"/]`, kind: "flowchart", sections: [{ id: "resolution", derivedFrom: [resolution.eventId] }] }, rationale: "Apply the resolved decision point", summary: `${view.title} (updated for ${chosen})` });
       }
       await emit(`Applied the resolution: ${chosen}. Recorded as ${(r as { label?: string }).label ?? "a decision"}.`);
       return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
     }
 
-    // 3. Ordinary directives: extend or create the architecture diagram and record one decision per directive.
-    const names = batch.flatMap((m) => serviceNames(m.text));
-    const diagram = artifacts.find((a) => a.type === "mermaid" && /architecture/i.test(a.title));
-    const nodeId = (n: string) => n.replace(/[^A-Za-z0-9]/g, "_");
-    const edges: string[] = [];
-    for (const m of batch) {
-      const ns = serviceNames(m.text);
-      for (let i = 0; i + 1 < ns.length; i++) {
-        const verb = m.text.match(/\b(publish|publishes|emit|emits|send|sends|subscribe|subscribes|listen|listens|write|writes|save|saves|read|reads|call|calls)\b/i)?.[1]?.toLowerCase() ?? "uses";
-        edges.push(`  ${nodeId(ns[i]!)}["${ns[i]}"] -->|${verb}| ${nodeId(ns[i + 1]!)}["${ns[i + 1]}"]`);
-      }
-    }
+    // 3. Ordinary directives: grow the architecture model (components + relationships), keep a
+    //    container view of it, and record one decision per directive.
+    const names = [...new Set(batch.flatMap((m) => serviceNames(m.text)))];
+    const kindOf = (n: string): "service" | "queue" | "database" | "storage" | "external" => {
+      if (/kafka|rabbitmq|sqs|pubsub/i.test(n)) return "queue";
+      if (/postgres|mysql|mongodb|dynamodb|redis|cassandra/i.test(n)) return "database";
+      if (/\bs3\b|blob|bucket/i.test(n)) return "storage";
+      if (/gateway/i.test(n)) return "service";
+      if (/^service |^app |^application |^system /i.test(n)) return "service";
+      return "external";
+    };
+    const verbKind = (t: string): "publishes" | "subscribes" | "writes" | "reads" | "calls" | "uses" => {
+      const v = t.match(/\b(publish|publishes|emit|emits|send|sends|subscribe|subscribes|listen|listens|write|writes|save|saves|read|reads|call|calls)\b/i)?.[1]?.toLowerCase() ?? "uses";
+      if (/^(publish|emit|send)/.test(v)) return "publishes";
+      if (/^(subscribe|listen)/.test(v)) return "subscribes";
+      if (/^(write|save)/.test(v)) return "writes";
+      if (/^read/.test(v)) return "reads";
+      if (/^call/.test(v)) return "calls";
+      return "uses";
+    };
     const sections = batch.map((m) => ({ id: `msg-${m.eventId.slice(-6)}`, derivedFrom: [m.eventId] }));
     if (names.length > 0) {
-      if (diagram) {
-        const cur = await call("read_artifact", { artifactId: diagram.id });
-        const src = (cur as { content?: { source?: string } }).content?.source ?? "flowchart LR";
-        await call("update_artifact", {
-          artifactId: diagram.id,
-          baseVersionNo: diagram.versionNo,
-          content: { source: `${src}\n${edges.join("\n")}`, kind: "flowchart", sections },
-          rationale: `Add ${names.join(", ")}`,
-          summary: `System architecture with ${names.join(", ")}`,
-        });
-        await emit(`Updated the architecture diagram with ${names.join(", ")}. `);
+      const derivedFrom = batch.map((m) => m.eventId);
+      await call("upsert_components", {
+        components: names.map((n) => ({ id: slugId(n), name: n, kind: kindOf(n) })),
+        derivedFrom,
+        rationale: `Components named by ${batch.map((m) => m.speaker).join(", ")}`,
+      });
+      const rels: { from: string; to: string; kind: ReturnType<typeof verbKind>; label?: string }[] = [];
+      for (const m of batch) {
+        const ns = serviceNames(m.text);
+        const label = m.text.match(/\b([A-Z][A-Za-z]+) event\b/)?.[1];
+        for (let i = 0; i + 1 < ns.length; i++) rels.push({ from: slugId(ns[i]!), to: slugId(ns[i + 1]!), kind: verbKind(m.text), label });
+      }
+      if (rels.length) await call("upsert_relationships", { relationships: rels, derivedFrom, rationale: "Relationships stated in the discussion" });
+      const view = artifacts.find((a) => a.type === "view" && /architecture/i.test(a.title));
+      if (!view) {
+        await call("create_artifact", { type: "view", title: "System architecture", content: { kind: "container", sections }, rationale: "Container view of the architecture model", summary: "Container view generated from the architecture model" });
+        await emit(`Added ${names.join(", ")} to the architecture model and created the System architecture view. `);
       } else {
-        await call("create_artifact", {
-          type: "mermaid",
-          title: "System architecture",
-          content: { source: `flowchart LR\n${edges.length ? edges.join("\n") : names.map((n) => `  ${nodeId(n)}["${n}"]`).join("\n")}`, kind: "flowchart", sections },
-          rationale: "First architecture sketch from the discussion",
-          summary: `System architecture with ${names.join(", ")}`,
-        });
-        await emit(`Created the architecture diagram with ${names.join(", ")}. `);
+        await emit(`Updated the architecture model with ${names.join(", ")}; the System architecture view reflects it. `);
       }
     } else {
       await call("create_artifact", {
@@ -368,6 +381,7 @@ export const fakeProvider: ProviderAdapter = {
         agreedBy: [userIdFor(req.context.prompt, m.speaker)],
         supersedes: null,
         evidence: [m.eventId],
+        about: serviceNames(m.text).map(slugId),
       });
       if (r.status === "recorded") await emit(`Recorded ${r.label} for ${m.speaker}. `);
     }
