@@ -62,6 +62,8 @@ Do these steps in order, in the repo root, and do not skip the first two:
    ```
 6. Build and run: `pnpm build`, then `pnpm --filter @tandem/server start`.
 
+**"Could not resolve a @github/copilot platform package (tried @github/copilot-win32-x64)"** on sign-in or when connecting a credential is the same family of problem from the other side: the SDK finds the Copilot runtime by resolving a `sdk` subpath inside the platform package, and runtime versions from 1.0.81 stopped exporting it. The repo pins the runtime to 1.0.80 through a pnpm override in the root `package.json`, so a lockfile-honouring install gets a matching pair. If you see this message, someone installed without the lockfile, or the override was removed: run `pnpm install --frozen-lockfile` from a clean `node_modules` and check that `node_modules/.pnpm` contains `@github+copilot@1.0.80`. When moving to a newer SDK, drop or update the override together with the SDK pin and verify the runtime starts before committing.
+
 Node too old is the other thing that produces confusing SDK errors: `node --version` must be 22.12 or newer (or 20.19+). The preinstall check tells you if not.
 
 Moving to a newer SDK is a deliberate change: bump the exact version in `server/package.json`, run `pnpm install` (not frozen) to update the lockfile, check that the platform runtime package `@github/copilot-sdk-<os>-<arch>` installed under `server/node_modules/@github/`, and commit the lockfile with it. If the runtime has to live elsewhere, `COPILOT_CLI_PATH` points the SDK at it; set it in the environment rather than editing the adapter.
