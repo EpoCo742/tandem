@@ -133,9 +133,10 @@ export const copilotProvider: ProviderAdapter = {
           return { kind: "cancelled" };
         },
         tools,
-        // The runtime names an MCP tool "<server>-<tool>" and the allow-list wants the "mcp:" form;
-        // without these entries the model is handed the servers but cannot see their tools.
-        availableTools: [...req.tools.map((t) => t.name), ...req.mcpServers.flatMap((s) => s.tools.map((t) => `mcp:${s.name}-${t.name}`))],
+        // Only the speaker's own servers are ever attached, so every MCP tool the runtime exposes
+        // may be offered; naming the tools one by one depended on the runtime's naming scheme and
+        // left them invisible to the model. The write gate still runs on every call.
+        availableTools: [...req.tools.map((t) => t.name), ...(req.mcpServers.length ? ["mcp:*"] : [])],
         onPermissionRequest: gated,
         skipCustomInstructions: true,
         enableSkills: false,
@@ -144,7 +145,7 @@ export const copilotProvider: ProviderAdapter = {
       // What the runtime says about the attached servers, surfaced to the people in the session.
       const offErr = session.on("session.error", (e) => req.onNote(`Runtime error (${e.data.errorType}): ${e.data.message}`));
       const offHeaders = session.on("mcp.headers_refresh_required", (e) => req.onNote(`External tool server "${(e.data as { serverName?: string }).serverName ?? "?"}" asked for refreshed headers; re-register it with current credentials.`));
-      if (req.mcpServers.length) console.log(`[tandem] turn ${req.turnId}: attached MCP servers ${req.mcpServers.map((s) => `${s.name} (${s.config.transport}${s.config.transport === "http" && s.config.sse ? "/sse" : ""}, ${s.tools.length} tools)`).join(", ")}; allow-list adds ${mcpToolNames.map((n) => `mcp:${n}`).join(", ")}`);
+      if (req.mcpServers.length) console.log(`[tandem] turn ${req.turnId}: attached MCP servers ${req.mcpServers.map((s) => `${s.name} (${s.config.transport}${s.config.transport === "http" && s.config.sse ? "/sse" : ""}, ${s.tools.length} tools)`).join(", ")}; allow-list adds mcp:* (expected names: ${mcpToolNames.slice(0, 3).join(", ")}${mcpToolNames.length > 3 ? ", …" : ""})`);
       const offDelta = session.on("assistant.message_delta", (e) => {
         text += e.data.deltaContent;
         req.onDelta(e.data.deltaContent);
