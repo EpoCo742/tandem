@@ -50,7 +50,7 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
         if (row) attachments.push({ path: row.path, displayName: c.name, mime: c.mime, artifactId: a.id });
       }
       if (c.kind === "image") {
-        lines.push(attached ? `(image attached to this message as a file; look at it directly)` : `(image; attach it to a message to have it looked at)`);
+        lines.push(attached ? `(this image is attached to the current message inline; describe and use what you see in it)` : `(image; it is only sent to you when attached to a message, so ask for it to be attached if you need it)`);
         continue;
       }
     }

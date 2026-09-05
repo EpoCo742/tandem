@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { CopilotClient, approveAll, defineTool, type MCPServerConfig, type PermissionHandler } from "@github/copilot-sdk";
 import type { McpServerForTurn } from "../mcp.js";
 
@@ -161,7 +162,21 @@ export const copilotProvider: ProviderAdapter = {
       const onAbort = () => void session.abort().catch(() => undefined);
       req.signal.addEventListener("abort", onAbort, { once: true });
       try {
-        const attachments = req.context.attachments.map((a) => ({ type: "file" as const, path: a.path, displayName: a.displayName }));
+        // Images go inline as blobs. A "file" attachment is only a path the model is expected to
+        // open with the runtime's view tool, which this session does not grant, so the model would
+        // see nothing but the path. Text documents are already in the prompt in full.
+        const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+        const attachments = req.context.attachments
+          .filter((a) => a.mime.startsWith("image/"))
+          .flatMap((a) => {
+            try {
+              const stat = fs.statSync(a.path);
+              if (stat.size > MAX_IMAGE_BYTES) return [];
+              return [{ type: "blob" as const, data: fs.readFileSync(a.path).toString("base64"), mimeType: a.mime, displayName: a.displayName }];
+            } catch {
+              return [];
+            }
+          });
         const final = await session.sendAndWait({ prompt: req.context.prompt, ...(attachments.length ? { attachments } : {}) }, req.timeoutMs);
         if (!text && final?.data.content) text = final.data.content;
       } finally {
