@@ -238,7 +238,7 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 </tbody>
 </table></div>
-<p>Fake architect: Alice's message names no services, so it captures a Notes card quoting her message with its attachment named; a real model reads the attached card's content, which is included in full for that turn.</p>
+<p>Fake architect: Alice's message names no services, so it captures a Notes card quoting her message with its attachment named. A real model gets the attached card's full text in the prompt (up to 80k characters) and the file itself as an attachment, so an attached image can be looked at and a long spec read whole.</p>
 <p>Point at: the Markdown source card renders as Markdown, with "open original"; the <code>.mmd</code> became a diagram card; the message in the AI lane carries an attachment chip; nothing on the canvas was deleted despite the injected instruction. The <strong>Sources</strong> tab lists both uploads with uploader, size, "open", and "locate", which centres the canvas on the card.</p>
 <h2 id="stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</h2>
 <p>Feature: resizable cards, full-size view, delete under the same governance as edits.</p>

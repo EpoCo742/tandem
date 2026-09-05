@@ -15,8 +15,8 @@ import { createCommit, contentHash } from "./governance.js";
 // extracted for text-like files, and a `source` artifact is written to the ledger so the
 // AI sees it as untrusted source material on later turns.
 
-const MAX_TEXT = 20_000;
-const TEXT_EXT = new Set([".md", ".markdown", ".txt", ".mmd", ".json", ".yaml", ".yml", ".csv", ".puml"]);
+const MAX_TEXT = 400_000; // characters kept for the AI; the original file is served whole regardless
+const TEXT_EXT = new Set([".md", ".markdown", ".txt", ".mmd", ".json", ".yaml", ".yml", ".csv", ".puml", ".xml", ".toml", ".ini", ".sql", ".proto", ".graphql", ".gql", ".openapi", ".adoc", ".rst", ".log"]);
 
 function kindOf(name: string, mime: string): SourceContent["kind"] {
   const ext = path.extname(name).toLowerCase();
@@ -46,7 +46,7 @@ export async function registerUploadRoutes(app: FastifyInstance) {
     const kind = kindOf(file.filename, mime);
 
     let extractedText: string | undefined;
-    if (kind !== "image" && (mime.startsWith("text/") || TEXT_EXT.has(path.extname(file.filename).toLowerCase()) || mime === "application/json")) {
+    if (kind !== "image" && (mime.startsWith("text/") || TEXT_EXT.has(path.extname(file.filename).toLowerCase()) || /json|yaml|xml/.test(mime))) {
       extractedText = fs.readFileSync(dest, "utf8").slice(0, MAX_TEXT);
     }
 

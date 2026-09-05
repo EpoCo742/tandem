@@ -205,7 +205,9 @@ Validated against a real Copilot seat on 2026-09-04: the model drives the canvas
 
 2026-09-05: compaction. Messages outside the transcript window are folded into a running brief by the provider (deterministic in the offline provider; a summarisation prompt with attribution rules on Copilot), stored as a `brief.updated` event with the seq it covers, rendered at the top of every prompt, shown in a Brief tab with a manual refresh. One provider request per compaction on the sponsor's plan; `TANDEM_COMPACT_AFTER=0` disables the automatic runs.
 
-Not yet done: GitHub OAuth end-to-end (routes exist, needs an OAuth App; the OAuth scope may need widening beyond read:user), live Yjs text editing.
+2026-09-05, second feedback round: GitHub OAuth confirmed working end to end (avatar and login shown in the top bar). Text uploads are kept whole (was 20k characters) and a card attached to a message gets an 80k-character allowance in the prompt; attached files are also handed to the Copilot runtime as file attachments, which is how images reach a vision-capable model. Export renders data models as tables and quotes only the top of uploaded files; the compile prompt says the same. Export preview draws diagrams at natural size and renders Markdown tables.
+
+Not yet done: live Yjs text editing; an "editing" indicator on cards (today a concurrent edit is caught by the version check on save, not shown while it happens).
 
 ## 8. Known POC limitations to state in the demo
 

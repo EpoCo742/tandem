@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { participantName, pendingProposals, contentText, AI_COLOR, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
@@ -186,7 +187,7 @@ function Brief({ sessionId }: { sessionId: string }) {
         <span className="mono">{state.brief ? `${folded} of ${transcript.length} messages folded` : "no brief yet"}{state.briefUpdatedAt ? ` · ${new Date(state.briefUpdatedAt).toLocaleTimeString()}` : ""}</span>
       </div>
       {msg && <div className="muted" style={{ fontSize: 12 }}>{msg}</div>}
-      {state.brief ? <div className="md brief"><ReactMarkdown>{state.brief}</ReactMarkdown></div> : <div className="muted">The brief appears once older messages are folded.</div>}
+      {state.brief ? <div className="md brief"><ReactMarkdown remarkPlugins={[remarkGfm]}>{state.brief}</ReactMarkdown></div> : <div className="muted">The brief appears once older messages are folded.</div>}
     </div>
   );
 }

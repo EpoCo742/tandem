@@ -1,6 +1,16 @@
-import { contentText, liveArtifacts, participantName, type DecisionPointContent, type SessionState } from "@tandem/shared";
+import { contentText, dataModelMarkdown, liveArtifacts, participantName, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent } from "@tandem/shared";
 
-// Markdown export with provenance kept as HTML comments so attribution survives leaving the app.
+const EXCERPT_LINES = 40;
+
+function fenceLang(name: string, mime: string): string {
+  const ext = name.toLowerCase().split(".").pop() ?? "";
+  const map: Record<string, string> = { yaml: "yaml", yml: "yaml", json: "json", xml: "xml", md: "markdown", markdown: "markdown", csv: "csv", sql: "sql", toml: "toml", proto: "protobuf", graphql: "graphql", gql: "graphql", puml: "plantuml", mmd: "mermaid", txt: "text", log: "text" };
+  if (map[ext]) return map[ext]!;
+  if (/json/.test(mime)) return "json";
+  if (/yaml/.test(mime)) return "yaml";
+  if (/xml/.test(mime)) return "xml";
+  return "text";
+}
 
 export function exportMarkdown(s: SessionState): string {
   const out: string[] = [];
@@ -25,8 +35,21 @@ export function exportMarkdown(s: SessionState): string {
       for (const o of c.options) out.push(`- **${o.title}**${c.resolvedOptionId === o.id ? " (chosen)" : ""}: ${o.tradeoffs}`);
       out.push("");
     } else if (a.type === "code") out.push("```" + ((v.content as { language?: string }).language ?? ""), contentText(a.type, v.content), "```", "");
-    else if (a.type === "data_model") out.push("```json", contentText(a.type, v.content), "```", "");
-    else out.push(contentText(a.type, v.content), "");
+    else if (a.type === "data_model") out.push(dataModelMarkdown(v.content as DataModelContent), "");
+    else if (a.type === "source") {
+      // Uploaded material: describe it and quote the top rather than dumping the whole file into the document.
+      const c = v.content as SourceContent;
+      const text = c.extractedText ?? "";
+      const lines = text.split("\n");
+      out.push(`Uploaded ${c.kind} \`${c.name}\` (${c.mime}${text ? `, ${lines.length} lines` : ""}). The original file stays with the session.`, "");
+      if (c.kind === "image") out.push(`![${c.name}](tandem-upload:${c.uploadId})`, "");
+      else if (text) {
+        const excerpt = lines.slice(0, EXCERPT_LINES).join("\n");
+        out.push("```" + fenceLang(c.name, c.mime), excerpt, "```");
+        if (lines.length > EXCERPT_LINES) out.push(`*(first ${EXCERPT_LINES} of ${lines.length} lines)*`);
+        out.push("");
+      }
+    } else out.push(contentText(a.type, v.content), "");
   }
 
   out.push("## Decision log", "");

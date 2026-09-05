@@ -181,6 +181,13 @@ assert(sourceCard && sourceCard.payload.artifactType === "source" && sourceCard.
 const fileRes = await fetch(`${BASE}/api/v1/sessions/${sessionId}/files/${up1.uploadId}`, { headers: { Cookie: alice.cookie } });
 assert(fileRes.ok && (await fileRes.text()).includes("Business rules"), "uploaded file is served to participants");
 
+// Large text uploads are kept whole for the AI (they used to be cut at 20k characters).
+const big = "openapi: 3.1.0\ninfo:\n  title: Orders\n" + "paths:\n" + Array.from({ length: 1200 }, (_, i) => `  /orders/${i}:\n    get:\n      summary: Order ${i}\n`).join("");
+const upBig = await upload(alice, "orders-api.yaml", "application/yaml", big);
+await wait(300);
+const bigCard = subA.events.find((e) => e.type === "artifact.applied" && e.payload.artifactId === upBig.artifactId);
+assert(bigCard && bigCard.payload.content.extractedText.length === big.length && big.length > 40000, `a ${big.length}-character YAML upload is stored whole`);
+
 // A message can carry an attachment (the source card id); the AI sees it named in the batch.
 const turnsBeforeAttach = subA.events.filter((e) => e.type === "turn.completed").length;
 await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Fold the attached rules into the notes.", attachments: [up1.artifactId, "not-an-artifact"] });

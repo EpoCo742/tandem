@@ -8,9 +8,17 @@ export interface ToolBinding {
   handler: (input: unknown) => Promise<ToolResult>;
 }
 
+export interface ContextAttachment {
+  path: string; // local file the provider may hand to the model (images, large documents)
+  displayName: string;
+  mime: string;
+  artifactId: string;
+}
+
 export interface RenderedContext {
   system: string; // frozen protocol
   prompt: string; // brief + decisions + artifact index + transcript + current batch
+  attachments: ContextAttachment[]; // files referenced by the current batch
 }
 
 export interface TurnRequest {

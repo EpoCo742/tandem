@@ -1,4 +1,4 @@
-import type { ToolResult } from "@tandem/shared";
+import { dataModelMarkdown, type DataModelContent, type ToolResult } from "@tandem/shared";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
 
 // Offline provider for local development and tests. It reads the rendered prompt,
@@ -69,7 +69,15 @@ function buildDesignDoc(
   for (const n of notes) md.push(`### ${n.title}`, "", contents.get(n.id) ?? "", "");
   md.push("## Data model", "");
   if (!models.length) md.push("No data model has been drafted yet.", "");
-  for (const m of models) md.push(`### ${m.title} (v${m.versionNo})`, "", "```json", contents.get(m.id) ?? "{}", "```", "");
+  for (const m of models) {
+    let body = "";
+    try {
+      body = dataModelMarkdown(JSON.parse(contents.get(m.id) ?? "{}") as DataModelContent);
+    } catch {
+      body = "```json\n" + (contents.get(m.id) ?? "{}") + "\n```";
+    }
+    md.push(`### ${m.title} (v${m.versionNo})`, "", body, "");
+  }
   md.push("## Sources", "");
   if (!sources.length) md.push("No uploaded material.", "");
   for (const s of sources) md.push(`- **${s.title}**: ${(contents.get(s.id) ?? "").split("\n").find((l) => l.trim())?.slice(0, 160) ?? "(binary)"}`);

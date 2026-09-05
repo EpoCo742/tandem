@@ -150,7 +150,7 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .art { width: 420px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--ai); box-shadow: var(--shadow); border-radius: 3px; font-size: 13px; display: flex; flex-direction: column; }
 .art.sized { width: 100%; height: 100%; }
 .art.sized .art-body { max-height: none; flex: 1; min-height: 0; }
-.art.sized .mermaid-box svg, .modal .modal-body .mermaid-box svg { max-width: none !important; width: 100%; height: auto; }
+.art.sized .mermaid-box svg, .modal .modal-body.diagram-full .mermaid-box svg { max-width: none !important; width: 100%; height: auto; }
 .react-flow__node.selected .art { outline: 2px solid var(--link); outline-offset: 1px; }
 .art-resize-line { border-color: var(--link) !important; }
 .art-resize-handle { width: 9px !important; height: 9px !important; border-radius: 2px !important; background: var(--link) !important; border: 1px solid var(--panel) !important; }

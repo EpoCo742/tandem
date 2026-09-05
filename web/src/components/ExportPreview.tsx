@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { api } from "../api";
 import { Mermaid } from "./Mermaid";
 
@@ -10,6 +11,9 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
     return <code className={className}>{children}</code>;
   },
 };
+
+// Provenance travels in HTML comments; real Markdown renderers hide them, this one would print them.
+const withoutComments = (md: string) => md.replace(/<!--[\s\S]*?-->\n?/g, "");
 
 // Preview of the Markdown export before it leaves the app: rendered or raw, copy, download.
 export function ExportPreview({ sessionId, title, onClose }: { sessionId: string; title: string; onClose: () => void }) {
@@ -50,7 +54,7 @@ export function ExportPreview({ sessionId, title, onClose }: { sessionId: string
         <div className="row">
           <b style={{ flex: 1 }}>Export preview: {title}</b>
           {md !== null && <span className="mono">{md.length.toLocaleString()} chars</span>}
-          <button onClick={() => setRaw((r) => !r)}>{raw ? "rendered" : "raw markdown"}</button>
+          <button onClick={() => setRaw((r) => !r)} title="The raw file keeps provenance as HTML comments; the rendered view hides them, as GitHub does">{raw ? "rendered" : "raw markdown"}</button>
           <button onClick={copy} disabled={md === null}>{copied ? "copied" : "copy"}</button>
           <button className="primary" onClick={download} disabled={md === null}>download .md</button>
           <button onClick={onClose}>close</button>
@@ -58,7 +62,7 @@ export function ExportPreview({ sessionId, title, onClose }: { sessionId: string
         {err && <div className="err">{err}</div>}
         <div className={"modal-body" + (raw ? "" : " md-doc")}>
           {md === null && !err && <div className="muted">Building the export…</div>}
-          {md !== null && (raw ? <pre className="raw">{md}</pre> : <ReactMarkdown components={mdComponents}>{md}</ReactMarkdown>)}
+          {md !== null && (raw ? <pre className="raw">{md}</pre> : <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{withoutComments(md)}</ReactMarkdown>)}
         </div>
       </div>
     </div>

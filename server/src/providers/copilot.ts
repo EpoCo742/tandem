@@ -124,7 +124,8 @@ export const copilotProvider: ProviderAdapter = {
       const onAbort = () => void session.abort().catch(() => undefined);
       req.signal.addEventListener("abort", onAbort, { once: true });
       try {
-        const final = await session.sendAndWait({ prompt: req.context.prompt }, req.timeoutMs);
+        const attachments = req.context.attachments.map((a) => ({ type: "file" as const, path: a.path, displayName: a.displayName }));
+        const final = await session.sendAndWait({ prompt: req.context.prompt, ...(attachments.length ? { attachments } : {}) }, req.timeoutMs);
         if (!text && final?.data.content) text = final.data.content;
       } finally {
         req.signal.removeEventListener("abort", onAbort);

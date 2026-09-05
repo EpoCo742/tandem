@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { participantName, AI_COLOR, type Artifact, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
@@ -115,7 +116,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false }: { artifa
               <span className="mono">v{v.versionNo} &middot; {authorLabel}</span>
               <button onClick={() => setExpanded(false)}>close</button>
             </div>
-            <div className={"modal-body" + (a.type === "mermaid" ? "" : " md-doc")}>
+            <div className={"modal-body" + (a.type === "mermaid" ? " diagram-full" : " md-doc")}>
               <ArtifactBody artifact={a} version={v} sessionId={sessionId} myId={me.user!.id} onVote={vote} large />
             </div>
           </div>
@@ -130,7 +131,7 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
   return (
     <>
       {a.type === "mermaid" && <Mermaid source={(v.content as MermaidContent).source} />}
-      {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
+      {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
       {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
       {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
       {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
@@ -149,7 +150,7 @@ function SourceView({ sessionId, content, full = false }: { sessionId: string; c
   return (
     <div>
       <div className="mono" style={{ marginBottom: 6 }}>{content.kind} &middot; {content.mime} &middot; <a href={url} target="_blank" rel="noreferrer">open original</a></div>
-      {content.kind === "markdown" ? <div className="md"><ReactMarkdown components={mdComponents}>{shown}</ReactMarkdown></div> : <pre>{shown}</pre>}
+      {content.kind === "markdown" ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{shown}</ReactMarkdown></div> : <pre>{shown}</pre>}
       {clipped && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Showing the first {LIMIT.toLocaleString()} characters. Open the card full size for all of it.</div>}
     </div>
   );

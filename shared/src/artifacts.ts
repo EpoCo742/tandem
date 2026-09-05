@@ -71,6 +71,25 @@ export type ArtifactContent =
   | CodeContent
   | { markdown: string; sections: Section[] };
 
+/** Render a data model as Markdown tables; used wherever a data model has to become prose. */
+export function dataModelMarkdown(c: DataModelContent): string {
+  const out: string[] = [];
+  for (const e of c.entities ?? []) {
+    out.push(`**${e.name}**`, "", "| Field | Type | Notes |", "|---|---|---|");
+    for (const f of e.fields ?? []) {
+      const notes = [f.pk ? "primary key" : "", f.fk ? `references ${f.fk}` : "", f.nullable ? "nullable" : ""].filter(Boolean).join(", ");
+      out.push(`| ${f.name} | ${f.type} | ${notes} |`);
+    }
+    out.push("");
+  }
+  if (c.relations?.length) {
+    out.push("Relations:", "");
+    for (const r of c.relations) out.push(`- ${r.from} ${r.cardinality} ${r.to}${r.label ? ` (${r.label})` : ""}`);
+    out.push("");
+  }
+  return out.join("\n");
+}
+
 export function contentText(type: string, content: unknown): string {
   const c = content as Record<string, unknown>;
   switch (type) {
