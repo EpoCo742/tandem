@@ -342,13 +342,14 @@ const mcp = await alice.call("POST", "/api/v1/mcp-servers", {
   name: "atlassian",
   config: { transport: "stdio", command: process.execPath, args: [fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url))], env: { MCP_DEMO_DIR: demoDir } },
 });
-assert(mcp.status === "ok" && mcp.tools.length === 4, `demo MCP server registered and probed: ${mcp.tools.map((t) => t.name + (t.readOnly ? "" : "*")).join(", ")}`);
+assert(mcp.status === "ok" && mcp.tools.length === 6, `demo MCP server registered and probed: ${mcp.tools.map((t) => t.name + (t.readOnly ? "" : "*")).join(", ")}`);
+assert(mcp.tools.find((t) => t.name === "repo_tree").readOnly === true && mcp.tools.find((t) => t.name === "repo_file").readOnly === true, "the repository tools are read-only");
 assert(mcp.tools.find((t) => t.name === "confluence_search").readOnly === true && mcp.tools.find((t) => t.name === "confluence_publish_page").readOnly === false, "read-only annotation is carried through");
 assert(!("config" in mcp) && !JSON.stringify(mcp).includes(demoDir), "the server config never comes back to the client");
 const imported = await alice.call("POST", "/api/v1/mcp-servers/import", {
   json: JSON.stringify({ servers: { "atlassian-import": { type: "stdio", command: process.execPath, args: [fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url))], env: { MCP_DEMO_DIR: demoDir }, gallery: true, version: "1.0" } } }),
 });
-assert(imported.results.length === 1 && imported.results[0].status === "ok" && imported.results[0].tools.length === 4, "a pasted VS Code mcp.json registers and tests its servers");
+assert(imported.results.length === 1 && imported.results[0].status === "ok" && imported.results[0].tools.length === 6, "a pasted VS Code mcp.json registers and tests its servers");
 const badImport = await alice.call("POST", "/api/v1/mcp-servers/import", { json: JSON.stringify({ servers: { x: { type: "http", url: "https://example.invalid/mcp", headers: { Authorization: "Bearer ${input:token}" } } } }) }).catch((e) => e.message);
 assert(String(badImport).includes("placeholders"), "editor input placeholders are refused with a clear message");
 await alice.call("DELETE", `/api/v1/mcp-servers/${imported.results[0].id}`);
@@ -494,9 +495,33 @@ assert(badEdit.error && /needs .{0,2}components/.test(badEdit.error), "a version
 const afterExpiry = (await bob.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);
 assert(!afterExpiry.waiting.decisionPoints.some((d) => d.artifactId === dp2.artifactId), "an expired decision point no longer waits on anyone");
 
+// As-is from code: the repository's manifests are read through Alice's own read-only tool (no
+// approval needed for reads), the model gets an as-is baseline, and target-state work shows as a diff.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+const callsBeforeAsIs = subA.events.filter((e) => e.type === "external.call_completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Draw the current architecture of repository tandem." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "as-is turn", 60000);
+const asIsModel = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "arch_model").pop().payload.content;
+assert(asIsModel.asIs && asIsModel.asIs.source === "repo:tandem", "the model carries an as-is baseline read from the repository");
+const asIsIds = asIsModel.asIs.components.map((c) => c.id);
+assert(["server", "web", "shared", "sqlite", "copilot-runtime", "mcp-servers"].every((id) => asIsIds.includes(id)), `the as-is shows the server, the web app, the shared package, SQLite, the Copilot runtime and the MCP servers (${asIsIds.join(", ")})`);
+assert(asIsModel.asIs.relationships.some((r) => r.from === "web" && r.to === "server") && asIsModel.asIs.relationships.some((r) => r.from === "server" && r.to === "sqlite"), "the as-is links the web app to the server and the server to SQLite");
+assert(subA.events.filter((e) => e.type === "external.call_completed").length > callsBeforeAsIs, "the repository reads went through the external tool ledger");
+assert(subA.events.filter((e) => e.type === "external.call_proposed" && /^repo_/.test(e.payload.toolName)).every((e) => e.payload.readOnly === true), "the repository reads were read-only calls, approved without asking");
+assert(asIsModel.components.some((c) => c.id === "service-a"), "the existing target-state model was kept");
+const diffView = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "view").map((e) => e.payload).find((p) => p.content.kind === "diff");
+assert(diffView && diffView.title === "As-is vs to-be", "an as-is vs to-be view card was created");
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Service B reads a Redis cache." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "to-be change turn");
+const afterAsIs = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "arch_model").pop().payload.content;
+assert(afterAsIs.asIs && afterAsIs.components.some((c) => c.id === "redis") && !afterAsIs.asIs.components.some((c) => c.id === "redis"), "a later change lands on the target state, not on the as-is baseline");
+const mdAsIs = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/\*\*As-is baseline:\*\* repo:tandem/.test(mdAsIs) && /classDef added/.test(mdAsIs) && /n_redis\[[\s\S]{0,80}?:::added/.test(mdAsIs) && /n_server\[[\s\S]{0,80}?:::removed/.test(mdAsIs), "the export carries the as-is summary and a diff drawing with Redis added and the server removed");
+
 // Threads anchored to cards: people talk on a card (or one component of the model) without the AI;
 // promoting a message carries the anchor, so the AI acts on that component and keeps the author.
-const viewCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "view").pop().payload;
+const viewCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "view" && e.payload.title === "System architecture").pop().payload;
 const thread = await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "This belongs in a data tier boundary, not next to the services.", mode: "note", anchor: { artifactId: viewCard.artifactId, componentId: "postgres" } });
 const threadReply = await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Agreed. Promote it so the model changes.", mode: "note", replyTo: thread.eventId });
 const turnsBeforeThread = subA.events.filter((e) => e.type === "turn.started").length;

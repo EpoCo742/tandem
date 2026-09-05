@@ -640,7 +640,7 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       if (c) {
         s.externalCalls = { ...s.externalCalls, [p.callId]: { ...c, status: p.ok ? "completed" : "failed", result: p.summary } };
         const owner = s.participants[c.ownerUserId]?.name ?? "someone";
-        s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${owner}'s ${c.serverName} tool ${c.toolName} ${p.ok ? "ran" : "failed"}: ${p.summary}`, turnId: ev.turnId, createdAt: ev.createdAt }];
+        if (!c.readOnly || !p.ok) s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${owner}'s ${c.serverName} tool ${c.toolName} ${p.ok ? "ran" : "failed"}: ${p.summary}`, turnId: ev.turnId, createdAt: ev.createdAt }];
       }
       return s;
     }

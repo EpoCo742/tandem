@@ -17,6 +17,61 @@ const write = (name, rows) => fs.writeFileSync(file(name), JSON.stringify(rows, 
 
 const server = new McpServer({ name: "tandem-demo-atlassian", version: "0.1.0" });
 
+// Read-only repository tools, a stand-in for a GitHub MCP server. Repositories are local
+// directories: MCP_DEMO_REPOS is a JSON map of name -> path; by default "tandem" is this checkout.
+const repos = (() => {
+  try {
+    return JSON.parse(process.env.MCP_DEMO_REPOS ?? "{}");
+  } catch {
+    return {};
+  }
+})();
+if (!repos.tandem) repos.tandem = path.resolve(new URL("../..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
+const SKIP = new Set(["node_modules", ".git", "dist", "build", ".pnpm", "data", "data-smoke", "coverage"]);
+function repoRoot(name) {
+  const root = repos[name];
+  if (!root) throw new Error(`unknown repository ${name}; known: ${Object.keys(repos).join(", ")}`);
+  return root;
+}
+function walk(root, rel, depth, out) {
+  if (depth > 3 || out.length > 2000) return;
+  for (const entry of fs.readdirSync(path.join(root, rel), { withFileTypes: true })) {
+    if (SKIP.has(entry.name) || entry.name.startsWith(".")) continue;
+    const p = rel ? `${rel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) walk(root, p, depth + 1, out);
+    else out.push(p);
+  }
+}
+server.registerTool(
+  "repo_tree",
+  {
+    title: "List repository files",
+    description: "List the files of a repository (depth 3, without dependencies and build output). One path per line.",
+    inputSchema: { repo: z.string().describe("Repository name, e.g. tandem") },
+    annotations: { readOnlyHint: true },
+  },
+  async ({ repo }) => {
+    const out = [];
+    walk(repoRoot(repo), "", 0, out);
+    return { content: [{ type: "text", text: out.join("\n") }] };
+  },
+);
+server.registerTool(
+  "repo_file",
+  {
+    title: "Read a repository file",
+    description: "Return the text of one file in a repository (up to 200k characters).",
+    inputSchema: { repo: z.string(), path: z.string().describe("Path inside the repository, e.g. server/package.json") },
+    annotations: { readOnlyHint: true },
+  },
+  async ({ repo, path: rel }) => {
+    const root = repoRoot(repo);
+    const full = path.resolve(root, rel);
+    if (!full.startsWith(path.resolve(root))) throw new Error("path escapes the repository");
+    return { content: [{ type: "text", text: fs.readFileSync(full, "utf8").slice(0, 200_000) }] };
+  },
+);
+
 server.registerTool(
   "confluence_publish_page",
   {

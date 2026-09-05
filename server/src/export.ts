@@ -1,7 +1,14 @@
-import { allAdrs, contentText, dataModelMarkdown, describeAnchor, liveArtifacts, modelToMermaid, participantName, threads, type AlternativesContent, type ArchModelContent, type ConstraintsContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { allAdrs, contentText, dataModelMarkdown, describeAnchor, liveArtifacts, modelDiff, modelToMermaid, participantName, threads, type AlternativesContent, type ArchModelContent, type ConstraintsContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 
 function modelMarkdown(m: ArchModelContent): string[] {
-  const out: string[] = ["| Component | Kind | Technology | Boundary | Description |", "|---|---|---|---|---|"];
+  const out: string[] = [];
+  const d = modelDiff(m);
+  if (m.asIs && d) {
+    const names = (cs: { name: string }[]) => (cs.length ? cs.map((c) => c.name).join(", ") : "none");
+    out.push(`**As-is baseline:** ${m.asIs.source}, captured ${m.asIs.capturedAt}. **To-be against as-is:** added ${names(d.added)}; removed ${names(d.removed)}; changed ${names(d.changed.map((x) => x.after))}; ${d.same.length} unchanged.`, "");
+    if (m.asIs.notes?.length) out.push(...m.asIs.notes.map((n) => `- ${n}`), "");
+  }
+  out.push("| Component | Kind | Technology | Boundary | Description |", "|---|---|---|---|---|");
   const bname = (id?: string) => (id ? m.boundaries.find((b) => b.id === id)?.name ?? id : "");
   for (const c of m.components) out.push(`| ${c.name} | ${c.kind} | ${c.technology ?? ""} | ${bname(c.boundary)} | ${c.description ?? ""} |`);
   if (m.relationships.length) {

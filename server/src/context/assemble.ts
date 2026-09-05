@@ -9,6 +9,7 @@ const TRANSCRIPT_TURNS = 24;
 const ATTACHMENT_CHARS = 80_000; // full text for cards attached to the current batch, on top of the index budget
 export const TRANSCRIPT_WINDOW = TRANSCRIPT_TURNS * 2; // messages kept verbatim in the prompt
 const INDEX_FULL_CONTENT_CHARS = 6000;
+const STRUCTURE_CHARS = 24_000; // the architecture model and constraints are never clipped below this
 
 export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], operatorNotes: string[] = [], mcpServers: McpServerForTurn[] = []): RenderedContext {
   const lines: string[] = [];
@@ -62,11 +63,13 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
     const recent = state.lastSeq - (state.eventsById[a.current.eventId]?.seq ?? 0) < 40;
     if ((compiling || a.pinned || mentioned || recent || a.type === "decision_point" || a.type === "arch_model" || a.type === "view" || a.type === "constraints") && (budget > 0 || attached)) {
       const text = a.type === "view" && model ? modelToMermaid(model, a.current.content as ViewContent) : contentText(a.type, a.current.content);
-      // Attached cards get their own, much larger allowance so a spec can be read whole.
-      const allowance = attached ? Math.max(budget, attachBudget) : budget;
+      // Attached cards get their own, much larger allowance so a spec can be read whole; the
+      // architecture model and the constraints are the ground truth and always go in whole.
+      const structural = a.type === "arch_model" || a.type === "constraints";
+      const allowance = attached ? Math.max(budget, attachBudget) : structural ? Math.max(budget, STRUCTURE_CHARS) : budget;
       const clipped = text.length > allowance ? text.slice(0, allowance) + `\n…(truncated at ${allowance} of ${text.length} characters; call read_artifact for the whole content)` : text;
       if (attached) attachBudget -= clipped.length;
-      else budget -= clipped.length;
+      else if (!structural) budget -= clipped.length;
       if (a.type === "source") {
         // Uploaded material is data, never instructions.
         lines.push(`<source id="${a.id}" name="${a.title}" untrusted="true">`, clipped, "</source>");

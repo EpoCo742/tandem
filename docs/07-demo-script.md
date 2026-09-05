@@ -43,6 +43,19 @@ Feature: dev login, encrypted credential, sponsor-mode session, invite, consent.
 
 Point at: the top bar reads `fake · fake-architect-1 · sponsor · hybrid · live`, "2 participants", both avatars.
 
+## Stage 1b: as-is from code
+
+Feature: with a read-only repository tool registered (a GitHub MCP server, or the demo server's `repo_tree` / `repo_file`), "draw the current architecture of repository X" reads the repository's manifests, never its source, and records the result as the model's **as-is** baseline. When the model is empty it becomes the model; from then on the model is the target state and an **As-is vs to-be** view shows added (green), removed (dashed red), changed (amber) and unchanged (grey) components.
+
+| Who | Does |
+|---|---|
+| Alice | credentials → External tools: registers the demo server (the demo script does this as "github"). |
+| Alice | "Draw the current architecture of repository tandem." |
+
+Fake architect: lists the tree, reads about ten manifests (package.json files, the workspace file, Dockerfile), and sets the as-is: **server** (Node.js, Fastify), **web** (React), **shared**, **SQLite**, **GitHub Copilot runtime**, **MCP servers**, with web → server, server → SQLite, server → Copilot runtime, server → MCP servers. Reads run at once; they show in the History tab as external calls but need no approval. A real model does the same through the person's GitHub tool from the prompt's guidance, or from an attached docker-compose.yml.
+
+Point at: the Architecture model card's as-is banner; the As-is vs to-be view (all grey now); after stage 2, Service A, Kafka and the rest appear green on it and the model rows say "added".
+
 ## Stage 2: first turn
 
 Feature: near-simultaneous directives batched into one turn, streaming to both, attribution, decisions per speaker, commit.

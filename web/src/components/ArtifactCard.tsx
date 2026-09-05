@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
+import { participantName, modelToMermaid, modelDiff, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -256,8 +256,10 @@ function ModelView({ content }: { content: ViewContent }) {
   const focusName = content.focus ? model.components.find((c) => c.id === content.focus)?.name : undefined;
   return (
     <div>
-      <div className="mono" style={{ marginBottom: 6 }}>{content.kind} view{focusName ? ` of ${focusName}` : ""} · {model.components.length} components</div>
+      <div className="mono" style={{ marginBottom: 6 }}>{content.kind === "diff" ? "as-is vs to-be" : `${content.kind} view`}{focusName ? ` of ${focusName}` : ""} · {model.components.length} components</div>
+      {content.kind === "diff" && !model.asIs && <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>No as-is baseline yet. Ask the AI to draw the current architecture of a repository, or attach its docker-compose.yml.</div>}
       <Mermaid source={modelToMermaid(model, content)} />
+      {content.kind === "diff" && model.asIs && (() => { const d = modelDiff(model)!; return <div className="mono" style={{ marginTop: 6, fontSize: 11 }}><span style={{ color: "var(--ok)" }}>+{d.added.length} added</span> · <span style={{ color: "var(--warn)" }}>−{d.removed.length} removed</span> · <span style={{ color: "var(--accent)" }}>~{d.changed.length} changed</span> · {d.same.length} unchanged · as-is from {model.asIs.source}</div>; })()}
       {content.note && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{content.note}</div>}
     </div>
   );
@@ -269,12 +271,19 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
   const setFocus = useStore((s) => s.setFocusComponent);
   const setThreadTarget = useStore((s) => s.setThreadTarget);
   const threadsOn = (id: string) => threadsFor(state, artifactId).filter((t) => t.anchor.componentId === id && !t.resolved).length;
+  const diff = modelDiff(content);
+  const statusOf = (id: string): "added" | "changed" | null => (diff ? (diff.added.some((c) => c.id === id) ? "added" : diff.changed.some((x) => x.after.id === id) ? "changed" : null) : null);
   const bname = (id?: string) => (id ? content.boundaries.find((b) => b.id === id)?.name ?? id : "");
   const name = (id: string) => content.components.find((c) => c.id === id)?.name ?? id;
   const decisionsAbout = (id: string) => Object.values(state.decisions).filter((d) => d.about.includes(id) && d.status !== "superseded").length;
   return (
     <div className="stack">
       <div className="muted" style={{ fontSize: 12 }}>The source of truth for structure. Views are drawn from it; click a component to see its decisions, or start a thread on one.</div>
+      {content.asIs && diff && (
+        <div className="consent" style={{ fontSize: 12 }} title={content.asIs.notes?.join("\n")}>
+          As-is from <span className="mono">{content.asIs.source}</span>; this model is the target state: <span style={{ color: "var(--ok)" }}>{diff.added.length} added</span>, <span style={{ color: "var(--warn)" }}>{diff.removed.length} removed{diff.removed.length ? ` (${diff.removed.map((c) => c.name).join(", ")})` : ""}</span>, <span style={{ color: "var(--accent)" }}>{diff.changed.length} changed</span>.
+        </div>
+      )}
       <table>
         <thead><tr><th>Component</th><th>Kind</th><th>Technology</th><th>Boundary</th><th></th></tr></thead>
         <tbody>
@@ -282,7 +291,7 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
             const n = decisionsAbout(c.id);
             return (
               <tr key={c.id} className={focus === c.id ? "focus" : ""} onClick={() => setFocus(focus === c.id ? null : c.id)} style={{ cursor: "pointer" }} title={c.description ?? c.id}>
-                <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}</td>
+                <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}{statusOf(c.id) && <span className="chip" style={{ marginLeft: 6, color: statusOf(c.id) === "added" ? "var(--ok)" : "var(--accent)" }} title="Against the as-is baseline">{statusOf(c.id)}</span>}</td>
                 <td className="mono">{c.kind}</td>
                 <td className="mono">{c.technology ?? ""}</td>
                 <td className="mono">{bname(c.boundary)}</td>

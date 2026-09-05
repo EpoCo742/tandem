@@ -160,6 +160,25 @@ export const upsertConstraintsInput = z.object({
   rationale: z.string(),
 });
 
+export const setAsIsInput = z.object({
+  source: z.string().describe("Where the as-is came from: 'repo:owner/name@ref' or 'upload:docker-compose.yml'"),
+  components: z.array(
+    z.object({
+      id: z.string().optional(),
+      name: z.string(),
+      kind: componentKind,
+      technology: z.string().optional(),
+      description: z.string().optional(),
+      boundary: z.string().optional(),
+    }),
+  ).min(1),
+  relationships: z.array(z.object({ from: z.string(), to: z.string(), kind: relationshipKind, label: z.string().optional() })),
+  notes: z.array(z.string()).optional().describe("What was read and what was inferred, for people to check"),
+  replaceModel: z.boolean().optional().describe("Also make the model equal to the as-is (default: only when the model is still empty)"),
+  derivedFrom: z.array(z.string()),
+  rationale: z.string(),
+});
+
 export const proposeAlternativesInput = z.object({
   question: z.string().describe("What is being decided, as a question: 'How should orders reach fulfilment?'"),
   candidates: z
@@ -249,6 +268,7 @@ export const toolSchemas = {
   upsert_constraints: upsertConstraintsInput,
   remove_constraints: removeConstraintsInput,
   propose_alternatives: proposeAlternativesInput,
+  set_as_is: setAsIsInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -275,6 +295,8 @@ export const toolDescriptions: Record<ToolName, string> = {
     "Render decisions as architecture decision record files (filename + Markdown), ready to write into a repository's docs/adr with an external tool. Omit decisionId to get all of them.",
   upsert_constraints:
     "Record non-functional targets and hard limits the design must respect (latency, data residency, budget, mandated platforms, compliance). Use when a person states one, or when an uploaded document contains one (cite it as the source). Every later change is checked against these. To relax someone else's constraint, add a new one with exceptionTo; amending a constraint another person set is proposed to that person and applies only when they approve.",
+  set_as_is:
+    "Record the architecture as it exists today (read from a repository's manifests or a deployment file) as the model's as-is baseline. When the model is still empty it becomes the model too; otherwise the model stays the target state and the 'As-is vs to-be' view shows the difference. Read only manifests (package.json, docker-compose, go.mod, pom.xml, terraform, k8s), never whole source trees.",
   propose_alternatives:
     "Put two or three candidate architectures side by side on one card, each a complete model of its own with what speaks for and against it and which constraints it meets or puts at risk. The architecture model is not changed; people choose with the card's Decide button, the majority's pick becomes the model and the decision is recorded automatically.",
   remove_constraints: "Drop constraints that no longer apply. Removing a constraint someone else set is proposed to that person. Prefer an exception (upsert_constraints with exceptionTo) or a decision when people disagree.",
@@ -294,4 +316,5 @@ export type ToolResult =
   | { status: "adrs"; files: { filename: string; markdown: string; label: string }[] }
   | { status: "constraints_updated"; artifactId: string; versionNo: number; constraints: { id: string; statement: string }[] }
   | { status: "alternatives_proposed"; artifactId: string; candidates: { id: string; title: string }[] }
+  | { status: "as_is_set"; artifactId: string; versionNo: number; components: number; relationships: number; modelReplaced: boolean; diffViewArtifactId: string }
   | { status: "error"; message: string };

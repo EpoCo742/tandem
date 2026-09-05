@@ -127,6 +127,31 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       return r as ToolResult;
     }),
 
+    bind("set_as_is", async (input) => {
+      const state = getState(scope.sessionId);
+      const existing = Object.values(state.artifacts).find((a) => a.type === "arch_model" && !a.deleted);
+      const cur = (existing?.current.content as ArchModelContent | undefined) ?? emptyModel();
+      const base = upsertComponents(emptyModel(), input.components, input.derivedFrom);
+      const { model: snap } = upsertRelationships(base, input.relationships, input.derivedFrom);
+      const asIs = { source: input.source, capturedAt: new Date().toISOString(), components: snap.components, relationships: snap.relationships, boundaries: snap.boundaries, ...(input.notes?.length ? { notes: input.notes } : {}) };
+      const replace = input.replaceModel ?? cur.components.length === 0;
+      const content: ArchModelContent = replace
+        ? { components: snap.components, relationships: snap.relationships, boundaries: snap.boundaries, sections: [{ id: "model", derivedFrom: input.derivedFrom }], asIs }
+        : { ...cur, asIs };
+      const r = requestChange({ ...common, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "arch_model", title: existing?.title ?? "Architecture model", content, summary: replace ? `As-is from ${input.source}: ${snap.components.length} components` : `As-is baseline from ${input.source} recorded; the model is the target state`, rationale: input.rationale, baseVersionNo: existing?.current.versionNo ?? null, provenance: [{ sectionId: "model", derivedFrom: input.derivedFrom }] });
+      if (r.status !== "applied") return r as ToolResult;
+      const views = Object.values(getState(scope.sessionId).artifacts).filter((a) => a.type === "view" && !a.deleted);
+      if (!views.some((a) => (a.current.content as { kind: string }).kind === "container")) {
+        requestChange({ ...common, op: "create", artifactId: null, artifactType: "view", title: "System architecture", content: { kind: "container", sections: [{ id: "overview", derivedFrom: input.derivedFrom }] }, summary: "Container view generated from the architecture model", rationale: "First view of the model", baseVersionNo: null, provenance: [{ sectionId: "overview", derivedFrom: input.derivedFrom }] });
+      }
+      let diffView = views.find((a) => (a.current.content as { kind: string }).kind === "diff");
+      if (!diffView) {
+        const made = requestChange({ ...common, op: "create", artifactId: null, artifactType: "view", title: "As-is vs to-be", content: { kind: "diff", note: `As-is from ${input.source}. Green: added in the target state; dashed red: removed; amber: changed; grey: unchanged.`, sections: [{ id: "diff", derivedFrom: input.derivedFrom }] }, summary: "What the target state changes against the as-is", rationale: "Diff view of the as-is baseline", baseVersionNo: null, provenance: [{ sectionId: "diff", derivedFrom: input.derivedFrom }] });
+        diffView = made.status === "applied" ? getState(scope.sessionId).artifacts[made.artifactId] : undefined;
+      }
+      return { status: "as_is_set", artifactId: r.artifactId, versionNo: r.versionNo, components: snap.components.length, relationships: snap.relationships.length, modelReplaced: replace, diffViewArtifactId: diffView?.id ?? "" };
+    }),
+
     bind("propose_alternatives", async (input) => {
       const letters = ["a", "b", "c"];
       const candidates = input.candidates.map((c, i) => {

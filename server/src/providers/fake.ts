@@ -1,4 +1,4 @@
-import { dataModelMarkdown, slugId, type ArchModelContent, type DataModelContent, type ToolResult } from "@tandem/shared";
+import { dataModelMarkdown, manifestPaths, scanRepo, slugId, type ArchModelContent, type DataModelContent, type RepoFile, type ToolResult } from "@tandem/shared";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
 import { callMcpTool } from "../mcp.js";
 
@@ -301,10 +301,10 @@ export const fakeProvider: ProviderAdapter = {
     const anchored = batch.filter((m) => m.about);
     if (anchored.length) {
       const modelArt = artifacts.find((a) => a.type === "arch_model");
-      const modelText = modelArt ? extractContents(req.context.prompt).get(modelArt.id) ?? "" : "";
+      const modelNow = modelArt ? ((await call("read_artifact", { artifactId: modelArt.id })) as { content?: ArchModelContent }).content : undefined;
       const componentIn = (id: string) => {
-        const m = modelText.match(new RegExp(`^- ${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}: (.+?) \\((\\w+)`, "m"));
-        return m ? { name: m[1]!, kind: m[2]! } : null;
+        const c = modelNow?.components.find((x) => x.id === id);
+        return c ? { name: c.name, kind: c.kind } : null;
       };
       for (const m of anchored) {
         const a = m.about!;
@@ -378,6 +378,66 @@ export const fakeProvider: ProviderAdapter = {
       if (existing) await call("update_artifact", { artifactId: existing.id, baseVersionNo: existing.versionNo, content, rationale: "Refresh data model from the discussion", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       else await call("create_artifact", { type: "data_model", title: "Data model", content, rationale: "Drafted from the tables and events named so far", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       await emit(`Drafted the data model with ${entities.map((e) => e.name).join(", ")}${relations.length ? ` and ${relations.length} relation(s)` : ""}. Tell me the fields you actually need and I will refine it.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0i. As-is from code: "draw the current architecture of repository X" reads the repository's
+    //     manifests through the speaker's own read-only tool (or an attached compose file) and
+    //     sets the model's as-is baseline. Manifests only; never the source tree.
+    const asIsMsg = batch.find((m) => /\b(current|as-is|existing)\b.*\barchitecture\b/i.test(m.text) && /\b(draw|map|capture|import|show|build|scan|read)\b/i.test(m.text));
+    if (asIsMsg) {
+      const repo = asIsMsg.text.match(/\brepo(?:sitory)?\s+["']?([\w./-]+?)["']?(?:[.,!?]|$)/i)?.[1] ?? null;
+      const files: RepoFile[] = [];
+      let source = "";
+      const contentsNow = extractContents(req.context.prompt);
+      const attached = artifacts.filter((a) => a.type === "source" && /(compose[\w.-]*\.ya?ml|package\.json|go\.mod|pom\.xml|requirements\.txt)$/i.test(a.title)).map((a) => ({ path: a.title, text: contentsNow.get(a.id) ?? "" })).filter((f) => f.text);
+      if (repo) {
+        const tools = req.mcpServers.flatMap((s) => s.tools.map((t) => ({ server: s, tool: t })));
+        const treeTool = tools.find(({ tool }) => tool.readOnly && /tree|list_files|ls|list_dir/i.test(tool.name));
+        const fileTool = tools.find(({ tool }) => tool.readOnly && /file_contents|read_file|get_file|repo_file|cat/i.test(tool.name));
+        if (!treeTool || !fileTool) {
+          await emit(`${asIsMsg.speaker}, I can read ${repo} once you register a read-only repository tool (credentials → External tools), or attach its docker-compose.yml or package.json.`);
+          return { text, toolCallsCount: 0, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+        }
+        const readTool = async (pick: typeof treeTool, args: Record<string, unknown>): Promise<string | null> => {
+          const { callId, decision } = await req.external.ask(pick.server, pick.tool.name, args, pick.tool.readOnly);
+          if (decision !== "approved") return null;
+          try {
+            const r = await callMcpTool(pick.server.config, pick.tool.name, args);
+            req.external.done(callId, r.ok, r.ok ? `${String(r.text).length} characters` : r.text);
+            return r.ok ? String(r.text) : null;
+          } catch (e) {
+            req.external.done(callId, false, (e as Error).message);
+            return null;
+          }
+        };
+        const tree = await readTool(treeTool, { repo });
+        if (tree === null) {
+          await emit(`Could not list ${repo} with ${treeTool.server.name}.${treeTool.tool.name}.`);
+          return { text, toolCallsCount: 1, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+        }
+        const paths = manifestPaths(tree.split(/\r?\n/).map((l) => l.trim()).filter(Boolean));
+        for (const p of paths) {
+          const body = await readTool(fileTool, { repo, path: p });
+          if (body !== null) files.push({ path: p, text: body });
+        }
+        source = `repo:${repo}`;
+        await emit(`Read ${files.length} manifest${files.length === 1 ? "" : "s"} from ${repo} (${paths.join(", ") || "none found"}). `);
+      } else if (attached.length) {
+        files.push(...attached);
+        source = `upload:${attached.map((f) => f.path).join(",")}`;
+      } else {
+        await emit(`${asIsMsg.speaker}, name the repository ("the current architecture of repository owner/name") with a read-only repository tool registered, or attach a docker-compose.yml or package.json.`);
+        return { text, toolCallsCount: 0, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const scan = scanRepo(files, repo ?? attached[0]!.path.replace(/\.[^.]+$/, ""));
+      if (!scan.components.length) {
+        await emit(`Nothing to draw: ${scan.notes.join("; ")}.`);
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const r = (await call("set_as_is", { source, components: scan.components, relationships: scan.relationships, notes: scan.notes, derivedFrom: [asIsMsg.eventId], rationale: `As-is read from ${source} for ${asIsMsg.speaker}` })) as { status: string; components?: number; modelReplaced?: boolean };
+      if (r.status === "as_is_set") await emit(`Captured the as-is: ${scan.components.map((c) => c.name).join(", ")}${r.modelReplaced ? ". The model now equals it; changes from here are the target state, and the As-is vs to-be view shows them." : ". The model keeps the target state; the As-is vs to-be view shows the difference."}`);
+      else await emit(`Could not record the as-is: ${r.status}.`);
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 

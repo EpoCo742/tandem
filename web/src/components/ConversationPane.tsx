@@ -38,7 +38,8 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   type Row = { kind: "msg"; at: string; m: (typeof messages)[number] } | { kind: "call"; at: string; c: ExternalCall } | { kind: "proposal"; at: string; p: Proposal };
   const rows: Row[] = [
     ...messages.map((m) => ({ kind: "msg" as const, at: m.createdAt, m })),
-    ...Object.values(state.externalCalls).map((c) => ({ kind: "call" as const, at: c.createdAt, c })),
+    // Reads never wait on anyone, so they do not take a row in the lane (the History tab lists them).
+    ...Object.values(state.externalCalls).filter((c) => !c.readOnly || c.status === "failed").map((c) => ({ kind: "call" as const, at: c.createdAt, c })),
     ...pendingProposals(state).map((p) => ({ kind: "proposal" as const, at: p.createdAt, p })),
   ].sort((a, b) => a.at.localeCompare(b.at));
   const requestTab = useStore((s) => s.requestTab);

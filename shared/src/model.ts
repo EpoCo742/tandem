@@ -6,7 +6,7 @@ import type { Section } from "./artifacts.js";
 
 export type ComponentKind = "service" | "database" | "queue" | "external" | "ui" | "person" | "storage" | "function" | "other";
 export type RelationshipKind = "calls" | "publishes" | "subscribes" | "reads" | "writes" | "uses" | "depends_on";
-export type ViewKind = "context" | "container" | "component";
+export type ViewKind = "context" | "container" | "component" | "diff";
 
 export interface ModelComponent {
   id: string; // stable slug, e.g. "service-a"
@@ -33,11 +33,46 @@ export interface ModelBoundary {
   kind?: "system" | "team" | "zone" | "other";
 }
 
+/** The architecture as it exists, captured from code or a manifest; the model itself is the target state. */
+export interface AsIsSnapshot {
+  source: string; // "repo:owner/name@ref", "upload:docker-compose.yml"
+  capturedAt: string;
+  components: ModelComponent[];
+  relationships: ModelRelationship[];
+  boundaries: ModelBoundary[];
+  notes?: string[];
+}
+
 export interface ArchModelContent {
   components: ModelComponent[];
   relationships: ModelRelationship[];
   boundaries: ModelBoundary[];
   sections: Section[];
+  asIs?: AsIsSnapshot;
+}
+
+export interface ModelDiff {
+  added: ModelComponent[];
+  removed: ModelComponent[];
+  changed: { before: ModelComponent; after: ModelComponent }[];
+  same: ModelComponent[];
+  addedRels: ModelRelationship[];
+  removedRels: ModelRelationship[];
+}
+
+/** To-be (the model) against as-is (the snapshot), by component id. */
+export function modelDiff(model: ArchModelContent): ModelDiff | null {
+  if (!model.asIs) return null;
+  const was = new Map(model.asIs.components.map((c) => [c.id, c]));
+  const now = new Map(model.components.map((c) => [c.id, c]));
+  const differs = (a: ModelComponent, b: ModelComponent) => a.name !== b.name || a.kind !== b.kind || (a.technology ?? "") !== (b.technology ?? "") || (a.boundary ?? "") !== (b.boundary ?? "");
+  const added = model.components.filter((c) => !was.has(c.id));
+  const removed = model.asIs.components.filter((c) => !now.has(c.id));
+  const changed = model.components.filter((c) => was.has(c.id) && differs(was.get(c.id)!, c)).map((c) => ({ before: was.get(c.id)!, after: c }));
+  const same = model.components.filter((c) => was.has(c.id) && !differs(was.get(c.id)!, c));
+  const wasRel = new Set(model.asIs.relationships.map((r) => r.id));
+  const nowRel = new Set(model.relationships.map((r) => r.id));
+  return { added, removed, changed, same, addedRels: model.relationships.filter((r) => !wasRel.has(r.id)), removedRels: model.asIs.relationships.filter((r) => !nowRel.has(r.id)) };
 }
 
 export interface ViewContent {
@@ -133,6 +168,8 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
     return lines.join("\n");
   }
 
+  if (view.kind === "diff") return diffToMermaid(model);
+
   let include = new Set(model.components.map((c) => c.id));
   if (view.kind === "component" && view.focus && comps.has(view.focus)) {
     include = new Set([view.focus]);
@@ -162,9 +199,40 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
   return lines.join("\n");
 }
 
+// As-is and to-be on one drawing: added components and edges stand out, removed ones are dashed,
+// changed ones are marked, and what stayed the same is muted.
+function diffToMermaid(model: ArchModelContent): string {
+  const d = modelDiff(model);
+  if (!d) return modelToMermaid({ ...model, asIs: undefined }, { kind: "container" }) + "\n  %% no as-is baseline captured yet";
+  const lines = ["flowchart LR", "  classDef added stroke:#2e9e5b,stroke-width:3px", "  classDef removed stroke:#c0392b,stroke-dasharray:5 5,color:#c0392b", "  classDef changed stroke:#d4890a,stroke-width:3px", "  classDef same stroke:#8a949e,color:#8a949e"];
+  const all = new Map<string, { c: ModelComponent; status: "added" | "removed" | "changed" | "same" }>();
+  for (const c of d.added) all.set(c.id, { c, status: "added" });
+  for (const c of d.removed) all.set(c.id, { c, status: "removed" });
+  for (const x of d.changed) all.set(x.after.id, { c: x.after, status: "changed" });
+  for (const c of d.same) all.set(c.id, { c, status: "same" });
+  const boundaries = [...model.boundaries, ...model.asIs!.boundaries.filter((b) => !model.boundaries.some((x) => x.id === b.id))];
+  const byBoundary = new Map<string | undefined, { c: ModelComponent; status: string }[]>();
+  for (const e of all.values()) byBoundary.set(e.c.boundary, [...(byBoundary.get(e.c.boundary) ?? []), e]);
+  for (const [bid, list] of byBoundary) {
+    const b = bid ? boundaries.find((x) => x.id === bid) : undefined;
+    if (b) lines.push(`  subgraph b_${mermaidId(b.id)}["${quote(b.name)}"]`);
+    for (const e of list) lines.push(`  ${b ? "  " : ""}${mermaidId(e.c.id)}${shape(e.c)}:::${e.status}`);
+    if (b) lines.push("  end");
+  }
+  const addedIds = new Set(d.addedRels.map((r) => r.id));
+  for (const r of model.relationships) lines.push(`  ${mermaidId(r.from)} ${addedIds.has(r.id) ? "==>" : "-->"}|"${quote(r.label ?? VERB[r.kind])}"| ${mermaidId(r.to)}`);
+  for (const r of d.removedRels) if (all.has(r.from) && all.has(r.to)) lines.push(`  ${mermaidId(r.from)} -.->|"${quote(r.label ?? VERB[r.kind])}"| ${mermaidId(r.to)}`);
+  return lines.join("\n");
+}
+
 /** Plain-text rendering of the model for prompts and exports. */
 export function modelToText(model: ArchModelContent): string {
   const out: string[] = [];
+  const d = modelDiff(model);
+  if (model.asIs && d) {
+    const names = (cs: ModelComponent[]) => (cs.length ? ` (${cs.map((c) => c.name).join(", ")})` : "");
+    out.push(`As-is baseline: ${model.asIs.source}, captured ${model.asIs.capturedAt}. To-be against as-is: ${d.added.length} added${names(d.added)}, ${d.removed.length} removed${names(d.removed)}, ${d.changed.length} changed${names(d.changed.map((x) => x.after))}, ${d.same.length} unchanged.`);
+  }
   const bname = (id?: string) => (id ? model.boundaries.find((b) => b.id === id)?.name ?? id : "");
   out.push("Components:");
   for (const c of model.components) out.push(`- ${c.id}: ${c.name} (${c.kind}${c.technology ? `, ${c.technology}` : ""}${c.boundary ? `, in ${bname(c.boundary)}` : ""})${c.description ? ` — ${c.description}` : ""}`);

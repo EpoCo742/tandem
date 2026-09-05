@@ -5,4 +5,5 @@ export * from "./adr.js";
 export * from "./tools.js";
 export * from "./reducer.js";
 export * from "./threads.js";
+export * from "./scan.js";
 export * from "./colors.js";

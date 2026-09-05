@@ -8,6 +8,7 @@
 // Stages run in order; --until names the last one to run. Afterwards open the printed
 // URL, log in as "alice" (dev login), and continue the script by hand from the next stage.
 // Bob can keep acting from the command line with server/scripts/bob.mjs.
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 
 const args = process.argv.slice(2);
@@ -92,6 +93,17 @@ const STAGES = [
     fs.mkdirSync("./data", { recursive: true });
     fs.writeFileSync("./data/bob-cookie.txt", bob.cookie);
     console.log(`   session ${s.id} "${TITLE}", Bob joined, both consented`);
+  }],
+  ["as-is", "the current architecture is read from a repository through Alice's own read-only tool", async () => {
+    const script = fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url));
+    const reg = await alice.call("POST", "/api/v1/mcp-servers", { name: "github", config: { transport: "stdio", command: process.execPath, args: [script], env: { MCP_DEMO_DIR: "./data/mcp-demo" } } });
+    console.log(`   Alice registers a read-only repository tool (${reg.tools.filter((t) => t.readOnly).map((t) => t.name).join(", ")} …)`);
+    const n = await completedTurns();
+    await say(alice, "Draw the current architecture of repository tandem.");
+    await waitForTurns(n + 1, "as-is turn", 60000);
+    const model = await latestArtifact("arch_model");
+    console.log(`   AI read the manifests and set the as-is: ${model.content.asIs.components.map((c) => c.name).join(", ")}; the model equals it; an "As-is vs to-be" view card appeared`);
+    console.log("   Everything from here is target-state work and shows as a diff against it");
   }],
   ["first-turn", "two directives batched into one AI turn; diagram card; D-01 and D-02", async () => {
     const n = await completedTurns();
