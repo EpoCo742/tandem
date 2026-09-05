@@ -17,7 +17,7 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   },
 };
 
-export function ArtifactCard({ artifact: a, sessionId, sized = false }: { artifact: Artifact; sessionId: string; sized?: boolean }) {
+export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSize }: { artifact: Artifact; sessionId: string; sized?: boolean; onResetSize?: () => void }) {
   const state = useStore((s) => s.state);
   const me = useStore((s) => s.me)!;
   const setHighlight = useStore((s) => s.setHighlight);
@@ -36,6 +36,21 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false }: { artifa
   const derived = [...new Set(v.provenance.flatMap((p) => p.derivedFrom))].filter((id) => state.eventsById[id]);
   const isDp = a.type === "decision_point";
   const pending = Object.values(state.proposals).filter((p) => p.artifactId === a.id && p.status === "pending").length;
+
+  const [renaming, setRenaming] = useState<string | null>(null);
+  async function rename(value: string) {
+    const title = value.trim();
+    setRenaming(null);
+    if (!title || title === a.title) return;
+    setMsg(null);
+    try {
+      const r = await api<{ status: string; approvers?: string[] }>("POST", `/api/v1/sessions/${sessionId}/artifacts/${a.id}/versions`, { content: a.current.content, title, rationale: `Renamed to "${title}"` });
+      if (r.status === "pending_approval") setMsg(`Rename proposed; waiting for ${(r.approvers ?? []).map((u) => participantName(state, u)).join(", ")}.`);
+      else if (r.status !== "applied") setMsg(`Could not rename: ${r.status.replace(/_/g, " ")}.`);
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
+  }
 
   async function remove() {
     setConfirmDelete(false);
@@ -63,12 +78,24 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false }: { artifa
     <div className={"art" + (sized ? " sized" : "") + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "")} style={{ borderTopColor: isDp ? undefined : authorColor }}>
       <div className="art-head">
         <span className="chip" style={{ color: isDp ? "var(--warn)" : AI_COLOR }}>{a.type.replace("_", " ")}</span>
-        <span className="title" title={a.title}>{a.title}</span>
+        {renaming === null ? (
+          <span className="title" title={`${a.title} (double-click to rename)`} onDoubleClick={() => !a.blockedByDecisionPoint && setRenaming(a.title)}>{a.title}</span>
+        ) : (
+          <input
+            className="title-edit nodrag"
+            autoFocus
+            value={renaming}
+            onChange={(e) => setRenaming(e.target.value)}
+            onBlur={(e) => rename(e.currentTarget.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") rename(e.currentTarget.value); if (e.key === "Escape") setRenaming(null); }}
+          />
+        )}
         <span className="mono">v{v.versionNo}</span>
         {a.blockedByDecisionPoint && <span className="chip" style={{ color: "var(--warn)" }} title="blocked until the decision point resolves">blocked</span>}
         {pending > 0 && <span className="chip accent">{pending} pending</span>}
         {editors.map((u) => <span key={u.userId} className="chip solid" style={{ background: u.color }} title={`${u.name} has this card open in the editor`}>{u.name} editing</span>)}
         {a.type === "source" && <button className="icon nodrag" style={{ padding: "0 5px" }} title={open ? "Fold this upload" : "Show the uploaded content"} onClick={() => setOpen((o) => !o)}>{open ? "▴" : "▾"}</button>}
+        {sized && onResetSize && <button className="icon nodrag" style={{ padding: "0 5px" }} title="Back to automatic size" onClick={onResetSize}>&#x21BA;</button>}
         <button className="icon nodrag" style={{ padding: "0 5px" }} title="Open this card full size" onClick={() => setExpanded(true)}>&#x2922;</button>
       </div>
       {open ? (

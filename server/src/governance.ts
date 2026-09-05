@@ -127,7 +127,8 @@ function applyVersion(req: ChangeRequest & { artifactId: string; proposalId: str
   const existing = state.artifacts[req.artifactId];
   const versionNo = existing ? existing.current.versionNo + 1 : 1;
   const hash = contentHash(req.content);
-  if (existing && existing.current.content && contentHash(existing.current.content) === hash && req.op === "update") {
+  // Same content and same title is a no-op; a rename with unchanged content is a real version.
+  if (existing && existing.current.content && contentHash(existing.current.content) === hash && req.op === "update" && req.title === existing.title) {
     return { status: "applied", artifactId: req.artifactId, versionNo: existing.current.versionNo, title: existing.title };
   }
   const versionId = ulid();

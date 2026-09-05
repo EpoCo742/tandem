@@ -223,6 +223,8 @@ Point at: nothing ran; the AI says so; History carries the proposed, resolved an
 
 Uploaded source cards start folded to one line (▾ opens them, double-click too). While someone has a card open in the editor, everyone else sees a "Name editing" chip on it; it is a courtesy, not a lock, and the version check on save remains the guard.
 
+Double-click a card's title to rename it; the rename is a new version under the same governance as an edit. A resized card shows ↺ in its header to go back to automatic size; images and diagrams scale with a resized card.
+
 ## Stage 14: theme and canvas grid (no script)
 
 Feature: personal UI preferences, not shared state.

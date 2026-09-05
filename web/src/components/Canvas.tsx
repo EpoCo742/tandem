@@ -20,10 +20,10 @@ import { useStore } from "../state/store";
 import { usePrefs, type GridStyle } from "../state/prefs";
 import { ArtifactCard } from "./ArtifactCard";
 
-type ArtNode = Node<{ artifact: Artifact; sessionId: string; sized: boolean }, "artifact">;
+type ArtNode = Node<{ artifact: Artifact; sessionId: string; sized: boolean; resetSize: (id: string) => void }, "artifact">;
 
-const MIN_W = 280;
-const MIN_H = 160;
+const MIN_W = 220;
+const MIN_H = 80;
 
 function ArtifactNode({ data, selected }: NodeProps<ArtNode>) {
   return (
@@ -35,7 +35,7 @@ function ArtifactNode({ data, selected }: NodeProps<ArtNode>) {
         lineClassName="art-resize-line"
         handleClassName="art-resize-handle"
       />
-      <ArtifactCard artifact={data.artifact} sessionId={data.sessionId} sized={data.sized} />
+      <ArtifactCard artifact={data.artifact} sessionId={data.sessionId} sized={data.sized} onResetSize={() => data.resetSize(data.artifact.id)} />
     </>
   );
 }
@@ -55,14 +55,14 @@ const animMs = () => (typeof document !== "undefined" && document.visibilityStat
 // Merge fresh artifact data into the existing node objects. React Flow keeps each node's
 // measured size on the object it was given; rebuilding the array from scratch on every
 // change threw that away, which made cards render at zero size and the minimap go blank.
-function mergeNodes(prev: ArtNode[], artifacts: Artifact[], layout: Record<string, Layout>, sessionId: string): ArtNode[] {
+function mergeNodes(prev: ArtNode[], artifacts: Artifact[], layout: Record<string, Layout>, sessionId: string, resetSize: (id: string) => void): ArtNode[] {
   const byId = new Map(prev.map((n) => [n.id, n]));
   return artifacts.map((a, i) => {
     const l = layout[a.id];
     const pos = l ? { x: l.x, y: l.y } : defaultPosition(i);
     const sized = Boolean(l?.w && l?.h);
     const existing = byId.get(a.id);
-    const data = { artifact: a, sessionId, sized };
+    const data = { artifact: a, sessionId, sized, resetSize };
     if (existing) {
       const busy = Boolean(existing.dragging || existing.resizing);
       const samePos = existing.position.x === pos.x && existing.position.y === pos.y;
@@ -118,10 +118,20 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
     });
   }, [artifacts, collab, synced]);
 
+  // Drop the stored size so the card goes back to its natural height and default width.
+  const resetSize = useCallback(
+    (id: string) => {
+      const cur = collab.nodes.get(id);
+      if (cur) collab.nodes.set(id, { x: cur.x, y: cur.y });
+      setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, width: undefined, height: undefined, style: undefined } : n)));
+    },
+    [collab],
+  );
+
   const [nodes, setNodes] = useState<ArtNode[]>([]);
   useEffect(() => {
-    setNodes((prev) => mergeNodes(prev, artifacts, layout, sessionId));
-  }, [artifacts, layout, sessionId]);
+    setNodes((prev) => mergeNodes(prev, artifacts, layout, sessionId, resetSize));
+  }, [artifacts, layout, sessionId, resetSize]);
 
   // Drag end and resize end both arrive here as node changes; write them to the shared layout.
   const onNodesChange = useCallback(
