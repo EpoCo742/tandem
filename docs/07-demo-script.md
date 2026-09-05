@@ -202,6 +202,10 @@ Fake architect: writes one attributed line per folded message plus the decisions
 
 Point at: the count "N of M messages folded"; every line carries a name and an event id; the export's Brief section; the next AI turn still answers in context of the folded discussion.
 
+## Stage 12a: usage (no script)
+
+The AI lane header shows the session's running tokens in and out and the model of the last turn; clicking it opens the breakdown by model and by who paid, with turn counts and premium requests. Each AI reply carries its own in/out chip. The offline provider estimates tokens; a real provider reports them.
+
 ## Stage 12b: decisions as records
 
 Feature: every decision is an architecture decision record: context, options considered with the chosen one, consequences, deciders, the components it concerns, and the evidence messages. The Decisions tab shows the record under "record"; the export carries a "Decision records" section; the export preview offers **download ADRs (.zip)** laid out as `docs/adr/NNNN-title.md`.

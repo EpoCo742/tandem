@@ -92,7 +92,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="pane">
-      <div className="pane-head">AI lane <span className="grow" /><span>{Object.keys(state.participants).length} participants</span></div>
+      <div className="pane-head">AI lane <span className="grow" /><UsageStrip /><span>{Object.keys(state.participants).length} participants</span></div>
       <div className="pane-body" ref={bodyRef}>
         {rows.map((row) => {
           if (row.kind === "call") return <ExternalCallCard key={row.c.id} call={row.c} sessionId={sessionId} myId={myId} onOpen={() => requestTab("proposals")} />;
@@ -111,6 +111,11 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
                     <span className="chip" style={{ color: state.participants[m.payerUserId ?? ""]?.color ?? AI_COLOR }} title="whose credential funded this turn">
                       ran on {participantName(state, m.payerUserId)}'s {m.provider}{meta.payerMode === "sponsor" ? " (sponsor)" : ""} · {m.model}
                     </span>
+                    {m.turnId && state.turns[m.turnId]?.usage && (state.turns[m.turnId]!.usage!.inputTokens || state.turns[m.turnId]!.usage!.outputTokens) ? (
+                      <span className="chip" style={{ color: "var(--ink-3)" }} title="Tokens this turn: prompt in, reply out">
+                        {fmtTokens(state.turns[m.turnId]!.usage!.inputTokens ?? 0)} in · {fmtTokens(state.turns[m.turnId]!.usage!.outputTokens ?? 0)} out
+                      </span>
+                    ) : null}
                     {m.partial && <span className="chip" style={{ color: "var(--warn)" }}>interrupted</span>}
                   </>
                 )}
@@ -243,5 +248,59 @@ function ProposalCard({ proposal: p, sessionId, myId, onOpen }: { proposal: Prop
         <button className="icon" onClick={onOpen} title="See the diff in the Proposals tab">details</button>
       </div>
     </div>
+  );
+}
+
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+  if (n >= 1_000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+// Running totals for the session from the completed turns: tokens in and out, requests, by
+// model and by the person whose credential paid. Click to open the breakdown.
+function UsageStrip() {
+  const state = useStore((s) => s.state);
+  const [open, setOpen] = useState(false);
+  const turns = Object.values(state.turns).filter((t) => t.status === "committed" && t.usage);
+  const add = (acc: Record<string, { i: number; o: number; r: number; n: number }>, key: string, t: (typeof turns)[number]) => {
+    const cur = acc[key] ?? { i: 0, o: 0, r: 0, n: 0 };
+    acc[key] = { i: cur.i + (t.usage!.inputTokens ?? 0), o: cur.o + (t.usage!.outputTokens ?? 0), r: cur.r + (t.usage!.premiumRequests ?? 0), n: cur.n + 1 };
+    return acc;
+  };
+  const byModel = turns.reduce((acc, t) => add(acc, t.modelUsed ?? t.usage!.model ?? t.modelRequested, t), {} as Record<string, { i: number; o: number; r: number; n: number }>);
+  const byPayer = turns.reduce((acc, t) => add(acc, t.payerUserId, t), {} as Record<string, { i: number; o: number; r: number; n: number }>);
+  const total = Object.values(byModel).reduce((a, b) => ({ i: a.i + b.i, o: a.o + b.o, r: a.r + b.r, n: a.n + b.n }), { i: 0, o: 0, r: 0, n: 0 });
+  if (turns.length === 0) return null;
+  const lastModel = [...turns].sort((a, b) => a.startedAt.localeCompare(b.startedAt)).pop()!;
+  const modelName = lastModel.modelUsed ?? lastModel.usage!.model ?? lastModel.modelRequested;
+  return (
+    <span className="usage" style={{ position: "relative" }}>
+      <button className="icon" onClick={() => setOpen((o) => !o)} title="Tokens for this session so far: prompt in, reply out. Click for the breakdown by model and by who paid.">
+        {fmtTokens(total.i)} in · {fmtTokens(total.o)} out · {modelName}
+      </button>
+      {open && (
+        <div className="usage-pop" onMouseLeave={() => setOpen(false)}>
+          <div className="mono" style={{ marginBottom: 4 }}>by model</div>
+          <table>
+            <tbody>
+              {Object.entries(byModel).map(([k, v]) => (
+                <tr key={k}><td>{k}</td><td className="mono num">{fmtTokens(v.i)} in</td><td className="mono num">{fmtTokens(v.o)} out</td><td className="mono num">{v.n} turn{v.n === 1 ? "" : "s"}{v.r ? ` · ${v.r} req` : ""}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mono" style={{ margin: "8px 0 4px" }}>by who paid</div>
+          <table>
+            <tbody>
+              {Object.entries(byPayer).map(([k, v]) => (
+                <tr key={k}><td style={{ color: state.participants[k]?.color }}>{participantName(state, k)}</td><td className="mono num">{fmtTokens(v.i)} in</td><td className="mono num">{fmtTokens(v.o)} out</td><td className="mono num">{v.n} turn{v.n === 1 ? "" : "s"}{v.r ? ` · ${v.r} req` : ""}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>Counts come from the provider per turn. "req" is premium requests on Copilot. Brief compactions are not included.</div>
+        </div>
+      )}
+    </span>
   );
 }

@@ -123,6 +123,9 @@ function firstSentence(text: string, max = 150): string {
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
 
+// Rough token estimate (four characters per token) so demos show usage the way a real provider would.
+const estimate = (prompt: string, output: string) => ({ inputTokens: Math.round(prompt.length / 4), outputTokens: Math.round(output.length / 4), premiumRequests: 0, model: "fake-architect-1" });
+
 export const fakeProvider: ProviderAdapter = {
   id: "fake",
   async validate() {
@@ -171,7 +174,7 @@ export const fakeProvider: ProviderAdapter = {
 
     if (batch.length === 0) {
       await emit("I did not receive any directives in this batch.");
-      return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      return { text, toolCallsCount: 0, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
     // 0. Compile request: assemble a design document from everything in the prompt.
@@ -186,7 +189,7 @@ export const fakeProvider: ProviderAdapter = {
         await call("create_artifact", { type: "design_doc", title: "Design document", content: doc, rationale: "Compiled from the canvas", summary: "Design document compiled from the canvas" });
         await emit("Compiled the design document: overview, architecture, data model, sources, decision log, and open questions. Export it from the top bar.");
       }
-      return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
     // 0c. Outbound action: "publish/create/upload ... to confluence/jira/github" uses the speaker's own MCP tool.
@@ -195,7 +198,7 @@ export const fakeProvider: ProviderAdapter = {
       const fileTool = req.mcpServers.flatMap((s) => s.tools.map((t) => ({ server: s, tool: t }))).find(({ tool }) => /create_file|create_or_update_file|push_files|write_file|commit/i.test(tool.name));
       if (!fileTool) {
         await emit(`${commitAdrs.speaker}, I can write the decision records to a repository once you register a tool that can create files there (credentials → External tools).`);
-        return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+        return { text, toolCallsCount: 0, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
       }
       const rendered = (await call("render_adr", {})) as { status: string; files?: { filename: string; markdown: string; label: string }[] };
       const files = rendered.files ?? [];
@@ -218,7 +221,7 @@ export const fakeProvider: ProviderAdapter = {
         }
       }
       await emit(`Wrote ${written} of ${files.length} decision record${files.length === 1 ? "" : "s"} to ${repo} under docs/adr${denied ? ` (${denied} not approved)` : ""}.`);
-      return { text, toolCallsCount: files.length, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      return { text, toolCallsCount: files.length, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
     const outbound = batch.find((m) => /\b(publish|upload|push|create|open|file)\b/i.test(m.text) && /\b(confluence|jira|github|page|stor(y|ies)|epics?|tickets?|issues?|repo|wiki)\b/i.test(m.text));
@@ -227,7 +230,7 @@ export const fakeProvider: ProviderAdapter = {
       const pick = req.mcpServers.flatMap((s) => s.tools.map((t) => ({ server: s, tool: t }))).find(({ tool }) => (wantsTicket ? /story|issue|ticket|epic/i.test(tool.name) : /publish|page|create_page|upload/i.test(tool.name)));
       if (!pick) {
         await emit(`${outbound.speaker}, I can do that once you register a tool for it: credentials → External tools. I have no external tool registered for you.`);
-        return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+        return { text, toolCallsCount: 0, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
       }
       const doc = artifacts.find((a) => a.type === "design_doc") ?? artifacts.find((a) => a.type === "mermaid");
       const args = wantsTicket
@@ -237,7 +240,7 @@ export const fakeProvider: ProviderAdapter = {
       const { callId, decision } = await req.external.ask(pick.server, pick.tool.name, args, pick.tool.readOnly);
       if (decision !== "approved") {
         await emit("That was not approved, so nothing was sent.");
-        return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+        return { text, toolCallsCount: 0, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
       }
       try {
         const r = await callMcpTool(pick.server.config, pick.tool.name, args);
@@ -247,7 +250,7 @@ export const fakeProvider: ProviderAdapter = {
         req.external.done(callId, false, (e as Error).message);
         await emit(`The tool failed: ${(e as Error).message}`);
       }
-      return { text, toolCallsCount: 1, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      return { text, toolCallsCount: 1, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
     // 0b. Data model request: derive entities from tables and events mentioned so far.
@@ -282,7 +285,7 @@ export const fakeProvider: ProviderAdapter = {
       if (entities.length === 0) {
         await call("ask_clarification", { question: "Which tables or events should the data model cover? I did not find any named in the discussion yet.", addressedTo: [userIdFor(req.context.prompt, wantsModel.speaker)] });
         await emit("I need a table or event name to start from; asked on the canvas.");
-        return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
       }
       const relations = tables[0] && events.length ? events.map((e) => ({ from: tables[0]!, to: `${e.replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase()}_events`, cardinality: "1-n" as const, label: "emits", derivedFrom: ev })) : [];
       const existing = artifacts.find((a) => a.type === "data_model");
@@ -290,7 +293,7 @@ export const fakeProvider: ProviderAdapter = {
       if (existing) await call("update_artifact", { artifactId: existing.id, baseVersionNo: existing.versionNo, content, rationale: "Refresh data model from the discussion", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       else await call("create_artifact", { type: "data_model", title: "Data model", content, rationale: "Drafted from the tables and events named so far", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       await emit(`Drafted the data model with ${entities.map((e) => e.name).join(", ")}${relations.length ? ` and ${relations.length} relation(s)` : ""}. Tell me the fields you actually need and I will refine it.`);
-      return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
     // 1. Contradiction check: a directive that shares vocabulary with an agreed decision and contains a negation word.
@@ -315,7 +318,7 @@ export const fakeProvider: ProviderAdapter = {
           contradictsDecisionId: hit.id,
         });
         await emit("I raised a decision point; vote on the card and I will apply the outcome.");
-        return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
       }
     }
 
@@ -354,7 +357,7 @@ export const fakeProvider: ProviderAdapter = {
         await call("update_artifact", { artifactId: view.id, baseVersionNo: view.versionNo, content: { source: `${src}\n  note[/"${chosen}"/]`, kind: "flowchart", sections: [{ id: "resolution", derivedFrom: [resolution.eventId] }] }, rationale: "Apply the resolved decision point", summary: `${view.title} (updated for ${chosen})` });
       }
       await emit(`Applied the resolution: ${chosen}. Recorded as ${(r as { label?: string }).label ?? "a decision"}.`);
-      return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
     // 3. Ordinary directives: grow the architecture model (components + relationships), keep a
@@ -424,6 +427,6 @@ export const fakeProvider: ProviderAdapter = {
       if (r.status === "recorded") await emit(`Recorded ${r.label} for ${m.speaker}. `);
     }
     await emit("Anything you want me to elaborate, or shall I draft the data model next?");
-    return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+    return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
   },
 };
