@@ -28,7 +28,32 @@ pnpm dev                            # server on :3000, Vite on :5173 (proxies /a
 
 For a single-process run instead of `pnpm dev`: `pnpm build` then `pnpm --filter @tandem/server start`, and open http://localhost:3000.
 
-### If a card says "This version of the card cannot be shown"
+### If turns fail with "authentication failed, failed to validate SDK token, network fetch failed"
+
+The Copilot runtime (a child process the server starts with the payer's GitHub token) checks that token against GitHub before every session. "Network fetch failed" and "error decoding response body" mean it could not reach GitHub or got a non-JSON answer, which on a managed machine is almost always a proxy or TLS inspection, or a GitHub host other than github.com. The runtime inherits the server's environment, so put the fix in `server/.env` and restart:
+
+```
+# corporate proxy (the runtime honours these; NO_PROXY keeps local traffic direct)
+HTTPS_PROXY=http://proxy.example.com:8080
+HTTP_PROXY=http://proxy.example.com:8080
+NO_PROXY=localhost,127.0.0.1
+
+# TLS inspection: the proxy's root certificate, in PEM
+NODE_EXTRA_CA_CERTS=C:\certs\corp-root.pem
+
+# only if your account lives on GitHub Enterprise Cloud with data residency (not github.com)
+COPILOT_GH_HOST=https://yourcompany.ghe.com
+```
+
+To tell which one it is, from the same machine and shell:
+
+```
+curl -sS -I https://api.github.com/user -H "Authorization: Bearer <your token>"
+```
+
+A certificate error means TLS inspection (set `NODE_EXTRA_CA_CERTS`); a timeout or an HTML login page means the proxy (set `HTTPS_PROXY`); a 401 means the token itself expired or was revoked (fine-grained tokens expire; re-create it under credentials). Nothing in Tandem's own builds changes how the runtime reaches GitHub.
+
+## If a card says "This version of the card cannot be shown"
 
 A version was stored whose content does not fit the card type (older builds let the model do this). The rest of the session keeps working. To restore the card as a forward version, stop the server and run, from `server/`:
 
