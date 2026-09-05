@@ -143,7 +143,6 @@ export const copilotProvider: ProviderAdapter = {
       });
       // What the runtime says about the attached servers, surfaced to the people in the session.
       const offErr = session.on("session.error", (e) => req.onNote(`Runtime error (${e.data.errorType}): ${e.data.message}`));
-      const offMcpChanged = session.on("mcp.tools.list_changed", (e) => req.onNote(`External tool server "${e.data.serverName}" connected; its tools are available this turn.`));
       const offHeaders = session.on("mcp.headers_refresh_required", (e) => req.onNote(`External tool server "${(e.data as { serverName?: string }).serverName ?? "?"}" asked for refreshed headers; re-register it with current credentials.`));
       if (req.mcpServers.length) console.log(`[tandem] turn ${req.turnId}: attached MCP servers ${req.mcpServers.map((s) => `${s.name} (${s.config.transport}${s.config.transport === "http" && s.config.sse ? "/sse" : ""}, ${s.tools.length} tools)`).join(", ")}; allow-list adds ${mcpToolNames.map((n) => `mcp:${n}`).join(", ")}`);
       const offDelta = session.on("assistant.message_delta", (e) => {
@@ -191,12 +190,47 @@ export const copilotProvider: ProviderAdapter = {
               return [];
             }
           });
+        // Attached MCP servers connect after the session exists, asynchronously. Every turn is a fresh
+        // session, so without waiting the prompt reaches the model before its external tools do and it
+        // truthfully reports it cannot call them. Wait for each server to settle, then say what happened.
+        if (req.mcpServers.length) {
+          const statuses = new Map<string, { status: string; error?: string }>();
+          const settled = () => req.mcpServers.every((s) => statuses.has(s.name) && statuses.get(s.name)!.status !== "pending");
+          await new Promise<void>((resolve) => {
+            let finished = false;
+            const finish = () => {
+              if (finished) return;
+              finished = true;
+              offStatus();
+              offLoaded();
+              clearTimeout(timer);
+              resolve();
+            };
+            const offStatus = session.on("session.mcp_server_status_changed", (e) => {
+              statuses.set(e.data.serverName, { status: e.data.status, error: e.data.error });
+              if (settled()) finish();
+            });
+            const offLoaded = session.on("session.mcp_servers_loaded", () => {
+              for (const s of req.mcpServers) if (!statuses.has(s.name)) statuses.set(s.name, { status: "connected" });
+              finish();
+            });
+            const timer = setTimeout(finish, 25_000);
+            if (settled()) finish();
+          });
+          for (const s of req.mcpServers) {
+            const st = statuses.get(s.name);
+            if (!st || st.status === "pending") req.onNote(`External tool server "${s.name}" did not finish connecting within 25 seconds; its tools are not available this turn.`);
+            else if (st.status === "connected") req.onNote(`External tool server "${s.name}" connected; ${s.tools.length} tools available this turn.`);
+            else if (st.status === "needs-auth") req.onNote(`External tool server "${s.name}" needs an OAuth login the runtime cannot complete here; register it as a stdio server through mcp-remote, or supply a valid Authorization header.`);
+            else req.onNote(`External tool server "${s.name}" failed to connect${st.error ? `: ${st.error}` : ""}.`);
+          }
+          console.log(`[tandem] turn ${req.turnId}: MCP status ${JSON.stringify(Object.fromEntries(statuses))}`);
+        }
         const final = await session.sendAndWait({ prompt: req.context.prompt, ...(attachments.length ? { attachments } : {}) }, req.timeoutMs);
         if (!text && final?.data.content) text = final.data.content;
       } finally {
         req.signal.removeEventListener("abort", onAbort);
         offErr();
-        offMcpChanged();
         offHeaders();
         offDelta();
         offUsage();
