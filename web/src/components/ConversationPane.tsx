@@ -92,7 +92,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="pane">
-      <div className="pane-head">AI lane <span className="grow" /><UsageStrip /><span>{Object.keys(state.participants).length} participants</span></div>
+      <div className="pane-head"><span style={{ whiteSpace: "nowrap" }}>AI lane</span><span className="grow" /><UsageStrip /><span style={{ whiteSpace: "nowrap", flex: "none" }}>{Object.keys(state.participants).length} participants</span></div>
       <div className="pane-body" ref={bodyRef}>
         {rows.map((row) => {
           if (row.kind === "call") return <ExternalCallCard key={row.c.id} call={row.c} sessionId={sessionId} myId={myId} onOpen={() => requestTab("proposals")} />;
