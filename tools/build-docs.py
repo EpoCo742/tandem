@@ -12,6 +12,7 @@ DOCS = [
     ("06-demo-guide.md", "Tandem Demo Guide", "06 · Demo guide", "demo-guide.html"),
     ("07-demo-script.md", "Tandem Demo Script", "07 · Demo script", "demo-script.html"),
     ("08-backlog.md", "Tandem Backlog", "08 · Backlog", "backlog.html"),
+    ("09-roadmap.md", "Tandem Roadmap", "09 · Roadmap", "roadmap.html"),
 ]
 
 CSS = """

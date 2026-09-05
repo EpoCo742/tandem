@@ -1,5 +1,7 @@
 # Tandem backlog
 
+Superseded on 2026-09-05 by `09-roadmap.md`, which folds these items into a phased plan. Kept for the design sketch of the MCP work.
+
 What is not built yet, in the order it is worth doing. Status of what is built lives in `05-poc-plan.md` section 7. Last updated 2026-09-05.
 
 Shipped from this list on 2026-09-05: the first slice of per-user MCP servers (registration, discovery, speaker-only tools, outbound-write gate, offline demo server), collapsed source cards, the editing indicator. What remains of item 1 is noted inside it.

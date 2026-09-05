@@ -1,0 +1,211 @@
+<title>Tandem Roadmap</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#EDF0F3;--panel:#FFFFFF;--panel-2:#F5F7F9;--ink:#1A2128;--ink-2:#4A5561;--ink-3:#7C8893;--line:#D3DAE0;--a:#D4890A;--b:#178E9E;--ai:#5A6773;--ai-soft:#E4E8EC;--code:#F3F5F7;--shadow:0 1px 2px rgba(26,33,40,.06),0 8px 24px rgba(26,33,40,.08);--display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;--body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;--mono:"IBM Plex Mono",Consolas,"Courier New",monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#0F1519;--panel:#171F26;--panel-2:#1E2830;--ink:#E6EBEF;--ink-2:#AEB9C3;--ink-3:#7C8893;--line:#2C3742;--a:#E9A63A;--b:#3FB4C3;--ai:#9AA7B3;--ai-soft:#27323C;--code:#121A20;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}}
+:root[data-theme="dark"]{--ground:#0F1519;--panel:#171F26;--panel-2:#1E2830;--ink:#E6EBEF;--ink-2:#AEB9C3;--ink-3:#7C8893;--line:#2C3742;--a:#E9A63A;--b:#3FB4C3;--ai:#9AA7B3;--ai-soft:#27323C;--code:#121A20;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.page{max-width:1240px;margin:0 auto;padding:32px 16px 80px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:32px;align-items:start}
+nav.toc{position:sticky;top:24px;font-size:13px;border-left:3px solid;border-image:linear-gradient(180deg,var(--a) 0 50%,var(--b) 50% 100%) 1;padding-left:14px}
+nav.toc .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;line-height:1.35}
+nav.toc a:hover{color:var(--b)}
+article{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:48px 56px 56px;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.1;letter-spacing:-.015em}
+h1{font-size:clamp(34px,4.5vw,52px);font-weight:800;margin:0 0 12px}
+h2{font-size:28px;font-weight:700;margin:44px 0 12px;padding-top:20px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:700;margin:28px 0 8px}
+h4{font-size:16px;font-weight:700;margin:20px 0 6px}
+p,li{max-width:72ch}
+p{margin:0 0 12px}
+em{color:var(--ink-2)}
+blockquote{margin:12px 0;padding:8px 16px;border-left:3px solid var(--ai);background:var(--panel-2);color:var(--ink-2)}
+blockquote p{margin:0}
+a{color:var(--b)}
+ul,ol{padding-left:22px;margin:0 0 12px}
+li{margin:4px 0}
+code{font-family:var(--mono);font-size:.88em;background:var(--code);padding:1px 5px;border-radius:3px}
+pre{background:var(--code);border:1px solid var(--line);padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.5;margin:12px 0 18px}
+pre code{background:none;padding:0;font-size:inherit}
+pre.mermaid{background:var(--panel-2);text-align:center}
+.table-wrap{overflow-x:auto;margin:12px 0 20px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td code{white-space:nowrap}
+hr{border:0;border-top:1px solid var(--line);margin:32px 0}
+figure{margin:16px 0 22px}
+figure img{width:100%;height:auto;border:1px solid var(--line);box-shadow:var(--shadow);display:block}
+figcaption{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:6px;letter-spacing:.03em}
+strong{font-weight:600}
+:focus-visible{outline:2px solid var(--b);outline-offset:2px}
+@media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
+</style>
+<div class="page">
+<nav class="toc"><div class="k">Contents</div><a href="#where-the-product-stands">Where the product stands</a><a href="#principles-that-stay-fixed">Principles that stay fixed</a><a href="#phase-a-depth-the-canvas-means-something">Phase A: depth (the canvas means something)</a><a href="#phase-b-reach-people-who-are-not-in-the-room">Phase B: reach (people who are not in the room)</a><a href="#phase-c-memory-sessions-compound">Phase C: memory (sessions compound)</a><a href="#carried-over-from-the-earlier-backlog">Carried over from the earlier backlog</a><a href="#order-and-next-steps">Order and next steps</a></nav>
+<article>
+<div class="eyebrow"><span>Tandem design package · 09 · Roadmap</span><span>2026-09-03</span></div>
+<h1>Tandem roadmap</h1>
+
+<p>Plan of record from 2026-09-05. Everything built so far is listed in <code>05-poc-plan.md</code> section 7; the earlier backlog is folded into this document, which replaces <code>08-backlog.md</code> as the place to look for what is next.</p>
+<h2 id="where-the-product-stands">Where the product stands</h2>
+<p>The POC does the moment of collaboration well: two to five people in one AI conversation, turns batched and attributed, a governed canvas with proposals and decision points, versions and forks, a compiled design document, per-person AI credentials and per-person external tools with gated writes, a running brief for long sessions, and an export with provenance.</p>
+<p>It is weak on either side of that moment. Underneath, diagrams are free text with no model, so consistency depends on the AI behaving. Around it, only people who are online can take part, and decisions are statements rather than records. After it, nothing carries into the next session.</p>
+<p>The roadmap fixes those three things in that order: <strong>depth</strong>, <strong>reach</strong>, <strong>memory</strong>. Each phase is a set of two-to-five-day items that can ship independently and are demoable on the offline provider.</p>
+<h2 id="principles-that-stay-fixed">Principles that stay fixed</h2>
+<ul>
+<li>The ledger is the truth; every new capability is new event types and a reducer change first, UI second.</li>
+<li>Attribution survives everything: models, decisions, threads, digests, exports.</li>
+<li>Governance is one mechanism: additive applies, cross-owner waits, destructive and outbound need the owner, contradictions become decision points. New artifact types inherit it rather than inventing their own.</li>
+<li>Each person's credentials and tools stay their own. Nothing runs on someone else's account.</li>
+<li>The offline provider learns every new behaviour so the demo script and smoke test cover it without a seat.</li>
+</ul>
+<hr />
+<h2 id="phase-a-depth-the-canvas-means-something">Phase A: depth (the canvas means something)</h2>
+<h3>A1. Architecture model under the diagrams</h3>
+<p><strong>What.</strong> A canonical model per session: components (service, database, queue, external system, UI, person), relationships (calls, publishes, subscribes, reads, writes) with labels, and boundaries (a system, a team, a trust zone). Diagrams become views generated from the model: context, container, and a focused view of one component. Free Mermaid cards remain allowed for anything the model does not cover.</p>
+<p><strong>Why.</strong> Renames propagate. A component can be clicked to see every decision and requirement about it. The data model links each entity to the component that owns it. The coherence check in the spec becomes a check against structure instead of a prompt.</p>
+<p><strong>Design.</strong> New artifact type <code>arch_model</code> (one per session, created by the AI or by hand), content <code>{ components, relationships, boundaries, sections }</code>. New tools <code>upsert_components</code>, <code>upsert_relationships</code>, <code>remove_from_model</code> with the same governance as <code>update_artifact</code> (the model has an owner; others' changes are proposals). <code>view</code> cards carry <code>{ kind: "context" | "container" | "component", focus?: componentId }</code> and render Mermaid generated from the model at render time, so they never go stale. Decisions get an optional <code>about: componentId[]</code>; data model entities get <code>ownedBy: componentId</code>. Prompt: the model is rendered as a compact structured list on every turn with the instruction that it is the source of truth for diagrams.</p>
+<p><strong>Acceptance.</strong> Alice: "Service A publishes OrderPlaced to Kafka; Service B subscribes and writes to Postgres." → model with four components and three relationships, a context view. Bob renames Service B to Fulfilment through the model; every view updates; the decision recorded against Service B now reads Fulfilment. Clicking Kafka in a view lists D-01.</p>
+<p><strong>Effort.</strong> Five days. First item because everything after it is better on top of it.</p>
+<h3>A2. Decisions as records (ADR grade)</h3>
+<p><strong>What.</strong> <code>record_decision</code> grows context, options considered with their trade-offs, consequences, and <code>about</code> components. The Decisions tab shows the record; the export writes each decision in ADR form; an "export ADRs" action produces one Markdown file per decision, and, when a GitHub MCP tool is registered, the AI can commit them to <code>docs/adr</code> through the same outbound gate as any other write.</p>
+<p><strong>Why.</strong> It makes Tandem the place decisions are made, not merely discussed, and leaves the repository with the artefact architects already keep.</p>
+<p><strong>Acceptance.</strong> A resolved decision point produces an ADR with the options that were voted on; "commit the ADRs to the repo" proposes a GitHub write naming the repository and path; after approval the files exist.</p>
+<p><strong>Effort.</strong> Three days. Depends on A1 only for the <code>about</code> links.</p>
+<h3>A3. Constraints the AI designs against</h3>
+<p><strong>What.</strong> A <code>constraints</code> card: non-functional targets and hard constraints (latency, data residency, budget, mandated platforms, compliance), each attributed and with a source (a person or an uploaded document). Rendered in every prompt. On each turn the AI checks new or changed structure against them and raises a decision point, not a silent change, when a proposal conflicts.</p>
+<p><strong>Why.</strong> Uploads already carry business rules; this makes them enforceable and gives the coherence check something to check against.</p>
+<p><strong>Acceptance.</strong> A constraint "no data leaves the EU" and a directive "back up orders to a US bucket" yields a decision point citing the constraint and who set it.</p>
+<p><strong>Effort.</strong> Three days. Independent of A1; better with it.</p>
+<h3>A4. Alternatives side by side</h3>
+<p><strong>What.</strong> "Explore alternatives" asks the AI for two or three candidate architectures. Each becomes a branch: a labelled group of cards with its own model view, plus a trade-off table card that cites the constraints. A decision point chooses; the losing branches are kept, folded, and marked.</p>
+<p><strong>Why.</strong> This is how architects actually think, and forks already exist; this is forking with intent inside one session.</p>
+<p><strong>Acceptance.</strong> Three candidate branches appear; picking one records the decision with the others as options considered (A2), and the model (A1) is set from the chosen branch.</p>
+<p><strong>Effort.</strong> Four days. Depends on A1 and A2.</p>
+<h3>A5. As-is from code</h3>
+<p><strong>What.</strong> With a GitHub MCP registered, "draw the current architecture of repository X" reads the repository through that person's tool and populates the model as the as-is state; target-state work is then shown as a diff view (added, removed, changed components).</p>
+<p><strong>Why.</strong> Most design sessions start from something that exists, and the as-is versus to-be view is what stakeholders ask for.</p>
+<p><strong>Acceptance.</strong> Against the Tandem repository itself: the model shows the server, the web app, SQLite, the Copilot runtime, and the MCP servers; adding a Redis component shows as a to-be change.</p>
+<p><strong>Effort.</strong> Four days. Depends on A1; reads only, so no new governance.</p>
+<hr />
+<h2 id="phase-b-reach-people-who-are-not-in-the-room">Phase B: reach (people who are not in the room)</h2>
+<h3>B1. Asynchronous participation</h3>
+<p><strong>What.</strong> Decision points get an optional deadline and can be voted on from a link without opening the canvas. A digest, built from the brief and the ledger, summarises what changed since a person last looked, with the decisions waiting on them first. A person can be mentioned in a message or a note to request their input; they see it in the digest. Digests post to Slack or Teams through a registered MCP tool when one exists, and are otherwise in-app.</p>
+<p><strong>Why.</strong> Five people are never all live. The brief already exists; this turns it into a call to action.</p>
+<p><strong>Acceptance.</strong> Bob is offline while Alice raises a decision point with a deadline; Bob's digest shows it first; voting from the link resolves it; the deadline passing without a majority records the point as expired rather than silently open.</p>
+<p><strong>Effort.</strong> Five days. No dependency on Phase A.</p>
+<h3>B2. Threads anchored to cards</h3>
+<p><strong>What.</strong> Comments on a specific card or a component in a view, threaded, human-only like the side channel, with "promote to AI" carrying the anchor so the AI knows what "this boundary is wrong" refers to.</p>
+<p><strong>Effort.</strong> Three days. Anchoring to components needs A1; anchoring to cards does not.</p>
+<h3>B3. Review and sign-off</h3>
+<p><strong>What.</strong> A reviewer role that can comment, vote, and propose but not edit directly. The design document gets a status (draft, in review, approved) with named sign-offs recorded as decisions; changing the canvas after approval moves it back to draft with a note of what changed.</p>
+<p><strong>Why.</strong> Architecture review boards want a document with a status, and the ledger already proves who agreed to what.</p>
+<p><strong>Effort.</strong> Three days.</p>
+<h3>B4. Notifications through existing tools</h3>
+<p><strong>What.</strong> Events that matter (decision point raised, proposal waiting on you, document approved) go out through a person's registered Slack or Teams MCP tool, governed like any outbound write but pre-approvable per channel.</p>
+<p><strong>Effort.</strong> Two days. Depends on the MCP work already shipped and on B1 for the digest.</p>
+<hr />
+<h2 id="phase-c-memory-sessions-compound">Phase C: memory (sessions compound)</h2>
+<h3>C1. Organisation library</h3>
+<p><strong>What.</strong> Search across a person's sessions for decisions, components, and constraints. The AI can cite earlier sessions with attribution ("three earlier sessions chose Kafka for order events, agreed by …") and pull a decision or a component in as a starting point, linked back to its origin.</p>
+<p><strong>Design.</strong> A cross-session index of decisions and model components (SQLite full-text search in the POC), a <code>library_search</code> tool the AI may call, and an <code>imported_from</code> provenance field on anything copied in.</p>
+<p><strong>Effort.</strong> Five days. Depends on A1 and A2 for anything worth indexing.</p>
+<h3>C2. Templates</h3>
+<p><strong>What.</strong> Session types (new service, integration, data migration, platform change) that seed the constraints card, the expected artifacts, and a completeness gauge the AI drives toward, so a session ends with a whole design instead of answers to whatever was last said.</p>
+<p><strong>Effort.</strong> Three days.</p>
+<hr />
+<h2 id="carried-over-from-the-earlier-backlog">Carried over from the earlier backlog</h2>
+<ul>
+<li><strong>Sandboxed MCP servers.</strong> Stdio servers run as children of the Tandem server; production needs a per-user sandbox. Production item; unchanged.</li>
+<li><strong>Copilot runtime MCP path on a real seat.</strong> Wired and typechecked, not yet exercised on a seat. Needs a person with an Atlassian or GitHub MCP registered to ask the AI to publish something. Half a day, user-driven.</li>
+<li><strong>Live text co-editing.</strong> Still deprioritised: it bypasses the proposal flow. Anchored threads (B2) cover most of what people wanted from it.</li>
+<li><strong>GitHub App instead of OAuth App.</strong> Production item: short-lived tokens with refresh handling.</li>
+<li><strong>M4, build together.</strong> Change sets, a sandbox workspace, agent turns, branch-per-proposal. Starts after Phase A, since A5 (as-is from code) is its first step.</li>
+</ul>
+<hr />
+<h2 id="order-and-next-steps">Order and next steps</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Order</th>
+<th>Item</th>
+<th>Days</th>
+<th>Depends on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>A1 Architecture model</td>
+<td>5</td>
+<td>—</td>
+</tr>
+<tr>
+<td>2</td>
+<td>A2 ADR-grade decisions</td>
+<td>3</td>
+<td>A1 (links)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>B1 Asynchronous participation</td>
+<td>5</td>
+<td>—</td>
+</tr>
+<tr>
+<td>4</td>
+<td>A3 Constraints</td>
+<td>3</td>
+<td>—</td>
+</tr>
+<tr>
+<td>5</td>
+<td>B2 Anchored threads</td>
+<td>3</td>
+<td>A1 for component anchors</td>
+</tr>
+<tr>
+<td>6</td>
+<td>A4 Alternatives</td>
+<td>4</td>
+<td>A1, A2</td>
+</tr>
+<tr>
+<td>7</td>
+<td>B3 Review and sign-off</td>
+<td>3</td>
+<td>A2</td>
+</tr>
+<tr>
+<td>8</td>
+<td>A5 As-is from code</td>
+<td>4</td>
+<td>A1</td>
+</tr>
+<tr>
+<td>9</td>
+<td>B4 Notifications</td>
+<td>2</td>
+<td>B1</td>
+</tr>
+<tr>
+<td>10</td>
+<td>C1 Organisation library</td>
+<td>5</td>
+<td>A1, A2</td>
+</tr>
+<tr>
+<td>11</td>
+<td>C2 Templates</td>
+<td>3</td>
+<td>A3</td>
+</tr>
+</tbody>
+</table></div>
+<p>Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices. Each item adds its stage to <code>07-demo-script.md</code> and its assertions to the smoke test before it is called done.</p>
+<p><strong>Started 2026-09-05:</strong> A1, the architecture model.</p>
+</article>
+</div>
