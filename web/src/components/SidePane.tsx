@@ -5,6 +5,7 @@ import { participantName, pendingProposals, contentText, describeAnchor, describ
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
+import { promotionStates } from "../threadState";
 
 type Tab = "side" | "proposals" | "decisions" | "history" | "sources" | "brief";
 
@@ -69,7 +70,7 @@ function SideChannel({ sessionId }: { sessionId: string }) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const notes = state.messages.filter((m) => m.kind === "user" && m.mode === "note");
-  const promotedFrom = new Set(state.messages.filter((m) => m.mode === "promoted").map((m) => state.eventsById[m.eventId]?.causedBy[0]).filter(Boolean));
+  const promotion = promotionStates(state);
   useEffect(() => {
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
   }, [notes.length]);
@@ -92,8 +93,10 @@ function SideChannel({ sessionId }: { sessionId: string }) {
               <span style={{ color: state.participants[m.userId!]?.color }}>{participantName(state, m.userId)}</span>
               {m.anchor && <button className="chip" style={{ cursor: "pointer" }} title="Open the thread on this card" onClick={() => setThreadTarget(m.anchor!)}>on {describeAnchor(state, m.anchor)}</button>}
               <span className="grow" />
-              {promotedFrom.has(m.eventId) ? (
+              {promotion(m) === "promoted" ? (
                 <span className="chip" title="This message was sent to the AI">promoted</span>
+              ) : promotion(m) === "sent" ? (
+                <span className="chip muted" title="Went to the AI as background when a later message in its thread was promoted">sent as context</span>
               ) : (
                 <button style={{ padding: "0 6px", fontSize: 10.5 }} onClick={() => api("POST", `/api/v1/sessions/${sessionId}/messages/${m.eventId}/promote`)}>promote to AI</button>
               )}

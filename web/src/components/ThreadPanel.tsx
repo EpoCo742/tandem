@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { participantName, threadsFor, describeAnchor, type ArchModelContent, type MessageAnchor, type Thread } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
+import { promotionStates } from "../threadState";
 
 // Threads live on cards. They are conversations between people; the AI only sees a
 // message once someone promotes it, and the promoted message carries what it is about.
@@ -92,7 +93,8 @@ function ThreadView({ sessionId, thread: t, canPost }: { sessionId: string; thre
   const state = useStore((s) => s.state);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const promotedFrom = new Set(state.messages.filter((m) => m.mode === "promoted").map((m) => state.eventsById[m.eventId]?.causedBy[0]).filter(Boolean));
+  const promotion = promotionStates(state);
+  const sentToAi = [t.root, ...t.replies].some((m) => promotion(m) === "promoted");
   const label = t.anchor.componentId ? describeAnchor(state, t.anchor).split(" › ").pop() : "whole card";
 
   async function post() {
@@ -117,6 +119,7 @@ function ThreadView({ sessionId, thread: t, canPost }: { sessionId: string; thre
     <div className={"thread" + (t.resolved ? " resolved" : "")}>
       <div className="row" style={{ fontSize: 11 }}>
         <span className="chip" title={t.anchor.componentId ? "Anchored to one component of the architecture model" : "Anchored to the whole card"}>{label}</span>
+        {sentToAi && <span className="chip" style={{ color: "var(--ok)" }} title="A message from this thread was promoted; the AI received it with the rest of the thread as background">sent to AI</span>}
         <span className="grow" />
         {canPost && <button style={{ padding: "0 6px", fontSize: 10.5 }} onClick={() => resolve(!t.resolved)} title={t.resolved ? "Reopen this thread" : "Mark this thread as settled; it stays in the record"}>{t.resolved ? "reopen" : "resolve"}</button>}
       </div>
@@ -125,10 +128,12 @@ function ThreadView({ sessionId, thread: t, canPost }: { sessionId: string; thre
           <div className="who">
             <span style={{ color: state.participants[m.userId!]?.color }}>{participantName(state, m.userId)}</span>
             <span className="grow" />
-            {promotedFrom.has(m.eventId) ? (
+            {promotion(m) === "promoted" ? (
               <span className="chip" title="This message was sent to the AI, with the anchor">promoted</span>
+            ) : promotion(m) === "sent" ? (
+              <span className="chip muted" title="Went to the AI as background when a later message in this thread was promoted">sent as context</span>
             ) : canPost ? (
-              <button style={{ padding: "0 6px", fontSize: 10.5 }} disabled={busy === m.eventId} onClick={() => promote(m.eventId)} title="Send this message to the AI, keeping the author and saying what it is about">promote to AI</button>
+              <button style={{ padding: "0 6px", fontSize: 10.5 }} disabled={busy === m.eventId} onClick={() => promote(m.eventId)} title="Send this message to the AI, keeping the author and saying what it is about; earlier messages in the thread go along as background">promote to AI</button>
             ) : null}
           </div>
           <div className="text">{m.text}</div>
