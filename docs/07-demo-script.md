@@ -202,7 +202,7 @@ Setup: start nothing extra. The repo ships a stand-in for Atlassian, `server/scr
 
 | Who | Does |
 |---|---|
-| Alice | Credentials → External tools: name `atlassian`, transport stdio, command `node`, arguments `server/scripts/mcp-demo-server.mjs`. **Add and test** lists three tools; ✎ marks the ones that write. |
+| Alice | Credentials → External tools: either paste the entry from an editor's `mcp.json` (Paste JSON, then **Import and test**), or Fill in fields: name `atlassian`, transport stdio, command `node`, arguments `server/scripts/mcp-demo-server.mjs`, **Add and test**. Three tools are listed; ✎ marks the ones that write. |
 | Bob | Says "Publish the design document to Confluence under ARCH." |
 
 Fake architect: Bob has no tools, so it says to register one and proposes nothing.

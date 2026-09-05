@@ -87,8 +87,27 @@ function McpServers() {
   const [headers, setHeaders] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [mode, setMode] = useState<"form" | "json">("json");
+  const [json, setJson] = useState("");
+  const [imported, setImported] = useState<string | null>(null);
 
   const load = () => api<{ servers: McpServerView[] }>("GET", "/api/v1/mcp-servers").then((r) => setServers(r.servers));
+
+  async function importJson() {
+    setBusy("import");
+    setErr(null);
+    setImported(null);
+    try {
+      const r = await api<{ results: { name: string; status: string; tools: { name: string }[]; lastError?: string | null }[] }>("POST", "/api/v1/mcp-servers/import", { json, name: name || undefined });
+      setImported(r.results.map((x) => `${x.name}: ${x.status === "ok" ? `${x.tools.length} tools` : x.lastError ?? x.status}`).join(" · "));
+      if (r.results.every((x) => x.status === "ok")) setJson("");
+      await load();
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
   useEffect(() => { load(); }, []);
 
   async function add() {
@@ -123,6 +142,28 @@ function McpServers() {
         Your own MCP servers with your own credentials, for example Atlassian or GitHub. On turns you direct, the AI can use them: reads run at once, writes wait for your approval in the session's Proposals tab. Configuration is encrypted at rest and never sent back to the browser.
       </p>
       <div className="card stack">
+        <div className="tabs" style={{ padding: 0, borderBottom: "1px solid var(--line)" }}>
+          <button className={mode === "json" ? "active" : ""} onClick={() => setMode("json")}>Paste JSON</button>
+          <button className={mode === "form" ? "active" : ""} onClick={() => setMode("form")}>Fill in fields</button>
+        </div>
+        {mode === "json" ? (
+          <>
+            <div className="muted" style={{ fontSize: 12 }}>
+              Paste the server entry from your editor's <code>mcp.json</code>, or the whole file. VS Code's <code>{"{ \"servers\": { … } }"}</code>, Claude Desktop's and Cursor's <code>{"{ \"mcpServers\": { … } }"}</code>, and a single server object all work; <code>type</code>, <code>url</code>, <code>headers</code>, <code>command</code>, <code>args</code> and <code>env</code> are used, <code>gallery</code> and <code>version</code> are ignored. Replace any <code>{"${input:…}"}</code> placeholders with real values first.
+            </div>
+            <textarea value={json} onChange={(e) => setJson(e.target.value)} spellCheck={false} style={{ minHeight: 140, fontFamily: "var(--mono)", fontSize: 12 }} placeholder={'{\n  "servers": {\n    "atlassian": {\n      "type": "http",\n      "url": "https://mcp.atlassian.com/v1/mcp",\n      "headers": { "X-Atlassian-Token": "…" }\n    }\n  }\n}'} />
+            <div className="row">
+              <label style={{ width: 220 }}>
+                <div className="mono">name (only if the JSON is a single server without one)</div>
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="atlassian" />
+              </label>
+              <button className="primary" onClick={importJson} disabled={busy !== null || !json.trim()} style={{ alignSelf: "flex-end" }}>{busy === "import" ? "Connecting…" : "Import and test"}</button>
+              {imported && <span className="mono" style={{ alignSelf: "flex-end" }}>{imported}</span>}
+              {err && <span className="err" style={{ alignSelf: "flex-end" }}>{err}</span>}
+            </div>
+          </>
+        ) : (
+        <>
         <div className="row">
           <label style={{ width: 180 }}>
             <div className="mono">name</div>
@@ -161,6 +202,8 @@ function McpServers() {
           <button className="primary" onClick={add} disabled={busy !== null || !name.trim() || (transport === "stdio" ? !command.trim() : !url.trim())}>{busy === "add" ? "Connecting…" : "Add and test"}</button>
           {err && <span className="err">{err}</span>}
         </div>
+        </>
+        )}
       </div>
       {servers.map((s) => (
         <div key={s.id} className="card row" style={{ alignItems: "flex-start" }}>

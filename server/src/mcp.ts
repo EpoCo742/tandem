@@ -96,7 +96,9 @@ function summarize(config: McpConfig): string {
 
 export function normalizeConfig(input: unknown): McpConfig {
   const c = (input ?? {}) as Record<string, unknown>;
-  if (c.transport === "http") {
+  // VS Code writes "type": "http" | "sse" | "stdio"; treat it as our transport when ours is absent.
+  const kind = c.transport ?? (c.type === "http" || c.type === "sse" || (typeof c.url === "string" && !c.command) ? "http" : "stdio");
+  if (kind === "http") {
     const url = String(c.url ?? "").trim();
     if (!/^https?:\/\//.test(url)) throw new Error("http transport needs a URL starting with http:// or https://");
     return { transport: "http", url, headers: stringMap(c.headers) };
@@ -105,6 +107,27 @@ export function normalizeConfig(input: unknown): McpConfig {
   if (!command) throw new Error("stdio transport needs a command");
   const args = Array.isArray(c.args) ? c.args.map(String) : typeof c.args === "string" ? splitArgs(c.args) : [];
   return { transport: "stdio", command, args, env: stringMap(c.env), cwd: c.cwd ? String(c.cwd) : undefined };
+}
+
+/**
+ * Parse a pasted config the way editors write it: a whole mcp.json ({ "servers": {...} } for VS Code,
+ * { "mcpServers": {...} } for Claude Desktop and Cursor) or a single server object. Fields such as
+ * "gallery" and "version" are ignored. Editor input variables like ${input:token} are refused,
+ * because nothing here can prompt for them.
+ */
+export function parsePastedConfig(text: string, fallbackName = "server"): { name: string; config: McpConfig }[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`not valid JSON: ${(e as Error).message}`);
+  }
+  if (/\$\{input:[^}]+\}/.test(text)) throw new Error("the JSON contains ${input:…} placeholders; replace them with the real values before pasting");
+  const obj = (raw ?? {}) as Record<string, unknown>;
+  const map = (obj.servers ?? obj.mcpServers) as Record<string, unknown> | undefined;
+  const entries = map && typeof map === "object" ? Object.entries(map) : [[fallbackName, obj] as [string, unknown]];
+  if (!entries.length) throw new Error("no servers found in the JSON");
+  return entries.map(([name, cfg]) => ({ name, config: normalizeConfig(cfg) }));
 }
 
 function stringMap(v: unknown): Record<string, string> {

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireUser } from "../auth.js";
-import { deleteMcpServer, listMcpServers, normalizeConfig, registerMcpServer, removeAllowRule, testMcpServer } from "../mcp.js";
+import { deleteMcpServer, listMcpServers, normalizeConfig, parsePastedConfig, registerMcpServer, removeAllowRule, testMcpServer } from "../mcp.js";
 
 export async function registerMcpRoutes(app: FastifyInstance) {
   app.get("/api/v1/mcp-servers", async (req, reply) => {
@@ -18,6 +18,27 @@ export async function registerMcpRoutes(app: FastifyInstance) {
     } catch (e) {
       return reply.code(400).send({ error: (e as Error).message });
     }
+  });
+
+  // Paste an editor's mcp.json (or one server from it); every server in it is registered and tested.
+  app.post<{ Body: { json: string; name?: string } }>("/api/v1/mcp-servers/import", async (req, reply) => {
+    const user = requireUser(req, reply);
+    let parsed: ReturnType<typeof parsePastedConfig>;
+    try {
+      parsed = parsePastedConfig(String(req.body?.json ?? ""), req.body?.name?.trim() || "server");
+    } catch (e) {
+      return reply.code(400).send({ error: (e as Error).message });
+    }
+    const results = [];
+    for (const { name, config } of parsed) {
+      try {
+        const created = registerMcpServer(user.id, name, config);
+        results.push(await testMcpServer(user.id, created.id));
+      } catch (e) {
+        results.push({ name, status: "error", lastError: (e as Error).message, tools: [] });
+      }
+    }
+    return { results };
   });
 
   app.post<{ Params: { id: string } }>("/api/v1/mcp-servers/:id/test", async (req, reply) => {

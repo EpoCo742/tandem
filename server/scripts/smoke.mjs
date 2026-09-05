@@ -281,6 +281,13 @@ const mcp = await alice.call("POST", "/api/v1/mcp-servers", {
 assert(mcp.status === "ok" && mcp.tools.length === 3, `demo MCP server registered and probed: ${mcp.tools.map((t) => t.name + (t.readOnly ? "" : "*")).join(", ")}`);
 assert(mcp.tools.find((t) => t.name === "confluence_search").readOnly === true && mcp.tools.find((t) => t.name === "confluence_publish_page").readOnly === false, "read-only annotation is carried through");
 assert(!("config" in mcp) && !JSON.stringify(mcp).includes(demoDir), "the server config never comes back to the client");
+const imported = await alice.call("POST", "/api/v1/mcp-servers/import", {
+  json: JSON.stringify({ servers: { "atlassian-import": { type: "stdio", command: process.execPath, args: [fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url))], env: { MCP_DEMO_DIR: demoDir }, gallery: true, version: "1.0" } } }),
+});
+assert(imported.results.length === 1 && imported.results[0].status === "ok" && imported.results[0].tools.length === 3, "a pasted VS Code mcp.json registers and tests its servers");
+const badImport = await alice.call("POST", "/api/v1/mcp-servers/import", { json: JSON.stringify({ servers: { x: { type: "http", url: "https://example.invalid/mcp", headers: { Authorization: "Bearer ${input:token}" } } } }) }).catch((e) => e.message);
+assert(String(badImport).includes("placeholders"), "editor input placeholders are refused with a clear message");
+await alice.call("DELETE", `/api/v1/mcp-servers/${imported.results[0].id}`);
 
 // Bob has no tool: the AI says so and nothing is proposed.
 let turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
