@@ -21,6 +21,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const connected = useStore((s) => s.connected);
   const [err, setErr] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [inviteRole, setInviteRole] = useState<"editor" | "reviewer" | "viewer">("editor");
   const [exporting, setExporting] = useState(false);
   const collabRef = useRef<Collab | null>(null);
   const [collab, setCollab] = useState<Collab | null>(null);
@@ -65,7 +66,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   if (!meta) return <div className="page muted">Loading session…</div>;
 
   async function invite() {
-    const r = await api<{ url: string }>("POST", `/api/v1/sessions/${sessionId}/invites`);
+    const r = await api<{ url: string }>("POST", `/api/v1/sessions/${sessionId}/invites`, { role: inviteRole });
     setInviteUrl(r.url);
     try {
       await navigator.clipboard.writeText(r.url);
@@ -83,6 +84,11 @@ export function Session({ sessionId }: { sessionId: string }) {
         <div className="presence" title="present now">
           {presence.map((p) => <Avatar key={p.userId} name={p.name} color={p.color} src={p.avatarUrl} />)}
         </div>
+        <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)} style={{ width: "auto" }} title="Editors change the canvas. Reviewers comment, vote, sign off and propose, but nothing they do lands without approval. Viewers only read.">
+          <option value="editor">as editor</option>
+          <option value="reviewer">as reviewer</option>
+          <option value="viewer">as viewer</option>
+        </select>
         <button onClick={invite}>Invite</button>
         {inviteUrl && <span className="mono" style={{ userSelect: "all" }}>{inviteUrl}</span>}
         {state.forkedFrom && (

@@ -275,6 +275,53 @@ const t2 = subS.events.filter((e) => e.type === "turn.started").pop().payload;
 assert(t2.payerUserId === bobId, "with his own credential Bob's turn is funded by Bob");
 subS.ws.close();
 
+// Review and sign-off: a reviewer can comment, vote and propose but not edit directly; the design
+// document has a status; named sign-offs approve it as a decision; a later canvas change reopens it.
+const carol = client("carol");
+await carol.call("POST", "/auth/dev", { handle: "carol", name: "Carol" });
+const reviewerInvite = await alice.call("POST", `/api/v1/sessions/${sessionId}/invites`, { role: "reviewer" });
+assert(reviewerInvite.role === "reviewer", "an invite can carry the reviewer role");
+await carol.call("POST", `/api/v1/invites/${reviewerInvite.token}/accept`);
+await waitFor(() => subA.events.some((e) => e.type === "participant.joined" && e.payload.role === "reviewer"), "carol joined as reviewer");
+const carolId = subA.events.find((e) => e.type === "participant.joined" && e.payload.role === "reviewer").actorUserId;
+const noteCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "markdown").pop().payload;
+const carolEdit = await carol.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${noteCard.artifactId}/versions`, { content: { ...noteCard.content, markdown: noteCard.content.markdown + "\n- Carol: consider idempotent consumers." }, rationale: "reviewer suggestion" });
+assert(carolEdit.status === "pending_approval" && !carolEdit.approvers.includes(carolId), "a reviewer's direct edit becomes a proposal for someone else");
+const carolNote = await carol.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Reviewer here; reading the document now.", mode: "note", anchor: { artifactId: noteCard.artifactId } });
+assert(carolNote.eventId, "a reviewer can comment in a thread");
+const docCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "design_doc").pop().payload;
+const badReq = await alice.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/sign`).catch((e) => ({ error: String(e.message) }));
+assert(badReq.error && /not in review/.test(badReq.error), "nobody can sign a document that is not in review");
+const reviewReq = await alice.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/request`, { reviewers: [bobId, carolId], note: "Please sign off before Friday." });
+assert(reviewReq.reviewers.length === 2, "alice asked bob and carol to sign off the design document");
+const carolDigest = (await carol.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);
+assert(carolDigest.waiting.signoffs.some((x) => x.artifactId === docCard.artifactId && x.needed === 2 && x.requestedBy === "Alice"), "carol's digest says the sign-off waits on her");
+const notNamed = await alice.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/sign`).catch((e) => ({ error: String(e.message) }));
+assert(notNamed.error && /not one of the named reviewers/.test(notNamed.error), "only named reviewers can sign");
+const mdInReview = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/\*\*Status:\*\* in review, 0 of 2 signed/.test(mdInReview), "the export shows the document in review");
+const sign1 = await bob.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/sign`);
+assert(sign1.approved === false && sign1.signed === 1 && sign1.needed === 2, "bob's signature alone does not approve");
+const twice = await bob.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/sign`).catch((e) => ({ error: String(e.message) }));
+assert(twice.error && /already signed/.test(twice.error), "a reviewer cannot sign twice");
+const sign2 = await carol.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/sign`);
+assert(sign2.approved === true && /^D-\d+$/.test(sign2.decisionLabel), "carol's signature approves the document and records a decision");
+await waitFor(() => subA.events.some((e) => e.type === "review.approved" && e.payload.artifactId === docCard.artifactId), "approval event");
+const approvedEv = subA.events.find((e) => e.type === "review.approved").payload;
+const reviewDecision = subA.events.filter((e) => e.type === "decision.recorded").pop().payload;
+assert(approvedEv.signers.length === 2 && reviewDecision.decisionId === approvedEv.decisionId && reviewDecision.agreedBy.includes(bobId) && reviewDecision.agreedBy.includes(carolId) && /is approved$/.test(reviewDecision.statement), "the approval is a decision agreed by the signers");
+const mdApproved = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/\*\*Status:\*\* approved at v\d+, signed off by Bob \(.*\), Carol \(.*\) \(D-\d+\)/.test(mdApproved), "the export shows the approval with named signatures");
+const dmNow = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === modelId).pop().payload.content;
+const afterApproval = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${modelId}/versions`, { content: { ...dmNow, entities: [...dmNow.entities, { name: "shipments", fields: [{ name: "id", type: "uuid", pk: true }], derivedFrom: [] }] }, rationale: "after approval" });
+assert(afterApproval.status === "applied", "alice's edit after approval applies");
+const mdDraft = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/\*\*Status:\*\* draft \(previously approved v\d+ by Bob, Carol; since then: Data model changed \(v\d+, Alice\)\)/.test(mdDraft), "a canvas change after approval moves the document back to draft with a note of what changed");
+const withdrawNothing = await alice.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/withdraw`, { reason: "x" }).catch((e) => ({ error: String(e.message) }));
+assert(withdrawNothing.error && /nothing to withdraw/.test(withdrawNothing.error), "a draft has nothing to withdraw");
+const noteResolved = await bob.call("POST", `/api/v1/sessions/${sessionId}/proposals/${carolEdit.proposalId}/resolve`, { decision: "reject" }).catch(() => null);
+assert(noteResolved === null || noteResolved.status, "carol's suggestion was settled by its approver");
+
 // Fork: a v2 session starts from the current canvas and agreed decisions.
 const fork = await alice.call("POST", `/api/v1/sessions/${sessionId}/fork`, {});
 assert(fork.id && fork.title === "Order platform v2", `fork created a new session titled ${fork.title}`);

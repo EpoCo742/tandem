@@ -66,6 +66,7 @@ export interface DigestSession {
     decisionPoints: { artifactId: string; question: string; deadline: string | null; options: { id: string; title: string }[]; votes: number; voters: number }[];
     proposals: { id: string; title: string; op: string; proposer: string; autoApplyAt: string | null }[];
     externalCalls: { id: string; summary: string; onBehalfOf: string }[];
+    signoffs: { artifactId: string; title: string; versionNo: number; requestedBy: string; signed: number; needed: number }[];
   };
   since: {
     messages: number;
@@ -97,6 +98,9 @@ export function digestFor(userId: string): DigestSession[] {
     const externalCalls = Object.values(state.externalCalls)
       .filter((c) => c.status === "pending" && c.ownerUserId === userId)
       .map((c) => ({ id: c.id, summary: c.summary, onBehalfOf: name(c.onBehalfOf) }));
+    const signoffs = Object.values(state.reviews)
+      .filter((r) => r.status === "in_review" && r.reviewers.includes(userId) && !r.signoffs[userId])
+      .map((r) => ({ artifactId: r.artifactId, title: state.artifacts[r.artifactId]?.title ?? "Design document", versionNo: r.requestedVersionNo, requestedBy: name(r.requestedBy), signed: Object.keys(r.signoffs).length, needed: r.reviewers.length }));
     const fresh = state.messages.filter((m) => m.seq > row.lastSeenSeq);
     const since = {
       messages: fresh.filter((m) => m.kind === "user" && m.userId !== userId).length,
@@ -106,9 +110,9 @@ export function digestFor(userId: string): DigestSession[] {
       mentions: fresh.filter((m) => m.kind === "user" && m.mentions?.includes(userId) && m.userId !== userId).map((m) => ({ eventId: m.eventId, from: name(m.userId), text: m.text.slice(0, 160) })),
     };
     const lastActivityAt = state.messages.length ? state.messages[state.messages.length - 1]!.createdAt : "";
-    out.push({ sessionId: row.sessionId, title: state.title, lastSeenSeq: row.lastSeenSeq, lastSeq: state.lastSeq, waiting: { decisionPoints, proposals, externalCalls }, since, lastActivityAt });
+    out.push({ sessionId: row.sessionId, title: state.title, lastSeenSeq: row.lastSeenSeq, lastSeq: state.lastSeq, waiting: { decisionPoints, proposals, externalCalls, signoffs }, since, lastActivityAt });
   }
-  const weight = (d: DigestSession) => d.waiting.decisionPoints.length + d.waiting.proposals.length + d.waiting.externalCalls.length;
+  const weight = (d: DigestSession) => d.waiting.decisionPoints.length + d.waiting.proposals.length + d.waiting.externalCalls.length + d.waiting.signoffs.length;
   return out.sort((a, b) => weight(b) - weight(a) || b.lastActivityAt.localeCompare(a.lastActivityAt));
 }
 

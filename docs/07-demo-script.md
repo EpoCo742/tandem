@@ -261,6 +261,25 @@ Fake architect: a constraint belongs to whoever set it, whatever card it sits on
 
 Point at: the Constraints card's "set by" column and the message link; the export's constraints table with the exception against its constraint; the compiled design document's Constraints section.
 
+## Stage 12f: review and sign-off
+
+Feature: a **reviewer** role (invite "as reviewer") that can comment, vote, sign off and propose, but whose edits never land without approval. The design document has a status: draft, in review, approved. Approval is by named sign-offs and is recorded as a decision agreed by the signers. Any change to the canvas after approval moves the document back to draft with a note of what changed.
+
+| Who | Does |
+|---|---|
+| Alice | On the **Design document** card, clicks **Request review**, ticks Bob, sends. The card shows "in review · 0 of 1 signed"; Bob's home page lists the sign-off under Waiting on you. |
+| Bob | Opens the session, reads the document, clicks **Sign off** on the card. |
+
+The card shows "approved v1 · D-07", a system message names the signer, the Decisions tab has the approval with the sign-offs in its context, and the export's design document carries a Status line.
+
+| Who | Does |
+|---|---|
+| Alice | Changes anything on the canvas (the next stage adopts an alternative, which does it). |
+
+The card drops to "draft" with "Back to draft after v1 was approved: Architecture model changed (v7, Alice)", and it has to be signed off again. A new version of the document itself while in review drops the signatures given against the older version.
+
+Point at: the Status chip on the card; the reviewer's edit arriving as a proposal; the Status line in the export.
+
 ## Stage 12e: alternatives side by side
 
 Feature: "explore alternatives" puts two or three candidate architectures on one card, each with its own model, the case for and against, and the constraints it meets or strains. Choosing is a vote; the winner becomes the architecture model without an AI turn, the losers stay folded on the card, and the decision records every candidate as an option considered.

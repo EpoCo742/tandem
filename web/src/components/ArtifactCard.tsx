@@ -8,6 +8,7 @@ import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
 import { ArtifactEditor } from "./ArtifactEditor";
 import { AlternativesView } from "./AlternativesView";
+import { ReviewPanel } from "./ReviewPanel";
 
 // Render ```mermaid fences inside Markdown cards as diagrams instead of code.
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
@@ -95,6 +96,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
         )}
         <span className="mono">v{v.versionNo}</span>
         {a.blockedByDecisionPoint && <span className="chip" style={{ color: "var(--warn)" }} title="blocked until the decision point resolves">blocked</span>}
+        {a.type === "design_doc" && (() => { const r = state.reviews[a.id]; const st = r?.status ?? "draft"; return <span className={"chip status-" + st} title={st === "approved" ? `Approved at v${r?.approvedVersionNo}` : st === "in_review" ? `${Object.keys(r?.signoffs ?? {}).length} of ${r?.reviewers.length ?? 0} signed` : "Draft; not yet reviewed"}>{st === "in_review" ? "in review" : st}</span>; })()}
         {pending > 0 && <span className="chip accent">{pending} pending</span>}
         {editors.map((u) => <span key={u.userId} className="chip solid" style={{ background: u.color }} title={`${u.name} has this card open in the editor`}>{u.name} editing</span>)}
         {a.type === "source" && <button className="icon nodrag" style={{ padding: "0 5px" }} title={open ? "Fold this upload" : "Show the uploaded content"} onClick={() => setOpen((o) => !o)}>{open ? "▴" : "▾"}</button>}
@@ -175,6 +177,7 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
   return (
     <>
       {a.type === "mermaid" && <Mermaid source={(v.content as MermaidContent).source} />}
+      {a.type === "design_doc" && <ReviewPanel artifact={a} sessionId={sessionId} />}
       {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
       {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
       {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}

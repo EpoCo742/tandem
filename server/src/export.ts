@@ -42,6 +42,7 @@ export function exportMarkdown(s: SessionState): string {
     out.push(`### ${a.title}`, "");
     out.push(`<!-- artifact ${a.id} v${v.versionNo}; author ${v.authorKind}:${participantName(s, v.authorUserId)}; provenance ${JSON.stringify(v.provenance)} -->`);
     out.push(`*${a.type} · v${v.versionNo} · ${v.authorKind === "ai" ? "AI for " : ""}${participantName(s, v.authorUserId)}*`, "");
+    if (a.type === "design_doc") out.push(`**Status:** ${reviewStatus(s, a.id)}`, "");
     if (a.type === "mermaid") out.push("```mermaid", contentText(a.type, v.content), "```", "");
     else if (a.type === "view") {
       const vc = v.content as ViewContent;
@@ -132,4 +133,16 @@ export function exportMarkdown(s: SessionState): string {
   for (const c of s.commits) out.push(`- ${c.createdAt} ${c.message} (${c.id.slice(-6)})`);
   out.push("");
   return out.join("\n");
+}
+
+// "approved at v3, signed off by Alice (…), Bob (…) (D-07)"; "in review, 1 of 2 signed"; "draft (previously approved v3 by …; since then: …)".
+function reviewStatus(s: SessionState, artifactId: string): string {
+  const r = s.reviews[artifactId];
+  if (!r) return "draft (not yet reviewed)";
+  const who = (u: string) => participantName(s, u);
+  if (r.status === "approved") return `approved at v${r.approvedVersionNo}, signed off by ${r.reviewers.map((u) => `${who(u)} (${r.signoffs[u]?.at ?? r.approvedAt})`).join(", ")}${r.decisionId && s.decisions[r.decisionId] ? ` (${s.decisions[r.decisionId]!.label})` : ""}`;
+  if (r.status === "in_review") return `in review, ${Object.keys(r.signoffs).length} of ${r.reviewers.length} signed (${r.reviewers.map((u) => `${who(u)}${r.signoffs[u] ? " ✓" : ""}`).join(", ")})`;
+  const last = r.history[r.history.length - 1];
+  const changes = r.changedSince.map((c) => `${c.title} changed (v${c.versionNo}, ${c.byUserId ? who(c.byUserId) : "system"})`).join("; ");
+  return last ? `draft (previously approved v${last.versionNo} by ${last.signers.map(who).join(", ")}${changes ? `; since then: ${changes}` : ""})` : "draft";
 }

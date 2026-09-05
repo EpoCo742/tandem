@@ -174,6 +174,15 @@ const STAGES = [
     await say(alice, "Draft the data model for this.");
     await waitForTurns(n + 1, "data model turn");
   }],
+  ["review", "the design document goes for review; named sign-offs approve it as a decision", async () => {
+    const doc = await latestArtifact("design_doc");
+    const evs = await events();
+    const bobId = evs.find((e) => e.type === "participant.joined" && e.payload.role === "editor").actorUserId;
+    await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/review/${doc.artifactId}/request`, { reviewers: [bobId], note: "Please sign off before Friday." });
+    console.log("   Alice sends the design document for review; Bob has to sign off");
+    const r = await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/review/${doc.artifactId}/sign`);
+    console.log(`   Bob signs off -> approved, recorded as ${r.decisionLabel}. The next stage changes the model, which moves the document back to draft with a note`);
+  }],
   ["alternatives", "three candidate architectures side by side; a vote picks one and the model follows", async () => {
     const n = await completedTurns();
     await say(alice, "Explore alternatives for the order pipeline.");

@@ -4,6 +4,9 @@
 export type ActorKind = "user" | "ai" | "system";
 export type MessageMode = "directive" | "note" | "promoted";
 
+/** Owner and editor change the canvas; a reviewer comments, votes and proposes but never edits directly; a viewer only reads. */
+export type Role = "owner" | "editor" | "reviewer" | "viewer";
+
 /** What a message is about: a card, or one component of the architecture model as shown on that card. */
 export interface MessageAnchor {
   artifactId: string;
@@ -76,11 +79,15 @@ export interface Option {
 
 export type Payloads = {
   "session.created": { title: string; policy: Policy; payerMode: PayerMode; pinnedModel: string; forkedFrom?: { sessionId: string; commitId: string | null; title: string } };
-  "participant.joined": { role: "owner" | "editor" | "viewer"; name: string; color: string; avatarUrl?: string };
+  "participant.joined": { role: Role; name: string; color: string; avatarUrl?: string };
   "participant.left": Record<string, never>;
   "participant.consented": { providers: string[] };
   "message.posted": { text: string; mode: MessageMode; attachments: string[]; replyTo?: string; fromNoteEventId?: string; intent?: "compile"; mentions?: string[]; anchor?: MessageAnchor };
   "thread.resolved": { rootEventId: string; resolved: boolean }; // a thread anchored to a card is closed (or reopened) by a person
+  "review.requested": { artifactId: string; reviewers: string[]; versionNo: number; note?: string }; // the design document goes into review; these people have to sign
+  "review.signed": { artifactId: string; versionNo: number; commitId: string | null }; // the actor signs off the document as it stands
+  "review.approved": { artifactId: string; versionNo: number; decisionId: string; decisionLabel: string; signers: string[] }; // every named reviewer signed
+  "review.withdrawn": { artifactId: string; reason: string }; // taken out of review; signatures so far are dropped
   "alternative.adopted": { alternativesArtifactId: string; candidateId: string; title: string; decisionLabel: string; byUserIds: string[]; modelVersionNo: number }; // a vote picked a candidate architecture and the model was set from it
   "turn.started": { payerUserId: string; provider: string; modelRequested: string; batchEventIds: string[]; onBehalfOf: string };
   "turn.model_degraded": { requested: string; used: string; reason: string };

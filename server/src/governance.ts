@@ -99,7 +99,10 @@ export function requestChange(req: ChangeRequest): ChangeOutcome {
   // Guardians are people the change must be proposed to even when the card itself would let it
   // through: a constraint belongs to whoever set it, not to whoever happens to own the card.
   const guardians = [...new Set((req.approvalFrom ?? []).filter((u) => u !== req.actorUserId && state.participants[u] && state.participants[u]!.role !== "viewer"))];
-  const baseRisk = classifyRisk(state, req.op, req.artifactId, req.actorUserId);
+  // A reviewer proposes; nothing they do lands directly, whoever owns the card.
+  const reviewer = state.participants[req.actorUserId]?.role === "reviewer" && req.op !== "restore";
+  const ownRisk = classifyRisk(state, req.op, req.artifactId, req.actorUserId);
+  const baseRisk = reviewer && ownRisk === "additive" ? "cross_owner_edit" : ownRisk;
   const risk = guardians.length && baseRisk === "additive" ? "cross_owner_edit" : baseRisk;
   const g = gate(state.policy, risk);
   const provenance = req.provenance ?? provenanceOf(req.artifactType, req.content);

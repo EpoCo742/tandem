@@ -12,6 +12,7 @@ import type {
   TurnStatus,
   Usage,
   MessageAnchor,
+  Role,
 } from "./events.js";
 
 // Pure read model over the ledger. Runs identically on the server and in the browser.
@@ -20,7 +21,7 @@ export interface Participant {
   userId: string;
   name: string;
   color: string;
-  role: "owner" | "editor" | "viewer";
+  role: Role;
   avatarUrl?: string;
   consented: boolean;
   present: boolean;
@@ -170,8 +171,25 @@ export interface SessionState {
   forkedFrom: { sessionId: string; commitId: string | null; title: string } | null;
   uploads: Record<string, UploadInfo>;
   externalCalls: Record<string, ExternalCall>;
+  reviews: Record<string, ReviewState>; // by design document artifact id
   lastSeq: number;
   eventsById: Record<string, AnyLedgerEvent>;
+}
+
+/** Where the design document stands and who stands behind it. Derived from review.* events and from canvas changes. */
+export interface ReviewState {
+  artifactId: string;
+  status: "draft" | "in_review" | "approved";
+  requestedBy: string;
+  requestedAt: string;
+  requestedVersionNo: number;
+  reviewers: string[];
+  signoffs: Record<string, { at: string; versionNo: number; eventId: string }>;
+  approvedVersionNo?: number;
+  approvedAt?: string;
+  decisionId?: string;
+  changedSince: { artifactId: string; title: string; versionNo: number; byUserId: string | null; at: string }[]; // what changed after approval (or during review)
+  history: { versionNo: number; signers: string[]; at: string; decisionId: string }[]; // earlier approvals
 }
 
 export interface ExternalCall {
@@ -225,6 +243,7 @@ export function emptyState(sessionId: string): SessionState {
     forkedFrom: null,
     uploads: {},
     externalCalls: {},
+    reviews: {},
     lastSeq: 0,
     eventsById: {},
   };
@@ -406,6 +425,54 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       if (p.proposalId && s.proposals[p.proposalId]) {
         s.proposals = { ...s.proposals, [p.proposalId]: { ...s.proposals[p.proposalId]!, status: "applied" } };
       }
+      // An approved design document describes the canvas as it was; any change afterwards moves it
+      // back to draft with a note of what changed. A new version of the document itself while it is
+      // in review drops the signatures, which were given against the earlier version.
+      for (const r of Object.values(s.reviews)) {
+        if (r.status === "draft") continue;
+        const change = { artifactId: p.artifactId, title: p.title, versionNo: p.versionNo, byUserId: p.authorUserId, at: ev.createdAt };
+        const who = p.authorUserId ? `${p.authorKind === "ai" ? "AI for " : ""}${s.participants[p.authorUserId]?.name ?? p.authorUserId}` : "the system";
+        if (r.status === "approved") {
+          s.reviews = { ...s.reviews, [r.artifactId]: { ...r, status: "draft", signoffs: {}, changedSince: [...r.changedSince, change] } };
+          s.messages = [...s.messages, { eventId: `${ev.id}:review`, seq: ev.seq, kind: "system", userId: null, text: `${s.artifacts[r.artifactId]?.title ?? "Design document"} is back to draft: ${p.title} changed (v${p.versionNo}, ${who}) after v${r.approvedVersionNo} was approved. It needs to be signed off again.`, turnId: null, createdAt: ev.createdAt }];
+        } else if (p.artifactId === r.artifactId && Object.keys(r.signoffs).length) {
+          s.reviews = { ...s.reviews, [r.artifactId]: { ...r, signoffs: {}, requestedVersionNo: p.versionNo, changedSince: [...r.changedSince, change] } };
+          s.messages = [...s.messages, { eventId: `${ev.id}:review`, seq: ev.seq, kind: "system", userId: null, text: `${p.title} changed to v${p.versionNo} while in review; the signatures given against v${r.requestedVersionNo} are dropped and the reviewers have to sign again.`, turnId: null, createdAt: ev.createdAt }];
+        } else if (p.artifactId === r.artifactId) {
+          s.reviews = { ...s.reviews, [r.artifactId]: { ...r, requestedVersionNo: p.versionNo, changedSince: [...r.changedSince, change] } };
+        } else {
+          s.reviews = { ...s.reviews, [r.artifactId]: { ...r, changedSince: [...r.changedSince, change] } };
+        }
+      }
+      return s;
+    }
+    case "review.requested": {
+      const p = ev.payload as Payloads["review.requested"];
+      const prev = s.reviews[p.artifactId];
+      s.reviews = { ...s.reviews, [p.artifactId]: { artifactId: p.artifactId, status: "in_review", requestedBy: ev.actorUserId!, requestedAt: ev.createdAt, requestedVersionNo: p.versionNo, reviewers: p.reviewers, signoffs: {}, changedSince: [], history: prev?.history ?? [] } };
+      const names = p.reviewers.map((u) => s.participants[u]?.name ?? u).join(", ");
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${s.participants[ev.actorUserId!]?.name ?? "Someone"} sent ${s.artifacts[p.artifactId]?.title ?? "the design document"} v${p.versionNo} for review; ${names} ${p.reviewers.length === 1 ? "has" : "have"} to sign off.${p.note ? ` "${p.note}"` : ""}`, turnId: null, createdAt: ev.createdAt }];
+      return s;
+    }
+    case "review.signed": {
+      const p = ev.payload as Payloads["review.signed"];
+      const r = s.reviews[p.artifactId];
+      if (r) s.reviews = { ...s.reviews, [p.artifactId]: { ...r, signoffs: { ...r.signoffs, [ev.actorUserId!]: { at: ev.createdAt, versionNo: p.versionNo, eventId: ev.id } } } };
+      return s;
+    }
+    case "review.approved": {
+      const p = ev.payload as Payloads["review.approved"];
+      const r = s.reviews[p.artifactId];
+      if (r) s.reviews = { ...s.reviews, [p.artifactId]: { ...r, status: "approved", approvedVersionNo: p.versionNo, approvedAt: ev.createdAt, decisionId: p.decisionId, changedSince: [], history: [...r.history, { versionNo: p.versionNo, signers: p.signers, at: ev.createdAt, decisionId: p.decisionId }] } };
+      const names = p.signers.map((u) => s.participants[u]?.name ?? u).join(", ");
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${s.artifacts[p.artifactId]?.title ?? "Design document"} v${p.versionNo} is approved, signed off by ${names}. Recorded ${p.decisionLabel}.`, turnId: null, createdAt: ev.createdAt }];
+      return s;
+    }
+    case "review.withdrawn": {
+      const p = ev.payload as Payloads["review.withdrawn"];
+      const r = s.reviews[p.artifactId];
+      if (r) s.reviews = { ...s.reviews, [p.artifactId]: { ...r, status: "draft", signoffs: {} } };
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${s.artifacts[p.artifactId]?.title ?? "Design document"} was taken out of review by ${s.participants[ev.actorUserId!]?.name ?? "someone"}: ${p.reason}`, turnId: null, createdAt: ev.createdAt }];
       return s;
     }
     case "artifact.pinned": {

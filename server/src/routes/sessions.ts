@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { randomBytes } from "node:crypto";
-import { allAdrs, pickColor, threadRootOf, type ArchModelContent, type ArtifactType, type DecisionPointContent, type MessageAnchor, type Policy } from "@tandem/shared";
+import { allAdrs, pickColor, threadRootOf, type ArchModelContent, type ArtifactType, type DecisionPointContent, type MessageAnchor, type Policy, type Role } from "@tandem/shared";
 import { db, now, schema } from "../db/index.js";
 import { requireUser } from "../auth.js";
 import { appendEvent, getState, listEvents, sessionExists } from "../ledger.js";
@@ -16,6 +16,7 @@ import { digestFor, markSeen, parseMentions, scheduleExpiry } from "../async.js"
 import { mintCollabToken } from "../crypto.js";
 import { exportMarkdown } from "../export.js";
 import { adoptAlternative, openAlternativesDecision } from "../alternatives.js";
+import { requestReview, signOff, withdrawReview } from "../review.js";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -85,12 +86,13 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     return listEvents(req.params.id, Number(req.query.from_seq ?? 0));
   });
 
-  app.post<{ Params: { id: string } }>("/api/v1/sessions/:id/invites", async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { role?: Role } | undefined }>("/api/v1/sessions/:id/invites", async (req, reply) => {
     const user = requireUser(req, reply);
     participantOr403(req.params.id, user.id);
+    const role: Role = req.body?.role === "reviewer" || req.body?.role === "viewer" ? req.body.role : "editor";
     const token = randomBytes(12).toString("base64url");
-    db.insert(schema.invites).values({ token, sessionId: req.params.id, role: "editor", createdBy: user.id, createdAt: now() }).run();
-    return { token, url: `${config.appUrl}/join/${token}` };
+    db.insert(schema.invites).values({ token, sessionId: req.params.id, role, createdBy: user.id, createdAt: now() }).run();
+    return { token, role, url: `${config.appUrl}/join/${token}` };
   });
 
   app.post<{ Params: { token: string } }>("/api/v1/invites/:token/accept", async (req, reply) => {
@@ -102,7 +104,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       const count = db.select().from(schema.participants).where(eq(schema.participants.sessionId, inv.sessionId)).all().length;
       const color = pickColor(count);
       db.insert(schema.participants).values({ sessionId: inv.sessionId, userId: user.id, role: inv.role, credentialId: null, color, joinedAt: now() }).run();
-      appendEvent(inv.sessionId, { type: "participant.joined", actorKind: "user", actorUserId: user.id, payload: { role: inv.role as "editor", name: user.displayName || user.handle, color, avatarUrl: user.avatarUrl ?? undefined } });
+      appendEvent(inv.sessionId, { type: "participant.joined", actorKind: "user", actorUserId: user.id, payload: { role: inv.role as Role, name: user.displayName || user.handle, color, avatarUrl: user.avatarUrl ?? undefined } });
     }
     return { sessionId: inv.sessionId };
   });
@@ -274,6 +276,32 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     } catch (e) {
       return reply.code(400).send({ error: (e as Error).message });
     }
+  });
+
+  // Review and sign-off of the design document.
+  app.post<{ Params: { id: string; artifactId: string }; Body: { reviewers: string[]; note?: string } }>("/api/v1/sessions/:id/review/:artifactId/request", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot request reviews" });
+    const r = requestReview(req.params.id, req.params.artifactId, user.id, Array.isArray(req.body?.reviewers) ? req.body.reviewers : [], req.body?.note);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    return { reviewers: r.reviewers };
+  });
+  app.post<{ Params: { id: string; artifactId: string } }>("/api/v1/sessions/:id/review/:artifactId/sign", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot sign" });
+    const r = signOff(req.params.id, req.params.artifactId, user.id);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    return { approved: r.approved, signed: r.signed, needed: r.needed, decisionLabel: r.decisionLabel ?? null };
+  });
+  app.post<{ Params: { id: string; artifactId: string }; Body: { reason?: string } | undefined }>("/api/v1/sessions/:id/review/:artifactId/withdraw", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot withdraw a review" });
+    const r = withdrawReview(req.params.id, req.params.artifactId, user.id, req.body?.reason ?? "");
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    return { ok: true };
   });
 
   // Open the vote between the candidates on an alternatives card.
