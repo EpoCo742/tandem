@@ -61,6 +61,19 @@ export function exportMarkdown(s: SessionState): string {
   }
   out.push("");
 
+  const calls = Object.values(s.externalCalls).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (calls.length) {
+    out.push("## External actions", "");
+    for (const c of calls) {
+      const who = participantName(s, c.onBehalfOf);
+      const owner = participantName(s, c.ownerUserId);
+      const decided = c.decidedBy ? participantName(s, c.decidedBy) : c.reason ?? "";
+      out.push(`- ${c.createdAt} **${c.serverName}.${c.toolName}** for ${who}, using ${owner}'s tool: ${c.status}${c.decidedBy ? ` (decided by ${decided})` : c.reason ? ` (${c.reason})` : ""}${c.result ? ` — ${c.result}` : ""}`);
+      out.push(`  <!-- external ${c.id}; args ${JSON.stringify(c.args)} -->`);
+    }
+    out.push("");
+  }
+
   out.push("## History", "");
   for (const c of s.commits) out.push(`- ${c.createdAt} ${c.message} (${c.id.slice(-6)})`);
   out.push("");

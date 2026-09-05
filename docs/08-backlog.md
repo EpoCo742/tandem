@@ -6,7 +6,7 @@ Shipped from this list on 2026-09-05: the first slice of per-user MCP servers (r
 
 ## 1. Per-user MCP servers (first slice shipped 2026-09-05)
 
-**Still to do.** Pre-approved targets (so a person can let "publish to ARCH" run without a prompt each time); running stdio servers in a per-user sandbox rather than as children of the Tandem server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test); showing external calls in the export's history.
+**Still to do.** Running stdio servers in a per-user sandbox rather than as children of the Tandem server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test). Shipped later on 2026-09-05: standing permissions ("Approve, always for space ARCH", listed and revocable under External tools) and external actions in the History tab and the export.
 
 **Ask.** Each participant registers their own MCP servers with their own credentials and configuration, for example Atlassian and GitHub. In the chat a person can say "upload the design document to Confluence", "create epics and stories for the data model", or "commit the diagrams to the repo", and the AI discovers and uses that person's tools to do it.
 
@@ -35,7 +35,7 @@ A "Bob is editing" chip on a card while someone has its editor open, carried thr
 
 ## 4. Real-image and long-document validation on Copilot
 
-Attached files now go to the runtime as file attachments. Confirm on a real seat that a PNG is looked at and that an 80k-character spec is read whole. Half a day, needs a seat.
+Done 2026-09-05: images go to the model as inline blobs and were confirmed working on a real seat; long text uploads are kept whole.
 
 ## 5. Live text co-editing on cards
 

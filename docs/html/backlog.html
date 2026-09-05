@@ -52,7 +52,7 @@ strong{font-weight:600}
 <p>What is not built yet, in the order it is worth doing. Status of what is built lives in <code>05-poc-plan.md</code> section 7. Last updated 2026-09-05.</p>
 <p>Shipped from this list on 2026-09-05: the first slice of per-user MCP servers (registration, discovery, speaker-only tools, outbound-write gate, offline demo server), collapsed source cards, the editing indicator. What remains of item 1 is noted inside it.</p>
 <h2 id="1-per-user-mcp-servers-first-slice-shipped-2026-09-05">1. Per-user MCP servers (first slice shipped 2026-09-05)</h2>
-<p><strong>Still to do.</strong> Pre-approved targets (so a person can let "publish to ARCH" run without a prompt each time); running stdio servers in a per-user sandbox rather than as children of the Tandem server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test); showing external calls in the export's history.</p>
+<p><strong>Still to do.</strong> Running stdio servers in a per-user sandbox rather than as children of the Tandem server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test). Shipped later on 2026-09-05: standing permissions ("Approve, always for space ARCH", listed and revocable under External tools) and external actions in the History tab and the export.</p>
 <p><strong>Ask.</strong> Each participant registers their own MCP servers with their own credentials and configuration, for example Atlassian and GitHub. In the chat a person can say "upload the design document to Confluence", "create epics and stories for the data model", or "commit the diagrams to the repo", and the AI discovers and uses that person's tools to do it.</p>
 <p><strong>Why it fits.</strong> The product already treats the AI credential as personal and bills each turn to a person. MCP servers are the same shape: personal, credentialed, and the source of what that person is allowed to do in outside systems. The Copilot SDK takes an <code>mcpServers</code> map per session (stdio servers with command, args and env; HTTP or SSE servers with a URL and headers), with a <code>tools</code> allow-list per server, so no new runtime is needed.</p>
 <p><strong>Design sketch.</strong></p>
@@ -71,7 +71,7 @@ strong{font-weight:600}
 <h2 id="3-editing-indicator">3. Editing indicator</h2>
 <p>A "Bob is editing" chip on a card while someone has its editor open, carried through awareness like presence. Soft indicator, not a lock: the version check on save remains the guard. Small.</p>
 <h2 id="4-real-image-and-long-document-validation-on-copilot">4. Real-image and long-document validation on Copilot</h2>
-<p>Attached files now go to the runtime as file attachments. Confirm on a real seat that a PNG is looked at and that an 80k-character spec is read whole. Half a day, needs a seat.</p>
+<p>Done 2026-09-05: images go to the model as inline blobs and were confirmed working on a real seat; long text uploads are kept whole.</p>
 <h2 id="5-live-text-co-editing-on-cards">5. Live text co-editing on cards</h2>
 <p>Planned for P1 and deferred. Still doubtful: live editing bypasses the proposal flow that makes cross-owner edits reviewable. If done, it should be limited to a card the editor owns, with the Yjs text folded into a version on blur.</p>
 <h2 id="6-github-app-instead-of-oauth-app">6. GitHub App instead of OAuth App</h2>

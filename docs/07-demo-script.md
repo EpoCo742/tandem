@@ -2,7 +2,7 @@
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
-This file tracks the features as they land. Last updated 2026-09-05 (external tools through MCP, collapsed source cards, editing indicator).
+This file tracks the features as they land. Last updated 2026-09-05 (standing permissions for external writes, external actions in the export, print to PDF).
 
 ## Two ways to run it
 
@@ -177,7 +177,7 @@ Point at: the new session "Order platform v2" with every live card at v1, agreed
 
 | Who | Does |
 |---|---|
-| Alice | **Export .md**. A preview opens, rendered with the diagrams drawn; **raw markdown** shows the text; **copy** or **download .md**. |
+| Alice | **Export .md**. A preview opens, rendered with the diagrams drawn; **raw markdown** shows the text; **copy**, **download .md**, or **print / PDF** (the browser's print dialog offers "Save as PDF"; diagrams and tables come out drawn). |
 
 Point at: the Markdown carries `<!-- artifact … -->` provenance comments, the decision log, and the commit history.
 
@@ -211,13 +211,19 @@ Fake architect: Bob has no tools, so it says to register one and proposes nothin
 |---|---|
 | Alice | "Publish the design document to Confluence under ARCH." |
 
-Fake architect: picks Alice's `confluence_publish_page`, proposes it. The **Proposals** tab shows an *outbound write* card with the exact arguments; only Alice (or the session owner) can approve. She approves; the tool runs; the AI lane shows a system line with the result.
+Fake architect: picks Alice's `confluence_publish_page`, proposes it. The **Proposals** tab shows an *outbound write* card with the exact arguments; only Alice (or the session owner) can approve. She picks **Approve, always for space ARCH**; the tool runs; the AI lane shows a system line with the result.
+
+| Who | Says |
+|---|---|
+| Alice | "Publish the design document to Confluence under ARCH." again |
+
+Nothing to approve this time: the call is pre-approved for that space and runs at once, with the reason recorded. Credentials → External tools lists the standing permission with an "ask again" button. A different space would still ask.
 
 | Who | Says |
 |---|---|
 | Alice | "Create a Jira story in ORD for the data model." then **Deny** on the proposal. |
 
-Point at: nothing ran; the AI says so; History carries the proposed, resolved and completed events with who decided. On a real seat the Copilot runtime connects to the same servers and every MCP write goes through the same gate.
+Point at: nothing ran; the AI says so; the **History** tab lists every external action with who directed it, who decided, and the result, and the export carries the same list under "External actions". On a real seat the Copilot runtime connects to the same servers and every MCP write goes through the same gate.
 
 ## Stage 13b: tidier cards (no script)
 

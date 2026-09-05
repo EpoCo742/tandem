@@ -173,6 +173,17 @@ function McpServers() {
               </div>
             )}
             {s.tools.length > 0 && <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>✎ marks tools that change something and will ask for your approval.</div>}
+            {s.allow.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                <div className="mono">runs without asking:</div>
+                {s.allow.map((r, i) => (
+                  <div key={i} className="row" style={{ fontSize: 12, gap: 6 }}>
+                    <span><b>{r.tool}</b> for {Object.entries(r.target).length ? Object.entries(r.target).map(([k, v]) => `${k} ${v}`).join(", ") : "any target"}</span>
+                    <button style={{ padding: "0 6px", fontSize: 10.5 }} onClick={() => api("DELETE", `/api/v1/mcp-servers/${s.id}/allow/${i}`).then(load)}>ask again</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <button onClick={() => test(s.id)} disabled={busy !== null}>{busy === s.id ? "Testing…" : "Test"}</button>
           <button className="danger" onClick={() => api("DELETE", `/api/v1/mcp-servers/${s.id}`).then(load)}>Remove</button>

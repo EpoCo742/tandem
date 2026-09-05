@@ -297,7 +297,8 @@ const proposedCall = subA.events.find((e) => e.type === "external.call_proposed"
 assert(proposedCall.toolName === "confluence_publish_page" && proposedCall.readOnly === false && proposedCall.ownerUserId === aliceId, "publish is proposed to alice as an outbound write");
 const bobDecides = await bob.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${proposedCall.callId}/resolve`, { decision: "approved" }).catch((e) => e.message);
 assert(String(bobDecides).includes("400"), "bob cannot approve alice's tool");
-await alice.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${proposedCall.callId}/resolve`, { decision: "approved" });
+const remembered = await alice.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${proposedCall.callId}/resolve`, { decision: "approved", remember: true });
+assert(remembered.rememberedFor === "space ARCH", `approval remembered for ${remembered.rememberedFor}`);
 await waitFor(() => subA.events.some((e) => e.type === "external.call_completed"), "external call completed", 30000);
 const completed = subA.events.find((e) => e.type === "external.call_completed").payload;
 assert(completed.ok && completed.summary.includes("Published"), `tool ran: ${completed.summary}`);
@@ -305,10 +306,20 @@ const pages = JSON.parse(fs.readFileSync(path.join(demoDir, "pages.json"), "utf8
 assert(pages.length === 1 && pages[0].space === "ARCH", "the demo Confluence has the page");
 await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "alice's outbound turn");
 
+// Pre-approved: the same tool and target runs without a proposal waiting on anyone.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Publish the design document to Confluence under ARCH." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "pre-approved publish turn");
+const auto = subA.events.filter((e) => e.type === "external.call_resolved").pop().payload;
+assert(auto.decision === "approved" && /pre-approved/.test(auto.reason), `second publish was pre-approved: ${auto.reason}`);
+assert(JSON.parse(fs.readFileSync(path.join(demoDir, "pages.json"), "utf8"))[0].version === 2, "the page was republished as version 2");
+const rules = (await alice.call("GET", "/api/v1/mcp-servers")).servers[0].allow;
+assert(rules.length === 1 && rules[0].tool === "confluence_publish_page" && rules[0].target.space === "ARCH", "the standing permission is listed on the server");
+
 // Denied: nothing runs.
 turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
 await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Create a Jira story in ORD for the data model." });
-await waitFor(() => subA.events.filter((e) => e.type === "external.call_proposed").length >= 2, "second external call proposed");
+await waitFor(() => subA.events.filter((e) => e.type === "external.call_proposed").length >= 3, "jira external call proposed");
 const second = subA.events.filter((e) => e.type === "external.call_proposed").pop().payload;
 assert(second.toolName === "jira_create_story", "ticket request picks the Jira tool");
 await alice.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${second.callId}/resolve`, { decision: "denied", reason: "not yet" });
@@ -358,6 +369,7 @@ l2.provider.destroy();
 // Export.
 const md = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(typeof md === "string" && md.includes("## Decision log") && md.includes("<!-- artifact"), "markdown export carries provenance comments");
+assert(md.includes("## External actions") && md.includes("confluence_publish_page") && md.includes("jira_create_story") && md.includes("denied"), "markdown export lists external actions with their outcomes");
 
 // Reconnect replay equals live view.
 const subC = subscribe(bob, sessionId);

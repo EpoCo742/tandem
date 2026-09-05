@@ -358,11 +358,11 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     return { id, title };
   });
 
-  app.post<{ Params: { id: string; callId: string }; Body: { decision: "approved" | "denied"; reason?: string } }>("/api/v1/sessions/:id/external-calls/:callId/resolve", async (req, reply) => {
+  app.post<{ Params: { id: string; callId: string }; Body: { decision: "approved" | "denied"; reason?: string; remember?: boolean } }>("/api/v1/sessions/:id/external-calls/:callId/resolve", async (req, reply) => {
     const user = requireUser(req, reply);
     participantOr403(req.params.id, user.id);
     try {
-      return resolveExternalCall(req.params.id, req.params.callId, user.id, req.body.decision === "approved" ? "approved" : "denied", req.body.reason);
+      return resolveExternalCall(req.params.id, req.params.callId, user.id, req.body.decision === "approved" ? "approved" : "denied", req.body.reason, Boolean(req.body.remember));
     } catch (e) {
       return reply.code(400).send({ error: (e as Error).message });
     }

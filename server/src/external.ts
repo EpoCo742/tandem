@@ -1,6 +1,8 @@
 import { ulid } from "ulid";
+import { describeTarget, targetOf } from "@tandem/shared";
 import { appendEvent, getState } from "./ledger.js";
 import { config } from "./config.js";
+import { addAllowRule, ruleAllows, serversForUser } from "./mcp.js";
 
 // Governance for outbound actions: anything an MCP tool does in another system.
 // Reads run at once. Writes are proposed to the person who owns the tool and wait for
@@ -50,6 +52,13 @@ export function gateExternalCall(req: ExternalCallRequest): Promise<{ callId: st
     appendEvent(req.sessionId, { type: "external.call_resolved", actorKind: "system", actorUserId: null, turnId: req.turnId, payload: { callId, decision: "approved", reason: "read-only tool" } });
     return Promise.resolve({ callId, decision: "approved" });
   }
+  // The owner may have said "always allow" for this tool and target.
+  const server = serversForUser(req.ownerUserId).find((s) => s.name === req.serverName);
+  const rule = server ? ruleAllows(server.allow, req.toolName, targetOf(req.args)) : null;
+  if (rule) {
+    appendEvent(req.sessionId, { type: "external.call_resolved", actorKind: "system", actorUserId: null, turnId: req.turnId, payload: { callId, decision: "approved", reason: `pre-approved by ${req.serverName}'s owner for ${describeTarget(rule.target)}` } });
+    return Promise.resolve({ callId, decision: "approved" });
+  }
   return new Promise((resolve) => {
     const ms = Math.max(30, config.approvalTimeoutS) * 1000;
     const timer = setTimeout(() => {
@@ -62,16 +71,23 @@ export function gateExternalCall(req: ExternalCallRequest): Promise<{ callId: st
 }
 
 /** A person decides. Only the tool's owner (or the session owner) may. */
-export function resolveExternalCall(sessionId: string, callId: string, userId: string, decision: "approved" | "denied", reason?: string) {
+export function resolveExternalCall(sessionId: string, callId: string, userId: string, decision: "approved" | "denied", reason?: string, remember = false) {
   const state = getState(sessionId);
   const call = state.externalCalls[callId];
   if (!call) throw new Error("no such call");
   if (call.status !== "pending") throw new Error(`call is already ${call.status}`);
   const me = state.participants[userId];
   if (call.ownerUserId !== userId && me?.role !== "owner") throw new Error("only the tool's owner can decide");
-  appendEvent(sessionId, { type: "external.call_resolved", actorKind: "user", actorUserId: userId, payload: { callId, decision, reason } });
+  // Only the tool's owner can widen their own standing permission; a session owner approving for them cannot.
+  let rememberedFor: string | null = null;
+  if (remember && decision === "approved" && call.ownerUserId === userId) {
+    const target = targetOf(call.args);
+    addAllowRule(userId, call.serverName, { tool: call.toolName, target });
+    rememberedFor = describeTarget(target);
+  }
+  appendEvent(sessionId, { type: "external.call_resolved", actorKind: "user", actorUserId: userId, payload: { callId, decision, reason: rememberedFor ? `${reason ? reason + "; " : ""}always allowed from now on for ${rememberedFor}` : reason } });
   pending.get(callId)?.resolve(decision);
-  return { callId, decision };
+  return { callId, decision, rememberedFor };
 }
 
 export function recordExternalResult(sessionId: string, turnId: string | null, callId: string, ok: boolean, summary: string) {

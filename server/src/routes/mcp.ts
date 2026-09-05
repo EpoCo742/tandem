@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireUser } from "../auth.js";
-import { deleteMcpServer, listMcpServers, normalizeConfig, registerMcpServer, testMcpServer } from "../mcp.js";
+import { deleteMcpServer, listMcpServers, normalizeConfig, registerMcpServer, removeAllowRule, testMcpServer } from "../mcp.js";
 
 export async function registerMcpRoutes(app: FastifyInstance) {
   app.get("/api/v1/mcp-servers", async (req, reply) => {
@@ -24,6 +24,16 @@ export async function registerMcpRoutes(app: FastifyInstance) {
     const user = requireUser(req, reply);
     try {
       return await testMcpServer(user.id, req.params.id);
+    } catch (e) {
+      return reply.code(404).send({ error: (e as Error).message });
+    }
+  });
+
+  app.delete<{ Params: { id: string; index: string } }>("/api/v1/mcp-servers/:id/allow/:index", async (req, reply) => {
+    const user = requireUser(req, reply);
+    try {
+      removeAllowRule(user.id, req.params.id, Number(req.params.index));
+      return { ok: true };
     } catch (e) {
       return reply.code(404).send({ error: (e as Error).message });
     }

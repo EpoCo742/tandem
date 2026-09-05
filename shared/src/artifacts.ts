@@ -71,6 +71,22 @@ export type ArtifactContent =
   | CodeContent
   | { markdown: string; sections: Section[] };
 
+/** Argument names that identify where an outbound call lands (a space, a project, a repo), as opposed to what it says. */
+export const TARGET_KEYS = ["space", "spaceKey", "project", "projectKey", "repo", "repository", "owner", "org", "organization", "channel", "folder", "board", "database", "bucket", "parent", "parentId", "site", "workspace"];
+
+/** The subset of a call's arguments that names its target: `{ space: "ARCH" }` for a Confluence publish. */
+export function targetOf(args: unknown): Record<string, string> {
+  const a = (args ?? {}) as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const k of TARGET_KEYS) if (typeof a[k] === "string" || typeof a[k] === "number") out[k] = String(a[k]);
+  return out;
+}
+
+export function describeTarget(t: Record<string, string>): string {
+  const e = Object.entries(t);
+  return e.length ? e.map(([k, v]) => `${k} ${v}`).join(", ") : "any target";
+}
+
 /** Render a data model as Markdown tables; used wherever a data model has to become prose. */
 export function dataModelMarkdown(c: DataModelContent): string {
   const out: string[] = [];

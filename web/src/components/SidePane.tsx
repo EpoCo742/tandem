@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, pendingProposals, contentText, AI_COLOR, type Proposal } from "@tandem/shared";
+import { participantName, pendingProposals, contentText, describeTarget, targetOf, AI_COLOR, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
@@ -102,8 +102,13 @@ function Proposals({ sessionId, proposals }: { sessionId: string; proposals: Pro
             <div style={{ fontSize: 12 }}>AI for {participantName(state, c.onBehalfOf)} wants to use {participantName(state, c.ownerUserId)}'s tool · waits for {participantName(state, c.ownerUserId)}; denied if nobody answers</div>
             <pre>{JSON.stringify(c.args ?? {}, null, 2).slice(0, 1200)}</pre>
             {mine && (
-              <div className="row">
+              <div className="row" style={{ flexWrap: "wrap" }}>
                 <button className="primary" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/external-calls/${c.id}/resolve`, { decision: "approved" })}>Approve</button>
+                {c.ownerUserId === me.user!.id && (
+                  <button title={`Approve, and let ${c.toolName} run without asking when the target is ${describeTarget(targetOf(c.args))}. Remove the rule under credentials → External tools.`} onClick={() => api("POST", `/api/v1/sessions/${sessionId}/external-calls/${c.id}/resolve`, { decision: "approved", remember: true })}>
+                    Approve, always for {describeTarget(targetOf(c.args))}
+                  </button>
+                )}
                 <button onClick={() => api("POST", `/api/v1/sessions/${sessionId}/external-calls/${c.id}/resolve`, { decision: "denied" })}>Deny</button>
               </div>
             )}
@@ -253,8 +258,26 @@ function History({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
   const [msg, setMsg] = useState<string | null>(null);
   const commits = [...state.commits].reverse();
+  const calls = Object.values(state.externalCalls).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return (
     <div className="pane-body">
+      {calls.length > 0 && (
+        <>
+          <div className="pane-head" style={{ padding: "0 0 4px", borderBottom: "none" }}>External actions</div>
+          {calls.map((c) => (
+            <div key={c.id} className="commit">
+              <span className="id">{new Date(c.createdAt).toLocaleTimeString()}</span>
+              <span style={{ flex: 1 }}>
+                <b>{c.serverName}.{c.toolName}</b> for {participantName(state, c.onBehalfOf)} with {participantName(state, c.ownerUserId)}'s tool
+                <div className="mono">
+                  {c.status}{c.decidedBy ? ` · by ${participantName(state, c.decidedBy)}` : c.reason ? ` · ${c.reason}` : ""}{c.result ? ` · ${c.result.slice(0, 120)}` : ""}
+                </div>
+              </span>
+            </div>
+          ))}
+          <div className="pane-head" style={{ padding: "8px 0 4px", borderBottom: "none" }}>Commits</div>
+        </>
+      )}
       {commits.length === 0 && <div className="muted">A commit is written after every AI turn and every applied edit.</div>}
       {msg && <div className="muted">{msg}</div>}
       {commits.map((c) => (

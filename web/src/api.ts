@@ -44,12 +44,19 @@ export interface McpToolInfo {
   readOnly: boolean;
 }
 
+export interface AllowRule {
+  tool: string;
+  target: Record<string, string>;
+  createdAt: string;
+}
+
 export interface McpServerView {
   id: string;
   name: string;
   transport: string;
   summary: string;
   tools: McpToolInfo[];
+  allow: AllowRule[];
   status: string;
   lastError: string | null;
   testedAt: string | null;

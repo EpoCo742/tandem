@@ -209,6 +209,8 @@ Validated against a real Copilot seat on 2026-09-04: the model drives the canvas
 
 2026-09-05, third batch: per-user MCP servers (registered under credentials, config sealed, tools discovered by connecting; the speaker's servers are attached to their turns; MCP writes are proposed to the tool's owner through the Proposals tab and denied on timeout; reads run at once; a demo stdio server stands in for Atlassian), collapsed source cards, and an "editing" chip carried through awareness.
 
+2026-09-05, fourth batch: standing permissions for outbound writes (approve once for a target, listed and revocable per server), external actions in the History tab and the export, and print-to-PDF from the export preview. Also card renaming, images scaling with resized cards, and a reset-to-automatic-size button.
+
 Not yet done: see `08-backlog.md` (per-user MCP servers first, then collapsed source cards, an editing indicator, live text editing, GitHub App tokens, M4).
 
 ## 8. Known POC limitations to state in the demo

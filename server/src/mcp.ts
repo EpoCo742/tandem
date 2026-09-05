@@ -23,12 +23,20 @@ export interface McpToolInfo {
   readOnly: boolean;
 }
 
+/** A write that runs without asking: this tool, when every listed argument matches. */
+export interface AllowRule {
+  tool: string;
+  target: Record<string, string>; // empty means any target
+  createdAt: string;
+}
+
 export interface McpServerView {
   id: string;
   name: string;
   transport: string;
   summary: string;
   tools: McpToolInfo[];
+  allow: AllowRule[];
   status: string;
   lastError: string | null;
   testedAt: string | null;
@@ -41,6 +49,37 @@ export interface McpServerForTurn {
   ownerUserId: string;
   config: McpConfig;
   tools: McpToolInfo[];
+  allow: AllowRule[];
+}
+
+function parseAllow(raw: string | null): AllowRule[] {
+  try {
+    return raw ? (JSON.parse(raw) as AllowRule[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Does a stored rule cover this call? Every argument named by the rule must match exactly. */
+export function ruleAllows(rules: AllowRule[], tool: string, target: Record<string, string>): AllowRule | null {
+  return rules.find((r) => r.tool === tool && Object.entries(r.target).every(([k, v]) => target[k] === v)) ?? null;
+}
+
+export function addAllowRule(userId: string, serverName: string, rule: Omit<AllowRule, "createdAt">): AllowRule[] {
+  const row = db.select().from(schema.mcpServers).where(and(eq(schema.mcpServers.userId, userId), eq(schema.mcpServers.name, serverName))).get();
+  if (!row) throw new Error("server not found");
+  const rules = parseAllow(row.allow).filter((r) => !(r.tool === rule.tool && JSON.stringify(r.target) === JSON.stringify(rule.target)));
+  rules.push({ ...rule, createdAt: now() });
+  db.update(schema.mcpServers).set({ allow: JSON.stringify(rules) }).where(eq(schema.mcpServers.id, row.id)).run();
+  return rules;
+}
+
+export function removeAllowRule(userId: string, serverId: string, index: number) {
+  const row = db.select().from(schema.mcpServers).where(and(eq(schema.mcpServers.id, serverId), eq(schema.mcpServers.userId, userId))).get();
+  if (!row) throw new Error("server not found");
+  const rules = parseAllow(row.allow);
+  rules.splice(index, 1);
+  db.update(schema.mcpServers).set({ allow: JSON.stringify(rules) }).where(eq(schema.mcpServers.id, row.id)).run();
 }
 
 const CONNECT_TIMEOUT_MS = 20_000;
@@ -160,6 +199,7 @@ function view(row: typeof schema.mcpServers.$inferSelect): McpServerView {
     transport: row.transport,
     summary: row.summary,
     tools: row.tools ? (JSON.parse(row.tools) as McpToolInfo[]) : [],
+    allow: parseAllow(row.allow),
     status: row.status,
     lastError: row.lastError,
     testedAt: row.testedAt,
@@ -179,7 +219,7 @@ export function registerMcpServer(userId: string, name: string, config: McpConfi
   const sealed = seal(JSON.stringify(config));
   const id = ulid();
   db.insert(schema.mcpServers)
-    .values({ id, userId, name: clean, transport: config.transport, ciphertext: sealed.ciphertext, iv: sealed.iv, tag: sealed.tag, summary: summarize(config), tools: null, status: "untested", lastError: null, createdAt: now(), testedAt: null })
+    .values({ id, userId, name: clean, transport: config.transport, ciphertext: sealed.ciphertext, iv: sealed.iv, tag: sealed.tag, summary: summarize(config), tools: null, allow: existing?.allow ?? null, status: "untested", lastError: null, createdAt: now(), testedAt: null })
     .run();
   return view(db.select().from(schema.mcpServers).where(eq(schema.mcpServers.id, id)).get()!);
 }
@@ -191,7 +231,7 @@ export function deleteMcpServer(userId: string, id: string) {
 export function loadMcpServer(userId: string, id: string): McpServerForTurn | null {
   const row = db.select().from(schema.mcpServers).where(and(eq(schema.mcpServers.id, id), eq(schema.mcpServers.userId, userId))).get();
   if (!row) return null;
-  return { id: row.id, name: row.name, ownerUserId: row.userId, config: JSON.parse(unseal(row.ciphertext, row.iv, row.tag)) as McpConfig, tools: row.tools ? (JSON.parse(row.tools) as McpToolInfo[]) : [] };
+  return { id: row.id, name: row.name, ownerUserId: row.userId, config: JSON.parse(unseal(row.ciphertext, row.iv, row.tag)) as McpConfig, tools: row.tools ? (JSON.parse(row.tools) as McpToolInfo[]) : [], allow: parseAllow(row.allow) };
 }
 
 /** Test a registered server: connect, list tools, remember the outcome. */
@@ -214,5 +254,5 @@ export function serversForUser(userId: string): McpServerForTurn[] {
     .from(schema.mcpServers)
     .where(and(eq(schema.mcpServers.userId, userId), eq(schema.mcpServers.status, "ok")))
     .all()
-    .map((row) => ({ id: row.id, name: row.name, ownerUserId: row.userId, config: JSON.parse(unseal(row.ciphertext, row.iv, row.tag)) as McpConfig, tools: row.tools ? (JSON.parse(row.tools) as McpToolInfo[]) : [] }));
+    .map((row) => ({ id: row.id, name: row.name, ownerUserId: row.userId, config: JSON.parse(unseal(row.ciphertext, row.iv, row.tag)) as McpConfig, tools: row.tools ? (JSON.parse(row.tools) as McpToolInfo[]) : [], allow: parseAllow(row.allow) }));
 }

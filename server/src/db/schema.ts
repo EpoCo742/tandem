@@ -34,6 +34,7 @@ export const mcpServers = sqliteTable("mcp_servers", {
   tag: blob("tag", { mode: "buffer" }).notNull(),
   summary: text("summary").notNull(), // non-secret description shown in the UI (command or host)
   tools: text("tools"), // JSON McpToolInfo[] from the last successful test
+  allow: text("allow"), // JSON AllowRule[]: writes that run without asking again
   status: text("status").notNull().default("untested"),
   lastError: text("last_error"),
   createdAt: text("created_at").notNull(),

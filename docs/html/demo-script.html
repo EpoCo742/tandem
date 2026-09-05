@@ -50,7 +50,7 @@ strong{font-weight:600}
 <h1>Tandem POC: Demo Script</h1>
 
 <p>The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.</p>
-<p>This file tracks the features as they land. Last updated 2026-09-05 (external tools through MCP, collapsed source cards, editing indicator).</p>
+<p>This file tracks the features as they land. Last updated 2026-09-05 (standing permissions for external writes, external actions in the export, print to PDF).</p>
 <h2 id="two-ways-to-run-it">Two ways to run it</h2>
 <p><strong>By hand.</strong> Alice in a normal browser window, Bob in a private window (or via <code>bob.mjs</code> below). Type the quoted lines exactly; the fake architect keys off specific words (see the trigger table at the end).</p>
 <p><strong>Seeded.</strong> With a dev-auth server running (<code>TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake</code>):</p>
@@ -347,7 +347,7 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 <tbody>
 <tr>
 <td>Alice</td>
-<td><strong>Export .md</strong>. A preview opens, rendered with the diagrams drawn; <strong>raw markdown</strong> shows the text; <strong>copy</strong> or <strong>download .md</strong>.</td>
+<td><strong>Export .md</strong>. A preview opens, rendered with the diagrams drawn; <strong>raw markdown</strong> shows the text; <strong>copy</strong>, <strong>download .md</strong>, or <strong>print / PDF</strong> (the browser's print dialog offers "Save as PDF"; diagrams and tables come out drawn).</td>
 </tr>
 </tbody>
 </table></div>
@@ -410,7 +410,22 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 </tbody>
 </table></div>
-<p>Fake architect: picks Alice's <code>confluence_publish_page</code>, proposes it. The <strong>Proposals</strong> tab shows an <em>outbound write</em> card with the exact arguments; only Alice (or the session owner) can approve. She approves; the tool runs; the AI lane shows a system line with the result.</p>
+<p>Fake architect: picks Alice's <code>confluence_publish_page</code>, proposes it. The <strong>Proposals</strong> tab shows an <em>outbound write</em> card with the exact arguments; only Alice (or the session owner) can approve. She picks <strong>Approve, always for space ARCH</strong>; the tool runs; the AI lane shows a system line with the result.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice</td>
+<td>"Publish the design document to Confluence under ARCH." again</td>
+</tr>
+</tbody>
+</table></div>
+<p>Nothing to approve this time: the call is pre-approved for that space and runs at once, with the reason recorded. Credentials → External tools lists the standing permission with an "ask again" button. A different space would still ask.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -425,7 +440,7 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 </tbody>
 </table></div>
-<p>Point at: nothing ran; the AI says so; History carries the proposed, resolved and completed events with who decided. On a real seat the Copilot runtime connects to the same servers and every MCP write goes through the same gate.</p>
+<p>Point at: nothing ran; the AI says so; the <strong>History</strong> tab lists every external action with who directed it, who decided, and the result, and the export carries the same list under "External actions". On a real seat the Copilot runtime connects to the same servers and every MCP write goes through the same gate.</p>
 <h2 id="stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</h2>
 <p>Uploaded source cards start folded to one line (▾ opens them, double-click too). While someone has a card open in the editor, everyone else sees a "Name editing" chip on it; it is a courtesy, not a lock, and the version check on save remains the guard.</p>
 <p>Double-click a card's title to rename it; the rename is a new version under the same governance as an edit. A resized card shows ↺ in its header to go back to automatic size; images and diagrams scale with a resized card.</p>
