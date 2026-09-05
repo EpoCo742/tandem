@@ -206,6 +206,11 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .decision.proposed { border-left-color: var(--ink-3); }
 .decision.superseded { border-left-color: var(--line); color: var(--ink-3); text-decoration: line-through; }
 .decision.contested { border-left-color: var(--warn); }
+.decision details.adr { margin-top: 4px; font-size: 12px; }
+.decision details.adr summary { cursor: pointer; color: var(--ink-3); }
+.decision details.adr > div { margin-top: 3px; }
+.decision details.adr ul { margin: 2px 0 0; padding-left: 16px; }
+.decision details.adr li.chosen { font-weight: 600; }
 .commit { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
 .commit .id { font-family: var(--mono); color: var(--ink-3); }
 .commit.head { font-weight: 600; }

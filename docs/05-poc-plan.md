@@ -213,6 +213,8 @@ Validated against a real Copilot seat on 2026-09-04: the model drives the canvas
 
 2026-09-05, roadmap item A1: the architecture model. One `arch_model` card per session (components with kinds, technology and boundaries; relationships with kinds and labels) is the source of truth for structure; `view` cards (context, container, component) are generated from it at render time, in the prompt and in the export, so a rename propagates everywhere; three model tools with the usual governance; decisions carry `about` component ids and the model card filters the Decisions tab by component. The offline provider is model-first.
 
+2026-09-05, roadmap item A2: decisions as records. `record_decision` carries context, options considered (chosen one marked) and consequences; the Decisions tab shows the record; the export has a "Decision records" section in ADR form; `GET /adrs` and a zip download give one file per decision under `docs/adr`; the `render_adr` tool lets the AI commit them through a registered file tool, gated like any outbound write. Data-model entities can name their owning component.
+
 Not yet done: see `09-roadmap.md` (per-user MCP servers first, then collapsed source cards, an editing indicator, live text editing, GitHub App tokens, M4).
 
 ## 8. Known POC limitations to state in the demo

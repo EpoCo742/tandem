@@ -66,4 +66,22 @@ server.registerTool(
   },
 );
 
+server.registerTool(
+  "github_create_or_update_file",
+  {
+    title: "Create or update a file in a repository",
+    description: "Write a file at a path in a GitHub repository (owner/name) with a commit message. Returns the file URL.",
+    inputSchema: { repo: z.string().describe("owner/name"), path: z.string(), content: z.string(), message: z.string().optional() },
+    annotations: { readOnlyHint: false, destructiveHint: false },
+  },
+  async ({ repo, path: filePath, content, message }) => {
+    const target = path.join(dir, "repos", repo.replace(/[^\w.-]+/g, "_"), filePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content);
+    const log = read("commits.json");
+    write("commits.json", [...log, { repo, path: filePath, message: message ?? "", at: new Date().toISOString() }]);
+    return { content: [{ type: "text", text: `Committed ${filePath} to ${repo}: https://github.example/${repo}/blob/main/${filePath}` }] };
+  },
+);
+
 await server.connect(new StdioServerTransport());

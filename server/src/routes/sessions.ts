@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { randomBytes } from "node:crypto";
-import { pickColor, type ArtifactType, type DecisionPointContent, type Policy } from "@tandem/shared";
+import { allAdrs, pickColor, type ArtifactType, type DecisionPointContent, type Policy } from "@tandem/shared";
 import { db, now, schema } from "../db/index.js";
 import { requireUser } from "../auth.js";
 import { appendEvent, getState, listEvents, sessionExists } from "../ledger.js";
@@ -374,6 +374,12 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const me = participantOr403(req.params.id, user.id);
     if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot refresh the brief" });
     return maybeCompact(req.params.id, { force: true });
+  });
+
+  app.get<{ Params: { id: string } }>("/api/v1/sessions/:id/adrs", async (req, reply) => {
+    const user = requireUser(req, reply);
+    participantOr403(req.params.id, user.id);
+    return { files: allAdrs(getState(req.params.id)).map((f) => ({ filename: f.filename, markdown: f.markdown, label: f.decision.label, status: f.decision.status })) };
   });
 
   app.get<{ Params: { id: string }; Querystring: { format?: string } }>("/api/v1/sessions/:id/export", async (req, reply) => {

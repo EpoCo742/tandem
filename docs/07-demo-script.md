@@ -2,7 +2,7 @@
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
-This file tracks the features as they land. Last updated 2026-09-05 (architecture model under the diagrams).
+This file tracks the features as they land. Last updated 2026-09-05 (decisions as records: ADR fields, ADR files, commit to a repository).
 
 ## Two ways to run it
 
@@ -201,6 +201,18 @@ Feature: compaction that keeps attribution. When the conversation outgrows the m
 Fake architect: writes one attributed line per folded message plus the decisions recorded in that stretch. A real model merges the previous brief with the new stretch under the same rules.
 
 Point at: the count "N of M messages folded"; every line carries a name and an event id; the export's Brief section; the next AI turn still answers in context of the folded discussion.
+
+## Stage 12b: decisions as records
+
+Feature: every decision is an architecture decision record: context, options considered with the chosen one, consequences, deciders, the components it concerns, and the evidence messages. The Decisions tab shows the record under "record"; the export carries a "Decision records" section; the export preview offers **download ADRs (.zip)** laid out as `docs/adr/NNNN-title.md`.
+
+| Who | Says |
+|---|---|
+| Alice | "Commit the ADRs to acme/order-platform." (after registering the demo server, which has a GitHub-like file tool) |
+
+Fake architect: renders every decision as a file and proposes the first write through the file tool. Alice picks **Approve, always for repo acme/order-platform**; the remaining files are written without asking; the reply counts them. A real model does the same through a registered GitHub MCP server with `render_adr` and its file tool.
+
+Point at: D-03, the resolved decision point, lists the three options with "Combine both" chosen; the History tab shows one external action per file; the demo repository under `data/mcp-demo/repos` holds the files.
 
 ## Stage 13: external tools (MCP)
 

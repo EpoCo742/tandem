@@ -33,6 +33,7 @@ export const dataModelContentSchema = z.object({
           nullable: z.boolean().optional(),
         }),
       ),
+      ownedBy: z.string().optional().describe("Architecture model component id that owns this entity"),
       derivedFrom: z.array(z.string()),
     }),
   ),
@@ -130,6 +131,16 @@ export const recordDecisionInput = z.object({
   supersedes: z.string().nullable().describe("Decision id this replaces, or null"),
   evidence: z.array(z.string()).describe("Ledger event ids of the messages that establish it"),
   about: z.array(z.string()).optional().describe("Architecture model component ids this decision concerns"),
+  context: z.string().optional().describe("ADR context: the situation and forces that called for a decision, two or three sentences"),
+  options: z
+    .array(z.object({ title: z.string(), tradeoffs: z.string().optional(), chosen: z.boolean().optional() }))
+    .optional()
+    .describe("ADR options considered, with the chosen one marked"),
+  consequences: z.string().optional().describe("ADR consequences: what becomes easier or harder because of this decision"),
+});
+
+export const renderAdrInput = z.object({
+  decisionId: z.string().optional().describe("One decision; omit for every decision in the registry"),
 });
 
 export const createDecisionPointInput = z.object({
@@ -178,6 +189,7 @@ export const toolSchemas = {
   upsert_components: upsertComponentsInput,
   upsert_relationships: upsertRelationshipsInput,
   remove_from_model: removeFromModelInput,
+  render_adr: renderAdrInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -200,6 +212,8 @@ export const toolDescriptions: Record<ToolName, string> = {
     "Add components to the session's architecture model, or update existing ones by id (rename, change kind, describe, move into a boundary). The model is the source of truth for structure; diagrams are views of it. Prefer this over drawing free Mermaid for system structure.",
   upsert_relationships: "Add or update relationships between components of the architecture model by component id. Both ends must exist; the result names any unknown ids.",
   remove_from_model: "Remove components (and their relationships) or specific relationships from the architecture model.",
+  render_adr:
+    "Render decisions as architecture decision record files (filename + Markdown), ready to write into a repository's docs/adr with an external tool. Omit decisionId to get all of them.",
 };
 
 export type ToolResult =
@@ -212,4 +226,5 @@ export type ToolResult =
   | { status: "content"; artifactId: string; versionNo: number; content: unknown }
   | { status: "pinned"; artifactId: string; pinned: boolean }
   | { status: "model_updated"; artifactId: string; versionNo: number; components: number; relationships: number; unknown?: string[] }
+  | { status: "adrs"; files: { filename: string; markdown: string; label: string }[] }
   | { status: "error"; message: string };

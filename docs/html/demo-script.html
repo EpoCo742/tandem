@@ -44,13 +44,13 @@ strong{font-weight:600}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
 </style>
 <div class="page">
-<nav class="toc"><div class="k">Contents</div><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-2b-the-model-is-the-truth">Stage 2b: the model is the truth</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-13-external-tools-mcp">Stage 13: external tools (MCP)</a><a href="#stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</a><a href="#stage-14-theme-and-canvas-grid-no-script">Stage 14: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
+<nav class="toc"><div class="k">Contents</div><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-2b-the-model-is-the-truth">Stage 2b: the model is the truth</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-12b-decisions-as-records">Stage 12b: decisions as records</a><a href="#stage-13-external-tools-mcp">Stage 13: external tools (MCP)</a><a href="#stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</a><a href="#stage-14-theme-and-canvas-grid-no-script">Stage 14: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
 <article>
 <div class="eyebrow"><span>Tandem design package · 07 · Demo script</span><span>2026-09-03</span></div>
 <h1>Tandem POC: Demo Script</h1>
 
 <p>The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.</p>
-<p>This file tracks the features as they land. Last updated 2026-09-05 (architecture model under the diagrams).</p>
+<p>This file tracks the features as they land. Last updated 2026-09-05 (decisions as records: ADR fields, ADR files, commit to a repository).</p>
 <h2 id="two-ways-to-run-it">Two ways to run it</h2>
 <p><strong>By hand.</strong> Alice in a normal browser window, Bob in a private window (or via <code>bob.mjs</code> below). Type the quoted lines exactly; the fake architect keys off specific words (see the trigger table at the end).</p>
 <p><strong>Seeded.</strong> With a dev-auth server running (<code>TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake</code>):</p>
@@ -390,6 +390,24 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </table></div>
 <p>Fake architect: writes one attributed line per folded message plus the decisions recorded in that stretch. A real model merges the previous brief with the new stretch under the same rules.</p>
 <p>Point at: the count "N of M messages folded"; every line carries a name and an event id; the export's Brief section; the next AI turn still answers in context of the folded discussion.</p>
+<h2 id="stage-12b-decisions-as-records">Stage 12b: decisions as records</h2>
+<p>Feature: every decision is an architecture decision record: context, options considered with the chosen one, consequences, deciders, the components it concerns, and the evidence messages. The Decisions tab shows the record under "record"; the export carries a "Decision records" section; the export preview offers <strong>download ADRs (.zip)</strong> laid out as <code>docs/adr/NNNN-title.md</code>.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice</td>
+<td>"Commit the ADRs to acme/order-platform." (after registering the demo server, which has a GitHub-like file tool)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Fake architect: renders every decision as a file and proposes the first write through the file tool. Alice picks <strong>Approve, always for repo acme/order-platform</strong>; the remaining files are written without asking; the reply counts them. A real model does the same through a registered GitHub MCP server with <code>render_adr</code> and its file tool.</p>
+<p>Point at: D-03, the resolved decision point, lists the three options with "Combine both" chosen; the History tab shows one external action per file; the demo repository under <code>data/mcp-demo/repos</code> holds the files.</p>
 <h2 id="stage-13-external-tools-mcp">Stage 13: external tools (MCP)</h2>
 <p>Feature: each person registers their own MCP servers with their own credentials; the AI uses the speaker's tools; writes to outside systems are proposed to the tool's owner and denied if nobody answers.</p>
 <p>Setup: start nothing extra. The repo ships a stand-in for Atlassian, <code>server/scripts/mcp-demo-server.mjs</code>, which writes "pages" and "stories" to JSON files.</p>

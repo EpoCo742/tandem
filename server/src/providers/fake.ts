@@ -190,6 +190,37 @@ export const fakeProvider: ProviderAdapter = {
     }
 
     // 0c. Outbound action: "publish/create/upload ... to confluence/jira/github" uses the speaker's own MCP tool.
+    const commitAdrs = batch.find((m) => /\b(commit|push|write|export)\b/i.test(m.text) && /\b(adrs?|decision records?)\b/i.test(m.text));
+    if (commitAdrs) {
+      const fileTool = req.mcpServers.flatMap((s) => s.tools.map((t) => ({ server: s, tool: t }))).find(({ tool }) => /create_file|create_or_update_file|push_files|write_file|commit/i.test(tool.name));
+      if (!fileTool) {
+        await emit(`${commitAdrs.speaker}, I can write the decision records to a repository once you register a tool that can create files there (credentials → External tools).`);
+        return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      }
+      const rendered = (await call("render_adr", {})) as { status: string; files?: { filename: string; markdown: string; label: string }[] };
+      const files = rendered.files ?? [];
+      const repo = commitAdrs.text.match(/\b([\w.-]+\/[\w.-]+)\b/)?.[1] ?? "acme/order-platform";
+      let written = 0;
+      let denied = 0;
+      for (const f of files) {
+        const args = { repo, path: f.filename, content: f.markdown, message: `${f.label}: architecture decision record` };
+        const { callId, decision } = await req.external.ask(fileTool.server, fileTool.tool.name, args, fileTool.tool.readOnly);
+        if (decision !== "approved") {
+          denied += 1;
+          continue;
+        }
+        try {
+          const r = await callMcpTool(fileTool.server.config, fileTool.tool.name, args);
+          req.external.done(callId, r.ok, r.text);
+          if (r.ok) written += 1;
+        } catch (e) {
+          req.external.done(callId, false, (e as Error).message);
+        }
+      }
+      await emit(`Wrote ${written} of ${files.length} decision record${files.length === 1 ? "" : "s"} to ${repo} under docs/adr${denied ? ` (${denied} not approved)` : ""}.`);
+      return { text, toolCallsCount: files.length, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+    }
+
     const outbound = batch.find((m) => /\b(publish|upload|push|create|open|file)\b/i.test(m.text) && /\b(confluence|jira|github|page|stor(y|ies)|epics?|tickets?|issues?|repo|wiki)\b/i.test(m.text));
     if (outbound) {
       const wantsTicket = /\b(jira|stor(y|ies)|epics?|tickets?|issues?)\b/i.test(outbound.text);
@@ -294,12 +325,17 @@ export const fakeProvider: ProviderAdapter = {
       const optM = resolution.text.match(/option "([^"]+)"/);
       const supersedes = resolution.text.match(/supersedes decision ([^\s.]+)/)?.[1] ?? null;
       const chosen = optM?.[1] ?? "the chosen option";
+      const dpArt = artifacts.find((a) => a.type === "decision_point");
+      const dpContent = dpArt ? ((await call("read_artifact", { artifactId: dpArt.id })) as { content?: { question?: string; context?: string; options?: { title: string; tradeoffs?: string }[] } }).content : undefined;
       const r = await call("record_decision", {
         statement: `Resolved: ${chosen}`,
         status: "agreed",
         agreedBy: (resolution.text.match(/voters: ([^)]+)\)/)?.[1] ?? "").split(",").map((s) => userIdFor(req.context.prompt, s.trim())).filter(Boolean),
         supersedes,
         evidence: [resolution.eventId],
+        context: dpContent?.context ?? `The group had to settle: ${dpContent?.question ?? "a contested change"}.`,
+        options: (dpContent?.options ?? []).map((o) => ({ title: o.title, tradeoffs: o.tradeoffs, chosen: o.title === chosen })),
+        consequences: `The canvas follows "${chosen}"; anything that assumed the superseded decision needs revisiting.`,
       });
       const view = artifacts.find((a) => a.type === "view") ?? artifacts.find((a) => a.type === "mermaid");
       if (view && view.type === "view") {
@@ -382,6 +418,8 @@ export const fakeProvider: ProviderAdapter = {
         supersedes: null,
         evidence: [m.eventId],
         about: serviceNames(m.text).map(slugId),
+        context: `${m.speaker} stated this while describing the system.`,
+        consequences: "Reflected in the architecture model and its views.",
       });
       if (r.status === "recorded") await emit(`Recorded ${r.label} for ${m.speaker}. `);
     }

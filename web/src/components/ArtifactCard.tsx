@@ -250,11 +250,14 @@ function ModelTable({ content }: { content: ArchModelContent }) {
 }
 
 function DataModel({ content }: { content: DataModelContent }) {
+  const state = useStore((s) => s.state);
+  const model = Object.values(state.artifacts).find((x) => x.type === "arch_model" && !x.deleted)?.current.content as ArchModelContent | undefined;
+  const ownerName = (id: string) => model?.components.find((c) => c.id === id)?.name ?? id;
   return (
     <div className="stack">
       {content.entities.map((e) => (
         <table key={e.name}>
-          <thead><tr><th colSpan={2}>{e.name}</th></tr></thead>
+          <thead><tr><th colSpan={2}>{e.name}{e.ownedBy ? <span className="mono" style={{ fontWeight: 400, marginLeft: 8 }}>owned by {ownerName(e.ownedBy)}</span> : null}</th></tr></thead>
           <tbody>
             {e.fields.map((f) => (
               <tr key={f.name}><td>{f.pk ? "🔑 " : ""}{f.name}{f.fk ? ` → ${f.fk}` : ""}</td><td className="mono">{f.type}{f.nullable ? "?" : ""}</td></tr>

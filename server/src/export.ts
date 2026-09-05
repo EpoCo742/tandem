@@ -1,4 +1,4 @@
-import { contentText, dataModelMarkdown, liveArtifacts, modelToMermaid, participantName, type ArchModelContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { allAdrs, contentText, dataModelMarkdown, liveArtifacts, modelToMermaid, participantName, type ArchModelContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 
 function modelMarkdown(m: ArchModelContent): string[] {
   const out: string[] = ["| Component | Kind | Technology | Boundary | Description |", "|---|---|---|---|---|"];
@@ -80,6 +80,11 @@ export function exportMarkdown(s: SessionState): string {
     out.push(`  <!-- decision ${d.id}; evidence ${d.evidence.join(",")} -->`);
   }
   out.push("");
+  // The same decisions as architecture decision records, one section each (the files are available separately).
+  if (decisions.length) {
+    out.push("## Decision records", "");
+    for (const f of allAdrs(s)) out.push(f.markdown.replace(/^# /m, "### "), "");
+  }
 
   const calls = Object.values(s.externalCalls).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   if (calls.length) {

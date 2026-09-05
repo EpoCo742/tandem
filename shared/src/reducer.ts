@@ -101,6 +101,9 @@ export interface Decision {
   agreedBy: string[];
   evidence: string[];
   about: string[];
+  context: string;
+  options: { title: string; tradeoffs?: string; chosen?: boolean }[];
+  consequences: string;
   eventId: string;
   createdAt: string;
 }
@@ -411,6 +414,9 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
         agreedBy: p.agreedBy,
         evidence: p.evidence,
         about: p.about ?? [],
+        context: p.context ?? "",
+        options: p.options ?? [],
+        consequences: p.consequences ?? "",
         eventId: ev.id,
         createdAt: ev.createdAt,
       };

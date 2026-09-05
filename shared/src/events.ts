@@ -119,6 +119,9 @@ export type Payloads = {
     agreedBy: string[];
     evidence: string[];
     about?: string[]; // architecture model component ids this decision concerns
+    context?: string; // ADR: the situation that called for a decision
+    options?: { title: string; tradeoffs?: string; chosen?: boolean }[]; // ADR: what was considered
+    consequences?: string; // ADR: what follows from it
   };
   "decision.voted": { decisionPointArtifactId: string; optionId: string };
   "decision.resolved": { decisionPointArtifactId: string; optionId: string; decisionId: string | null };

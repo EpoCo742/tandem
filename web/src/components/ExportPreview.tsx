@@ -73,6 +73,42 @@ export function ExportPreview({ sessionId, title, onClose }: { sessionId: string
     setTimeout(go, 400);
   }
 
+  // Minimal ZIP writer (no compression): enough for a handful of Markdown files.
+  function zip(files: { name: string; data: Uint8Array }[]): Blob {
+    const enc = new TextEncoder();
+    const table = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+    const crc = (d: Uint8Array) => { let c = 0xffffffff; for (const b of d) c = table[(c ^ b) & 0xff]! ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+    const parts: Uint8Array[] = [];
+    const central: Uint8Array[] = [];
+    let offset = 0;
+    const le = (n: number, bytes: number) => { const a = new Uint8Array(bytes); for (let i = 0; i < bytes; i++) a[i] = (n >>> (8 * i)) & 0xff; return a; };
+    const cat = (...xs: Uint8Array[]) => { const out = new Uint8Array(xs.reduce((n, x) => n + x.length, 0)); let p = 0; for (const x of xs) { out.set(x, p); p += x.length; } return out; };
+    for (const f of files) {
+      const name = enc.encode(f.name);
+      const c = crc(f.data);
+      const local = cat(le(0x04034b50, 4), le(20, 2), le(0x0800, 2), le(0, 2), le(0, 2), le(0x21, 2), le(c, 4), le(f.data.length, 4), le(f.data.length, 4), le(name.length, 2), le(0, 2), name, f.data);
+      central.push(cat(le(0x02014b50, 4), le(20, 2), le(20, 2), le(0x0800, 2), le(0, 2), le(0, 2), le(0x21, 2), le(c, 4), le(f.data.length, 4), le(f.data.length, 4), le(name.length, 2), le(0, 2), le(0, 2), le(0, 2), le(0, 2), le(0, 4), le(offset, 4), name));
+      parts.push(local);
+      offset += local.length;
+    }
+    const cd = cat(...central);
+    const end = cat(le(0x06054b50, 4), le(0, 2), le(0, 2), le(files.length, 2), le(files.length, 2), le(cd.length, 4), le(offset, 4), le(0, 2));
+    return new Blob([cat(...parts), cd, end], { type: "application/zip" });
+  }
+
+  async function downloadAdrs() {
+    const r = await api<{ files: { filename: string; markdown: string }[] }>("GET", `/api/v1/sessions/${sessionId}/adrs`);
+    if (!r.files.length) { setErr("No decisions recorded yet, so there are no records to download."); return; }
+    const enc = new TextEncoder();
+    const blob = zip(r.files.map((f) => ({ name: `docs/adr/${f.filename}`, data: enc.encode(f.markdown) })));
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = `${title.replace(/[^\w-]+/g, "-") || "session"}-adrs.zip`;
+    el.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function copy() {
     if (md === null) return;
     try {
@@ -94,6 +130,7 @@ export function ExportPreview({ sessionId, title, onClose }: { sessionId: string
           <button onClick={copy} disabled={md === null}>{copied ? "copied" : "copy"}</button>
           <button onClick={print} disabled={md === null} title="Print, or save as PDF from the print dialog">print / PDF</button>
           <button className="primary" onClick={download} disabled={md === null}>download .md</button>
+          <button onClick={downloadAdrs} disabled={md === null} title="One Markdown file per decision, laid out as docs/adr/NNNN-title.md">download ADRs (.zip)</button>
           <button onClick={onClose}>close</button>
         </div>
         {err && <div className="err">{err}</div>}

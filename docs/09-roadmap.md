@@ -156,4 +156,4 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices. Each item adds its stage to `07-demo-script.md` and its assertions to the smoke test before it is called done.
 
-**Shipped 2026-09-05:** A1, the architecture model (first slice: model, generated views, tools, decision links; the data-model `ownedBy` link follows with A2).
+**Shipped 2026-09-05:** A1, the architecture model (model, generated views, tools, decision links). A2, decisions as records (ADR fields on record_decision, the Decisions tab record, ADR-form export, ADR file download, `render_adr` tool and repository commit through a registered file tool under the outbound gate, data-model `ownedBy`). Next: B1, asynchronous participation.

@@ -1,5 +1,5 @@
 import { ulid } from "ulid";
-import { emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
+import { allAdrs, emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { DecisionPointContent, SessionState } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
@@ -68,6 +68,13 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       return writeModel(model, input.rationale, `Model: ${model.components.length} components, ${model.relationships.length} relationships`, unknown);
     }),
 
+    bind("render_adr", async (input) => {
+      const state = getState(scope.sessionId);
+      const files = allAdrs(state).filter((f) => !input.decisionId || f.decision.id === input.decisionId);
+      if (input.decisionId && !files.length) return { status: "error", message: `No decision ${input.decisionId}` };
+      return { status: "adrs", files: files.map((f) => ({ filename: `docs/adr/${f.filename}`, markdown: f.markdown, label: f.decision.label })) };
+    }),
+
     bind("remove_from_model", async (input) => {
       const next = removeFromModel(currentModel(), input.componentIds ?? [], input.relationshipIds ?? []);
       return writeModel(next, input.rationale, `Model: ${next.components.length} components, ${next.relationships.length} relationships`);
@@ -116,7 +123,7 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
         actorUserId: scope.onBehalfOf,
         turnId: scope.turnId,
         causedBy: input.evidence.length ? input.evidence : scope.batchEventIds,
-        payload: { decisionId, label, statement: input.statement, status, supersedes: input.supersedes, agreedBy: input.agreedBy, evidence: input.evidence, about: input.about ?? [] },
+        payload: { decisionId, label, statement: input.statement, status, supersedes: input.supersedes, agreedBy: input.agreedBy, evidence: input.evidence, about: input.about ?? [], context: input.context, options: input.options, consequences: input.consequences },
       });
       return { status: "recorded", decisionId, label };
     }),

@@ -21,6 +21,7 @@ export interface MarkdownContent {
 export interface Entity {
   name: string;
   fields: { name: string; type: string; pk?: boolean; fk?: string; nullable?: boolean }[];
+  ownedBy?: string; // architecture model component id that owns this entity
   derivedFrom: string[];
 }
 

@@ -209,6 +209,18 @@ function Decisions() {
           <div>{d.statement}</div>
           {d.about.length > 0 && <div style={{ marginTop: 3 }}>{d.about.map((id) => <span key={id} className="chip" style={{ marginRight: 4, color: "var(--ink-2)", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setFocus(id); }}>{cname(id)}</span>)}</div>}
           {d.supersedes && <div className="mono">supersedes {state.decisions[d.supersedes]?.label}</div>}
+          {(d.context || d.options.length > 0 || d.consequences) && (
+            <details className="adr" onClick={(e) => e.stopPropagation()}>
+              <summary className="mono">record</summary>
+              {d.context && <div><span className="mono">context</span> {d.context}</div>}
+              {d.options.length > 0 && (
+                <div><span className="mono">options</span>
+                  <ul>{d.options.map((o, i) => <li key={i} className={o.chosen ? "chosen" : ""}>{o.title}{o.chosen ? " (chosen)" : ""}{o.tradeoffs ? `: ${o.tradeoffs}` : ""}</li>)}</ul>
+                </div>
+              )}
+              {d.consequences && <div><span className="mono">consequences</span> {d.consequences}</div>}
+            </details>
+          )}
         </div>
       ))}
     </div>

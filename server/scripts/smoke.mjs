@@ -295,13 +295,13 @@ const mcp = await alice.call("POST", "/api/v1/mcp-servers", {
   name: "atlassian",
   config: { transport: "stdio", command: process.execPath, args: [fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url))], env: { MCP_DEMO_DIR: demoDir } },
 });
-assert(mcp.status === "ok" && mcp.tools.length === 3, `demo MCP server registered and probed: ${mcp.tools.map((t) => t.name + (t.readOnly ? "" : "*")).join(", ")}`);
+assert(mcp.status === "ok" && mcp.tools.length === 4, `demo MCP server registered and probed: ${mcp.tools.map((t) => t.name + (t.readOnly ? "" : "*")).join(", ")}`);
 assert(mcp.tools.find((t) => t.name === "confluence_search").readOnly === true && mcp.tools.find((t) => t.name === "confluence_publish_page").readOnly === false, "read-only annotation is carried through");
 assert(!("config" in mcp) && !JSON.stringify(mcp).includes(demoDir), "the server config never comes back to the client");
 const imported = await alice.call("POST", "/api/v1/mcp-servers/import", {
   json: JSON.stringify({ servers: { "atlassian-import": { type: "stdio", command: process.execPath, args: [fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url))], env: { MCP_DEMO_DIR: demoDir }, gallery: true, version: "1.0" } } }),
 });
-assert(imported.results.length === 1 && imported.results[0].status === "ok" && imported.results[0].tools.length === 3, "a pasted VS Code mcp.json registers and tests its servers");
+assert(imported.results.length === 1 && imported.results[0].status === "ok" && imported.results[0].tools.length === 4, "a pasted VS Code mcp.json registers and tests its servers");
 const badImport = await alice.call("POST", "/api/v1/mcp-servers/import", { json: JSON.stringify({ servers: { x: { type: "http", url: "https://example.invalid/mcp", headers: { Authorization: "Bearer ${input:token}" } } } }) }).catch((e) => e.message);
 assert(String(badImport).includes("placeholders"), "editor input placeholders are refused with a clear message");
 await alice.call("DELETE", `/api/v1/mcp-servers/${imported.results[0].id}`);
@@ -350,6 +350,28 @@ await alice.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${second.
 await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "denied turn");
 assert(!fs.existsSync(path.join(demoDir, "stories.json")), "a denied call does not run");
 assert(subA.events.filter((e) => e.type === "ai.message").pop().payload.text.includes("not approved"), "the AI reports the denial");
+
+// Decisions are records: the resolved decision point carries its options, and the ADR files exist.
+const resolvedDecision = subA.events.filter((e) => e.type === "decision.recorded").find((e) => e.payload.supersedes);
+assert(resolvedDecision.payload.options.length === 3 && resolvedDecision.payload.options.some((o) => o.chosen) && resolvedDecision.payload.context.length > 10, "a resolved decision point records its options, the chosen one and the context");
+const adrs = await alice.call("GET", `/api/v1/sessions/${sessionId}/adrs`);
+assert(adrs.files.length >= 4 && adrs.files.every((f) => /^\d{4}-[a-z0-9-]+\.md$/.test(f.filename)) && adrs.files.some((f) => f.markdown.includes("## Options considered") && f.markdown.includes("(chosen)")), `ADR files: ${adrs.files.map((f) => f.filename).join(", ")}`);
+const mdWithAdrs = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(mdWithAdrs.includes("## Decision records") && mdWithAdrs.includes("**Status:** Accepted"), "the export carries the decision log in ADR form");
+
+// Committing the ADRs to a repository goes through the file tool: the first write is proposed, approved
+// with a standing permission for the repository, and the rest run without asking.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+const proposedBefore = subA.events.filter((e) => e.type === "external.call_proposed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Commit the ADRs to acme/order-platform." });
+await waitFor(() => subA.events.filter((e) => e.type === "external.call_proposed").length > proposedBefore, "first ADR commit proposed");
+const firstCommit = subA.events.filter((e) => e.type === "external.call_proposed").pop().payload;
+assert(firstCommit.toolName === "github_create_or_update_file" && firstCommit.args.path.startsWith("docs/adr/"), `ADR commit proposed as ${firstCommit.args.path}`);
+await alice.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${firstCommit.callId}/resolve`, { decision: "approved", remember: true });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "ADR commit turn", 60000);
+const adrCommits = JSON.parse(fs.readFileSync(path.join(demoDir, "commits.json"), "utf8"));
+assert(adrCommits.length === adrs.files.length && adrCommits.every((c) => c.repo === "acme/order-platform"), `${adrCommits.length} ADR files committed, the rest pre-approved for the repository`);
+assert(fs.existsSync(path.join(demoDir, "repos", "acme_order-platform", "docs", "adr", adrs.files[0].filename)), "the ADR file exists in the demo repository");
 
 // Brief: a forced compaction folds older messages into an attributed summary that later prompts use.
 const briefRes = await alice.call("POST", `/api/v1/sessions/${sessionId}/brief`);
