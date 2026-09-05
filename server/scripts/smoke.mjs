@@ -392,6 +392,31 @@ await bob.call("POST", `/api/v1/sessions/${sessionId}/decision-points/${violatio
 await waitFor(() => subA.events.some((e) => e.type === "decision.resolved" && e.payload.decisionPointArtifactId === violation.artifactId), "constraint decision resolved");
 const mdWithConstraints = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(mdWithConstraints.includes("| C-01 | No customer data must leave the EU | must not | data residency | Alice |"), "the export lists the constraint with who set it");
+// A constraint belongs to whoever set it: Bob's exception to Alice's C-01 is proposed to Alice
+// even though the card would otherwise accept his edit; so is removing it.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Exception to C-01: anonymised analytics exports may leave the EU." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "exception turn");
+const excProposal = subA.events.filter((e) => e.type === "proposal.created" && e.payload.artifactType === "constraints").pop();
+assert(excProposal && excProposal.payload.requiresApprovalFrom.includes(aliceId) && !excProposal.payload.requiresApprovalFrom.includes(bobId), "bob's exception to alice's constraint is proposed to alice");
+assert(excProposal.payload.proposedContent.constraints.some((k) => k.exceptionTo === "C-01" && k.setBy === bobId), "the proposed exception is linked to C-01 and set by bob");
+const excAi = subA.events.filter((e) => e.type === "ai.message").pop();
+assert(/proposed to Alice/.test(excAi.payload.text), "the AI says who has to approve the exception");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/proposals/${excProposal.payload.proposalId}/resolve`, { decision: "approve" });
+await waitFor(() => subA.events.some((e) => e.type === "artifact.applied" && e.payload.proposalId === excProposal.payload.proposalId), "exception applied");
+const ccAfter = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "constraints").pop().payload.content;
+assert(ccAfter.constraints.some((k) => k.exceptionTo === "C-01" && k.setBy === bobId) && ccAfter.constraints.some((k) => k.id === "C-01" && k.setBy === aliceId), "after alice approves, the exception sits next to C-01 with bob as its setter");
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Remove C-01." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "removal turn");
+const rmProposal = subA.events.filter((e) => e.type === "proposal.created" && e.payload.artifactType === "constraints").pop();
+assert(rmProposal && rmProposal.payload.proposalId !== excProposal.payload.proposalId && rmProposal.payload.requiresApprovalFrom.includes(aliceId) && rmProposal.payload.proposedContent.constraints.every((k) => k.id !== "C-01"), "bob removing alice's constraint is proposed to alice");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/proposals/${rmProposal.payload.proposalId}/resolve`, { decision: "reject" });
+await wait(200);
+const ccFinal = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "constraints").pop().payload.content;
+assert(ccFinal.constraints.some((k) => k.id === "C-01"), "alice's rejection keeps C-01");
+const mdExc = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/\| C-02 \(exception to C-01\) \| anonymised analytics exports may leave the EU/.test(mdExc), "the export shows the exception against its constraint");
 
 // Asynchronous participation: a decision point with a deadline expires instead of staying open,
 // the digest shows what waits on a person and what changed since they last looked, mentions land.

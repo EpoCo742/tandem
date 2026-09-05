@@ -73,6 +73,7 @@ export interface Constraint {
   value?: string; // the measurable part, e.g. "p95 < 200 ms", "EU only", "$5k/month"
   setBy: string | null; // participant id, or null when it came from a document
   source?: string; // event id of the message, or artifact id of the upload, that established it
+  exceptionTo?: string; // this constraint relaxes that one (C-01); agreed by whoever set it
   derivedFrom: string[];
 }
 
@@ -154,7 +155,7 @@ export function contentText(type: string, content: unknown): string {
       return modelToText(content as ArchModelContent);
     case "constraints": {
       const cc = content as ConstraintsContent;
-      return cc.constraints.length ? cc.constraints.map((k) => `- ${k.id} [${k.kind}, ${k.category}] ${k.statement}${k.value ? ` (${k.value})` : ""}`).join("\n") : "(no constraints yet)";
+      return cc.constraints.length ? cc.constraints.map((k) => `- ${k.id} [${k.kind}, ${k.category}]${k.exceptionTo ? ` [exception to ${k.exceptionTo}]` : ""} ${k.statement}${k.value ? ` (${k.value})` : ""}`).join("\n") : "(no constraints yet)";
     }
     case "view": {
       const v = content as ViewContent;

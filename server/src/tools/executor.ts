@@ -74,24 +74,35 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       const cur: ConstraintsContent = (existing?.current.content as ConstraintsContent | undefined) ?? { constraints: [], sections: [] };
       const list = [...cur.constraints];
       let n = list.reduce((m, k) => Math.max(m, Number(k.id.replace(/^C-/, "")) || 0), 0);
+      // A constraint belongs to whoever set it: amending it, or carving an exception out of it,
+      // is proposed to that person even when the card itself is the actor's.
+      const guardians = new Set<string>();
+      for (const raw of input.constraints) {
+        if (raw.id && !list.some((k) => k.id === raw.id)) return { status: "error", message: `No constraint ${raw.id}; omit id to add a new one` };
+        if (raw.exceptionTo && !list.some((k) => k.id === raw.exceptionTo)) return { status: "error", message: `No constraint ${raw.exceptionTo} to make an exception to` };
+      }
       for (const raw of input.constraints) {
         const i = raw.id ? list.findIndex((k) => k.id === raw.id) : -1;
         const fromDocument = Boolean(raw.source && state.artifacts[raw.source]);
+        const original = raw.exceptionTo ? list.find((k) => k.id === raw.exceptionTo) : undefined;
+        if (i >= 0 && list[i]!.setBy && list[i]!.setBy !== scope.onBehalfOf) guardians.add(list[i]!.setBy!);
+        if (original?.setBy && original.setBy !== scope.onBehalfOf) guardians.add(original.setBy);
         const next = {
           id: i >= 0 ? list[i]!.id : `C-${String(++n).padStart(2, "0")}`,
           statement: raw.statement.replace(/\.$/, ""),
           kind: raw.kind,
           category: raw.category,
           value: raw.value,
-          setBy: fromDocument ? null : scope.onBehalfOf,
+          setBy: i >= 0 ? list[i]!.setBy : fromDocument ? null : scope.onBehalfOf,
           source: raw.source ?? input.derivedFrom[0],
+          ...(raw.exceptionTo ? { exceptionTo: raw.exceptionTo } : {}),
           derivedFrom: [...new Set([...(i >= 0 ? list[i]!.derivedFrom : []), ...input.derivedFrom])],
         };
         if (i >= 0) list[i] = { ...list[i]!, ...next };
         else list.push(next);
       }
       const content: ConstraintsContent = { constraints: list, sections: [{ id: "constraints", derivedFrom: input.derivedFrom }] };
-      const r = requestChange({ ...common, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "constraints", title: existing?.title ?? "Constraints", content, summary: `${list.length} constraint${list.length === 1 ? "" : "s"}`, rationale: input.rationale, baseVersionNo: existing?.current.versionNo ?? null, provenance: [{ sectionId: "constraints", derivedFrom: input.derivedFrom }] });
+      const r = requestChange({ ...common, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "constraints", title: existing?.title ?? "Constraints", content, summary: `${list.length} constraint${list.length === 1 ? "" : "s"}`, rationale: input.rationale, baseVersionNo: existing?.current.versionNo ?? null, provenance: [{ sectionId: "constraints", derivedFrom: input.derivedFrom }], approvalFrom: [...guardians] });
       if (r.status === "applied") return { status: "constraints_updated", artifactId: r.artifactId, versionNo: r.versionNo, constraints: list.map((k) => ({ id: k.id, statement: k.statement })) };
       return r as ToolResult;
     }),
@@ -102,8 +113,16 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       if (!existing) return { status: "error", message: "No constraints card" };
       const cur = existing.current.content as ConstraintsContent;
       const drop = new Set(input.constraintIds);
-      const content: ConstraintsContent = { ...cur, constraints: cur.constraints.filter((k) => !drop.has(k.id)) };
-      const r = requestChange({ ...common, op: "update", artifactId: existing.id, artifactType: "constraints", title: existing.title, content, summary: `${content.constraints.length} constraint${content.constraints.length === 1 ? "" : "s"}`, rationale: input.rationale, baseVersionNo: existing.current.versionNo, provenance: existing.current.provenance });
+      const missing = input.constraintIds.filter((id) => !cur.constraints.some((k) => k.id === id));
+      if (missing.length) return { status: "error", message: `No constraint ${missing.join(", ")}` };
+      // Removing what someone else set, or the constraint an exception hangs off, needs them.
+      const guardians = new Set<string>();
+      for (const k of cur.constraints) {
+        if (drop.has(k.id) && k.setBy && k.setBy !== scope.onBehalfOf) guardians.add(k.setBy);
+        if (k.exceptionTo && drop.has(k.exceptionTo) && k.setBy && k.setBy !== scope.onBehalfOf) guardians.add(k.setBy);
+      }
+      const content: ConstraintsContent = { ...cur, constraints: cur.constraints.filter((k) => !drop.has(k.id)).map((k) => (k.exceptionTo && drop.has(k.exceptionTo) ? { ...k, exceptionTo: undefined } : k)) };
+      const r = requestChange({ ...common, op: "update", artifactId: existing.id, artifactType: "constraints", title: existing.title, content, summary: `${content.constraints.length} constraint${content.constraints.length === 1 ? "" : "s"}`, rationale: input.rationale, baseVersionNo: existing.current.versionNo, provenance: existing.current.provenance, approvalFrom: [...guardians] });
       if (r.status === "applied") return { status: "constraints_updated", artifactId: r.artifactId, versionNo: r.versionNo, constraints: content.constraints.map((k) => ({ id: k.id, statement: k.statement })) };
       return r as ToolResult;
     }),

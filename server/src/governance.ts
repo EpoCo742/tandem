@@ -67,6 +67,7 @@ export interface ChangeRequest {
   baseVersionNo: number | null;
   causedBy: string[];
   provenance?: Provenance[];
+  approvalFrom?: string[]; // people who must approve regardless of card ownership (e.g. whoever set a constraint being amended)
 }
 
 export type ChangeOutcome =
@@ -91,15 +92,20 @@ export function requestChange(req: ChangeRequest): ChangeOutcome {
   if (existing && req.baseVersionNo !== null && req.baseVersionNo !== existing.current.versionNo && req.op === "update") {
     return { status: "stale", artifactId, currentVersionNo: existing.current.versionNo, message: `Artifact moved to v${existing.current.versionNo}; re-read and retry` };
   }
-  const risk = classifyRisk(state, req.op, req.artifactId, req.actorUserId);
+  // Guardians are people the change must be proposed to even when the card itself would let it
+  // through: a constraint belongs to whoever set it, not to whoever happens to own the card.
+  const guardians = [...new Set((req.approvalFrom ?? []).filter((u) => u !== req.actorUserId && state.participants[u] && state.participants[u]!.role !== "viewer"))];
+  const baseRisk = classifyRisk(state, req.op, req.artifactId, req.actorUserId);
+  const risk = guardians.length && baseRisk === "additive" ? "cross_owner_edit" : baseRisk;
   const g = gate(state.policy, risk);
   const provenance = req.provenance ?? provenanceOf(req.artifactType, req.content);
+  const baseApprovers = gate(state.policy, baseRisk) === "auto" ? [] : approversFor(state, gate(state.policy, baseRisk), req.artifactId, req.actorUserId);
+  const approvers = g === "auto" ? [] : [...new Set([...baseApprovers, ...guardians])];
 
-  if (g === "auto" || (g !== "decision_point" && approversFor(state, g, req.artifactId, req.actorUserId).length === 0)) {
+  if (g === "auto" || (g !== "decision_point" && approvers.length === 0)) {
     return applyVersion({ ...req, artifactId, proposalId: null, provenance });
   }
 
-  const approvers = approversFor(state, g, req.artifactId, req.actorUserId);
   const proposalId = ulid();
   const autoApplyAt = state.policy === "hybrid" && config.approvalTimeoutS > 0 ? new Date(Date.now() + config.approvalTimeoutS * 1000).toISOString() : null;
   appendEvent(req.sessionId, {

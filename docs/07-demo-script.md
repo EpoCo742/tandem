@@ -250,7 +250,16 @@ Fake architect: records **C-01** (must not, data residency) set by Alice; the Co
 
 Fake architect: refuses to change the model and raises a decision point "Keep C-01 or make an exception for Bob's request?" with options keep, exception, amend; the card carries a "breaks C-01" chip. Voting works as in stage 4. A real model does the same check from the constraints card in its prompt, and also records constraints it finds in uploaded documents with the document as the source.
 
-Point at: the Constraints card's "set by" column and the message link; the export's constraints table; the compiled design document's Constraints section.
+| Who | Says |
+|---|---|
+| Bob | "Exception to C-01: anonymised analytics exports may leave the EU." |
+| Alice | A proposal arrives in her AI lane: the exception is hers to approve, because she set C-01. She approves. |
+| Bob | "Remove C-01." |
+| Alice | Another proposal; she rejects it. C-01 stays. |
+
+Fake architect: a constraint belongs to whoever set it, whatever card it sits on. An exception, an amendment or a removal of someone else's constraint is proposed to that person and the AI says so ("proposed to Alice, who set it"). The approved exception appears as **C-02** with an "exception to C-01" chip, and C-01 shows "C-02 excepted".
+
+Point at: the Constraints card's "set by" column and the message link; the export's constraints table with the exception against its constraint; the compiled design document's Constraints section.
 
 ## Stage 12c: people who are not in the room
 

@@ -52,7 +52,7 @@ export function exportMarkdown(s: SessionState): string {
     else if (a.type === "constraints") {
       const cc = v.content as ConstraintsContent;
       out.push("| Id | Constraint | Kind | Area | Set by |", "|---|---|---|---|---|");
-      for (const k of cc.constraints) out.push(`| ${k.id} | ${k.statement}${k.value ? ` (${k.value})` : ""} | ${k.kind.replace("_", " ")} | ${k.category.replace(/_/g, " ")} | ${k.setBy ? participantName(s, k.setBy) : k.source && s.artifacts[k.source] ? `document: ${s.artifacts[k.source]!.title}` : "document"} |`);
+      for (const k of cc.constraints) out.push(`| ${k.id}${k.exceptionTo ? ` (exception to ${k.exceptionTo})` : ""} | ${k.statement}${k.value ? ` (${k.value})` : ""} | ${k.kind.replace("_", " ")} | ${k.category.replace(/_/g, " ")} | ${k.setBy ? participantName(s, k.setBy) : k.source && s.artifacts[k.source] ? `document: ${s.artifacts[k.source]!.title}` : "document"} |`);
       out.push("");
     }
     else if (a.type === "decision_point") {

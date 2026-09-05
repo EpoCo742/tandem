@@ -214,15 +214,20 @@ function ConstraintsTable({ content }: { content: ConstraintsContent }) {
     return null;
   };
   const kindLabel = { must: "must", must_not: "must not", target: "target" } as const;
+  const exceptionsOf = (id: string) => content.constraints.filter((k) => k.exceptionTo === id).map((k) => k.id);
   return (
     <div className="stack">
-      <div className="muted" style={{ fontSize: 12 }}>Every change the AI makes is checked against these; a directive that breaks one becomes a decision point rather than a change.</div>
+      <div className="muted" style={{ fontSize: 12 }}>Every change the AI makes is checked against these; a directive that breaks one becomes a decision point rather than a change. Amending, excepting or removing a constraint needs the person who set it.</div>
       <table>
         <thead><tr><th>Constraint</th><th>Kind</th><th>Area</th><th>Set by</th></tr></thead>
         <tbody>
           {content.constraints.map((k) => (
             <tr key={k.id}>
-              <td><span className="mono">{k.id}</span> {k.statement}{k.value ? <span className="mono" style={{ marginLeft: 6 }}>{k.value}</span> : null}</td>
+              <td>
+                <span className="mono">{k.id}</span> {k.statement}{k.value ? <span className="mono" style={{ marginLeft: 6 }}>{k.value}</span> : null}
+                {k.exceptionTo && <span className="chip" style={{ marginLeft: 6 }} title={`Relaxes ${k.exceptionTo}; agreed by whoever set it`}>exception to {k.exceptionTo}</span>}
+                {exceptionsOf(k.id).length > 0 && <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }} title="Exceptions recorded against this constraint">{exceptionsOf(k.id).join(", ")} excepted</span>}
+              </td>
               <td className="mono">{kindLabel[k.kind]}</td>
               <td className="mono">{k.category.replace(/_/g, " ")}</td>
               <td>

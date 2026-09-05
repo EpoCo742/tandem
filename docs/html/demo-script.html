@@ -476,7 +476,34 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tbody>
 </table></div>
 <p>Fake architect: refuses to change the model and raises a decision point "Keep C-01 or make an exception for Bob's request?" with options keep, exception, amend; the card carries a "breaks C-01" chip. Voting works as in stage 4. A real model does the same check from the constraints card in its prompt, and also records constraints it finds in uploaded documents with the document as the source.</p>
-<p>Point at: the Constraints card's "set by" column and the message link; the export's constraints table; the compiled design document's Constraints section.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bob</td>
+<td>"Exception to C-01: anonymised analytics exports may leave the EU."</td>
+</tr>
+<tr>
+<td>Alice</td>
+<td>A proposal arrives in her AI lane: the exception is hers to approve, because she set C-01. She approves.</td>
+</tr>
+<tr>
+<td>Bob</td>
+<td>"Remove C-01."</td>
+</tr>
+<tr>
+<td>Alice</td>
+<td>Another proposal; she rejects it. C-01 stays.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Fake architect: a constraint belongs to whoever set it, whatever card it sits on. An exception, an amendment or a removal of someone else's constraint is proposed to that person and the AI says so ("proposed to Alice, who set it"). The approved exception appears as <strong>C-02</strong> with an "exception to C-01" chip, and C-01 shows "C-02 excepted".</p>
+<p>Point at: the Constraints card's "set by" column and the message link; the export's constraints table with the exception against its constraint; the compiled design document's Constraints section.</p>
 <h2 id="stage-12c-people-who-are-not-in-the-room">Stage 12c: people who are not in the room</h2>
 <p>Feature: a decision point can carry a deadline and expires without a majority instead of staying open; anyone can vote from a link without opening the canvas; the home page opens with what is waiting on you and what changed since you last looked; "@name" in a message or note reaches that person's digest.</p>
 <div class="table-wrap"><table>

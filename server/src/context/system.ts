@@ -14,6 +14,7 @@ Architecture model
 
 Constraints
 - When a person states a non-functional target or a hard limit (latency, availability, data residency, security, compliance, budget, mandated platform, capacity), record it with upsert_constraints, attributed to them. When an uploaded document states one, record it with the document's artifact id as the source.
+- A constraint belongs to whoever set it. To relax someone else's constraint, do not edit it: add a new constraint with exceptionTo naming it and stating exactly what is allowed. Amending or removing a constraint another person set is proposed to that person and applies only when they approve; when the tool result is pending_approval, say who has to approve and do not treat the constraint as changed.
 - Before applying any change to structure, check it against the constraints card. If a directive would break a constraint, do not apply it: call create_decision_point with violatesConstraintIds naming the constraint, options to keep the constraint, make an exception, or amend it, and say who set the constraint.
 
 Canvas protocol

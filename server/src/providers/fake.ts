@@ -138,6 +138,11 @@ function constraintIn(text: string): { kind: "must" | "must_not" | "target"; cat
   return null;
 }
 
+function nameFor(prompt: string, userId: string): string {
+  const m = prompt.match(new RegExp(`^- (.+?) \\(id ${userId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")},`, "m"));
+  return m?.[1] ?? userId;
+}
+
 function userIdFor(prompt: string, speaker: string): string {
   const m = prompt.match(new RegExp(`^- ${speaker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\(id ([^,)\\s]+)`, "m"));
   return m?.[1] ?? speaker;
@@ -373,6 +378,22 @@ export const fakeProvider: ProviderAdapter = {
       if (existing) await call("update_artifact", { artifactId: existing.id, baseVersionNo: existing.versionNo, content, rationale: "Refresh data model from the discussion", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       else await call("create_artifact", { type: "data_model", title: "Data model", content, rationale: "Drafted from the tables and events named so far", summary: `Data model: ${entities.map((e) => e.name).join(", ")}` });
       await emit(`Drafted the data model with ${entities.map((e) => e.name).join(", ")}${relations.length ? ` and ${relations.length} relation(s)` : ""}. Tell me the fields you actually need and I will refine it.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0g. Relaxing or dropping a constraint: "Exception to C-01: …" or "Remove C-01". The setter has
+    //     to agree, so the tool answers pending_approval when the speaker is someone else.
+    for (const m of batch) {
+      const exc = m.text.match(/^(?:(?:add |make )?(?:an? )?exception (?:to|for)|amend) (C-\d+)\s*[:,-]?\s*(.+)$/i);
+      const rm = m.text.match(/^(?:remove|drop|delete) (C-\d+)\b/i);
+      if (!exc && !rm) continue;
+      const cid = (exc?.[1] ?? rm![1]!).toUpperCase();
+      const r = exc
+        ? await call("upsert_constraints", { constraints: [{ statement: exc[2]!.replace(/\.$/, ""), kind: constraintIn(exc[2]!)?.kind ?? "must", category: constraintIn(exc[2]!)?.category ?? "other", source: m.eventId, exceptionTo: cid }], derivedFrom: [m.eventId], rationale: `${m.speaker} asked for an exception to ${cid}` })
+        : await call("remove_constraints", { constraintIds: [cid], rationale: `${m.speaker} asked to remove ${cid}` });
+      if (r.status === "pending_approval") await emit(`${exc ? `The exception to ${cid}` : `Removing ${cid}`} is proposed to ${r.approvers.map((u) => nameFor(req.context.prompt, u)).join(", ")}, who set it; nothing changes until they approve. `);
+      else if (r.status === "constraints_updated") await emit(exc ? `Recorded the exception to ${cid} as ${r.constraints[r.constraints.length - 1]!.id}. ` : `Removed ${cid}. `);
+      else await emit(`Could not change ${cid}: ${"message" in r ? r.message : r.status}. `);
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 

@@ -152,6 +152,7 @@ export const upsertConstraintsInput = z.object({
         category: constraintCategory,
         value: z.string().optional().describe("The measurable part, e.g. 'p95 < 200 ms'"),
         source: z.string().optional().describe("Event id of the message, or artifact id of the uploaded document, that established it"),
+        exceptionTo: z.string().optional().describe("Id of the constraint this one relaxes (C-01). Use this instead of editing someone else's constraint; it is proposed to whoever set that constraint"),
       }),
     )
     .min(1),
@@ -243,8 +244,8 @@ export const toolDescriptions: Record<ToolName, string> = {
   render_adr:
     "Render decisions as architecture decision record files (filename + Markdown), ready to write into a repository's docs/adr with an external tool. Omit decisionId to get all of them.",
   upsert_constraints:
-    "Record non-functional targets and hard limits the design must respect (latency, data residency, budget, mandated platforms, compliance). Use when a person states one, or when an uploaded document contains one (cite it as the source). Every later change is checked against these.",
-  remove_constraints: "Drop constraints that no longer apply. Prefer superseding through a decision when people disagree.",
+    "Record non-functional targets and hard limits the design must respect (latency, data residency, budget, mandated platforms, compliance). Use when a person states one, or when an uploaded document contains one (cite it as the source). Every later change is checked against these. To relax someone else's constraint, add a new one with exceptionTo; amending a constraint another person set is proposed to that person and applies only when they approve.",
+  remove_constraints: "Drop constraints that no longer apply. Removing a constraint someone else set is proposed to that person. Prefer an exception (upsert_constraints with exceptionTo) or a decision when people disagree.",
 };
 
 export type ToolResult =
