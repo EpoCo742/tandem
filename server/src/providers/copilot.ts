@@ -126,7 +126,9 @@ export const copilotProvider: ProviderAdapter = {
         streaming: true,
         systemMessage: { mode: "replace", content: req.context.system },
         tools,
-        availableTools: req.tools.map((t) => t.name),
+        // The runtime names an MCP tool "<server>-<tool>" and the allow-list wants the "mcp:" form;
+        // without these entries the model is handed the servers but cannot see their tools.
+        availableTools: [...req.tools.map((t) => t.name), ...req.mcpServers.flatMap((s) => s.tools.map((t) => `mcp:${s.name}-${t.name}`))],
         onPermissionRequest: gated,
         skipCustomInstructions: true,
         enableSkills: false,
