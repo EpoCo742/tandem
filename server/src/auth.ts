@@ -52,10 +52,13 @@ function upsertGithubUser(gh: { id: number; login: string; name: string | null; 
   return { id, handle: gh.login, displayName: gh.name, avatarUrl: gh.avatar_url, githubId: gh.id };
 }
 
+// Why the last GitHub sign-in did not yield a Copilot credential, per user, so the UI can say so.
+const oauthCredentialErrors = new Map<string, string>();
+
 export async function registerAuthRoutes(app: FastifyInstance) {
   app.get("/auth/me", async (req) => {
     const u = userFromRequest(req);
-    return { user: u, devAuth: config.devAuth, githubConfigured: Boolean(config.github.clientId) };
+    return { user: u, devAuth: config.devAuth, githubConfigured: Boolean(config.github.clientId), copilotOauthError: u ? oauthCredentialErrors.get(u.id) ?? null : null };
   });
 
   app.post("/auth/logout", async (_req, reply) => {
@@ -85,7 +88,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const url = new URL("https://github.com/login/oauth/authorize");
     url.searchParams.set("client_id", config.github.clientId);
     url.searchParams.set("redirect_uri", `${config.appUrl}/auth/github/callback`);
-    url.searchParams.set("scope", "read:user");
+    // read:org lets Copilot see organisation-assigned seats; without it a Business seat can look absent.
+    url.searchParams.set("scope", "read:user read:org");
     url.searchParams.set("state", state);
     return reply.redirect(url.toString());
   });
@@ -108,7 +112,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     setSession(reply, user.id);
     // Stash the OAuth token as a Copilot credential automatically so the user can fund turns.
     const { storeCredential } = await import("./credentials.js");
-    await storeCredential(user.id, "copilot", tokenJson.access_token, "GitHub OAuth").catch((e) => app.log.warn({ err: e }, "could not store copilot credential from oauth"));
+    oauthCredentialErrors.delete(user.id);
+    await storeCredential(user.id, "copilot", tokenJson.access_token, "GitHub OAuth").catch((e) => {
+      const message = (e as Error).message;
+      oauthCredentialErrors.set(user.id, message);
+      app.log.warn({ err: e }, "could not store copilot credential from oauth");
+    });
     return reply.redirect("/");
   });
 }

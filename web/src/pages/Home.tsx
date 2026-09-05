@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { api, type CredentialView } from "../api";
 import { navigate } from "../App";
 import { TopBar } from "../components/TopBar";
+import { useStore } from "../state/store";
 
 interface SessionRow { id: string; title: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string }
 
 export function Home() {
+  const me = useStore((s) => s.me);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [creds, setCreds] = useState<{ credentials: CredentialView[]; providers: string[]; defaultProvider: string; defaultModel: string } | null>(null);
   const [title, setTitle] = useState("");
@@ -70,7 +72,14 @@ export function Home() {
             </label>
           </div>
           {!providerCred && payerMode === "sponsor" && (
-            <div className="consent">You have no active <b>{provider}</b> credential. Sponsor mode needs one on you. <a href="/settings" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Connect one</a>.</div>
+            <div className="consent">
+              You have no active <b>{provider}</b> credential. Sponsor mode needs one on you. <a href="/settings" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>Connect one</a>.
+              {me?.copilotOauthError && (
+                <div style={{ marginTop: 6 }}>
+                  Your GitHub sign-in was not accepted as a Copilot credential: <code>{me.copilotOauthError}</code>. The usual causes: the account has no Copilot seat, or the seat comes from an organisation that restricts third-party OAuth apps, in which case an organisation admin has to approve this app (GitHub → organisation settings → Third-party access), or you can paste a fine-grained token instead.
+                </div>
+              )}
+            </div>
           )}
           <div className="row">
             <button className="primary" onClick={create}>Create session</button>

@@ -23,6 +23,7 @@ export interface Me {
   user: { id: string; handle: string; displayName: string | null; avatarUrl: string | null } | null;
   devAuth: boolean;
   githubConfigured: boolean;
+  copilotOauthError?: string | null;
 }
 
 export interface SessionMeta {
