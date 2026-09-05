@@ -9,6 +9,7 @@ import { ConversationPane } from "../components/ConversationPane";
 import { Canvas } from "../components/Canvas";
 import { SidePane } from "../components/SidePane";
 import { ExportPreview } from "../components/ExportPreview";
+import { ThreadPanel } from "../components/ThreadPanel";
 
 export function Session({ sessionId }: { sessionId: string }) {
   const me = useStore((s) => s.me)!;
@@ -92,6 +93,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         <button onClick={() => setExporting(true)} title="Preview the Markdown export, then copy or download it">Export .md</button>
       </TopBar>
       {exporting && <ExportPreview sessionId={sessionId} title={state.title || meta.title} onClose={() => setExporting(false)} />}
+      <ThreadPanel sessionId={sessionId} />
       <ConversationPane sessionId={sessionId} />
       <div className="canvas-wrap">{collab ? <Canvas sessionId={sessionId} collab={collab} /> : <div className="page muted">Connecting canvas…</div>}</div>
       <SidePane sessionId={sessionId} />

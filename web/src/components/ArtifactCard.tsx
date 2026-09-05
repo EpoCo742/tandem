@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, AI_COLOR, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
+import { participantName, modelToMermaid, threadsFor, AI_COLOR, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -21,6 +21,8 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
   const state = useStore((s) => s.state);
   const me = useStore((s) => s.me)!;
   const setHighlight = useStore((s) => s.setHighlight);
+  const setThreadTarget = useStore((s) => s.setThreadTarget);
+  const openThreads = threadsFor(state, a.id).filter((t) => !t.resolved).length;
   const [editing, setEditing] = useState(false);
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -96,6 +98,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
         {editors.map((u) => <span key={u.userId} className="chip solid" style={{ background: u.color }} title={`${u.name} has this card open in the editor`}>{u.name} editing</span>)}
         {a.type === "source" && <button className="icon nodrag" style={{ padding: "0 5px" }} title={open ? "Fold this upload" : "Show the uploaded content"} onClick={() => setOpen((o) => !o)}>{open ? "▴" : "▾"}</button>}
         {sized && onResetSize && <button className="icon nodrag" style={{ padding: "0 5px" }} title="Back to automatic size" onClick={onResetSize}>&#x21BA;</button>}
+        <button className={"icon nodrag" + (openThreads ? " has-threads" : "")} style={{ padding: "0 5px" }} title={openThreads ? `${openThreads} open thread${openThreads === 1 ? "" : "s"} on this card` : "Start a thread on this card (people only; promote a message to bring the AI in)"} onClick={() => setThreadTarget({ artifactId: a.id })}>&#x1F5E8;{openThreads ? <span className="mono" style={{ marginLeft: 2 }}>{openThreads}</span> : null}</button>
         <button className="icon nodrag" style={{ padding: "0 5px" }} title="Open this card full size" onClick={() => setExpanded(true)}>&#x2922;</button>
       </div>
       {open ? (
@@ -175,7 +178,7 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
       {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
       {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
       {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
-      {a.type === "arch_model" && <ModelTable content={v.content as ArchModelContent} />}
+      {a.type === "arch_model" && <ModelTable content={v.content as ArchModelContent} artifactId={a.id} />}
       {a.type === "constraints" && <ConstraintsTable content={v.content as ConstraintsContent} />}
       {a.type === "view" && <ModelView content={v.content as ViewContent} />}
       {a.type === "decision_point" && <DecisionPoint content={v.content as DecisionPointContent} myId={myId} onVote={onVote} sessionId={sessionId} artifactId={a.id} />}
@@ -250,18 +253,20 @@ function ModelView({ content }: { content: ViewContent }) {
   );
 }
 
-function ModelTable({ content }: { content: ArchModelContent }) {
+function ModelTable({ content, artifactId }: { content: ArchModelContent; artifactId: string }) {
   const state = useStore((s) => s.state);
   const focus = useStore((s) => s.focusComponentId);
   const setFocus = useStore((s) => s.setFocusComponent);
+  const setThreadTarget = useStore((s) => s.setThreadTarget);
+  const threadsOn = (id: string) => threadsFor(state, artifactId).filter((t) => t.anchor.componentId === id && !t.resolved).length;
   const bname = (id?: string) => (id ? content.boundaries.find((b) => b.id === id)?.name ?? id : "");
   const name = (id: string) => content.components.find((c) => c.id === id)?.name ?? id;
   const decisionsAbout = (id: string) => Object.values(state.decisions).filter((d) => d.about.includes(id) && d.status !== "superseded").length;
   return (
     <div className="stack">
-      <div className="muted" style={{ fontSize: 12 }}>The source of truth for structure. Views are drawn from it; click a component to see its decisions.</div>
+      <div className="muted" style={{ fontSize: 12 }}>The source of truth for structure. Views are drawn from it; click a component to see its decisions, or start a thread on one.</div>
       <table>
-        <thead><tr><th>Component</th><th>Kind</th><th>Technology</th><th>Boundary</th></tr></thead>
+        <thead><tr><th>Component</th><th>Kind</th><th>Technology</th><th>Boundary</th><th></th></tr></thead>
         <tbody>
           {content.components.map((c) => {
             const n = decisionsAbout(c.id);
@@ -271,10 +276,15 @@ function ModelTable({ content }: { content: ArchModelContent }) {
                 <td className="mono">{c.kind}</td>
                 <td className="mono">{c.technology ?? ""}</td>
                 <td className="mono">{bname(c.boundary)}</td>
+                <td style={{ textAlign: "right" }}>
+                  <button className="icon" style={{ padding: "0 4px" }} title={threadsOn(c.id) ? `${threadsOn(c.id)} open thread(s) on ${c.name}` : `Start a thread on ${c.name}`} onClick={(e) => { e.stopPropagation(); setThreadTarget({ artifactId, componentId: c.id }); }}>
+                    &#x1F5E8;{threadsOn(c.id) ? <span className="mono" style={{ marginLeft: 2 }}>{threadsOn(c.id)}</span> : null}
+                  </button>
+                </td>
               </tr>
             );
           })}
-          {content.components.length === 0 && <tr><td colSpan={4} className="muted">empty</td></tr>}
+          {content.components.length === 0 && <tr><td colSpan={5} className="muted">empty</td></tr>}
         </tbody>
       </table>
       {content.relationships.length > 0 && (

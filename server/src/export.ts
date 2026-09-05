@@ -1,4 +1,4 @@
-import { allAdrs, contentText, dataModelMarkdown, liveArtifacts, modelToMermaid, participantName, type ArchModelContent, type ConstraintsContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { allAdrs, contentText, dataModelMarkdown, describeAnchor, liveArtifacts, modelToMermaid, participantName, threads, type ArchModelContent, type ConstraintsContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 
 function modelMarkdown(m: ArchModelContent): string[] {
   const out: string[] = ["| Component | Kind | Technology | Boundary | Description |", "|---|---|---|---|---|"];
@@ -101,6 +101,20 @@ export function exportMarkdown(s: SessionState): string {
       const decided = c.decidedBy ? participantName(s, c.decidedBy) : c.reason ?? "";
       out.push(`- ${c.createdAt} **${c.serverName}.${c.toolName}** for ${who}, using ${owner}'s tool: ${c.status}${c.decidedBy ? ` (decided by ${decided})` : c.reason ? ` (${c.reason})` : ""}${c.result ? ` — ${c.result}` : ""}`);
       out.push(`  <!-- external ${c.id}; args ${JSON.stringify(c.args)} -->`);
+    }
+    out.push("");
+  }
+
+  const threadList = threads(s);
+  if (threadList.length) {
+    out.push("## Discussion threads", "", "Conversations between people on specific cards. Only messages marked promoted reached the AI.", "");
+    for (const t of threadList) {
+      out.push(`- **On ${describeAnchor(s, t.anchor)}** (${t.resolved ? "resolved" : "open"})`);
+      for (const m of [t.root, ...t.replies]) {
+        const promoted = s.messages.some((x) => x.mode === "promoted" && s.eventsById[x.eventId]?.causedBy.includes(m.eventId));
+        out.push(`  - ${participantName(s, m.userId)}: ${m.text}${promoted ? " *(promoted to the AI)*" : ""}`);
+      }
+      out.push(`  <!-- thread ${t.root.eventId}; artifact ${t.anchor.artifactId}${t.anchor.componentId ? `; component ${t.anchor.componentId}` : ""} -->`);
     }
     out.push("");
   }

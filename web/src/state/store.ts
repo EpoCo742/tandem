@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { emptyState, reduce, type AnyLedgerEvent, type EphemeralEvent, type SessionState, type TurnStatus } from "@tandem/shared";
+import { emptyState, reduce, type AnyLedgerEvent, type EphemeralEvent, type MessageAnchor, type SessionState, type TurnStatus } from "@tandem/shared";
 import type { Me, SessionMeta } from "../api";
 
 export interface PresenceUser {
@@ -36,6 +36,8 @@ interface Store {
   setFocusComponent: (id: string | null) => void;
   requestedTab: string | null; // a tab another part of the UI wants the side pane to show
   requestTab: (tab: string | null) => void;
+  threadTarget: MessageAnchor | null; // the card (and component) whose threads are open in the panel
+  setThreadTarget: (t: MessageAnchor | null) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -88,4 +90,6 @@ export const useStore = create<Store>((set, get) => ({
   setFocusComponent: (focusComponentId) => set({ focusComponentId }),
   requestedTab: null,
   requestTab: (requestedTab) => set({ requestedTab }),
+  threadTarget: null,
+  setThreadTarget: (threadTarget) => set({ threadTarget }),
 }));

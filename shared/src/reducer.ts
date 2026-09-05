@@ -11,6 +11,7 @@ import type {
   Risk,
   TurnStatus,
   Usage,
+  MessageAnchor,
 } from "./events.js";
 
 // Pure read model over the ledger. Runs identically on the server and in the browser.
@@ -42,6 +43,9 @@ export interface ChatMessage {
   createdAt: string;
   attachments?: string[];
   mentions?: string[];
+  replyTo?: string; // event id of the message this one answers (threads)
+  anchor?: MessageAnchor; // the card or component this message is about
+  resolved?: boolean; // on a thread's first message: a person closed the thread
 }
 
 export interface ArtifactVersion {
@@ -258,8 +262,13 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       const p = ev.payload as Payloads["message.posted"];
       s.messages = [
         ...s.messages,
-        { eventId: ev.id, seq: ev.seq, kind: "user", mode: p.mode, intent: p.intent, userId: ev.actorUserId, text: p.text, turnId: ev.turnId, createdAt: ev.createdAt, attachments: p.attachments, mentions: p.mentions },
+        { eventId: ev.id, seq: ev.seq, kind: "user", mode: p.mode, intent: p.intent, userId: ev.actorUserId, text: p.text, turnId: ev.turnId, createdAt: ev.createdAt, attachments: p.attachments, mentions: p.mentions, replyTo: p.replyTo, anchor: p.anchor },
       ];
+      return s;
+    }
+    case "thread.resolved": {
+      const p = ev.payload as Payloads["thread.resolved"];
+      s.messages = s.messages.map((m) => (m.eventId === p.rootEventId ? { ...m, resolved: p.resolved } : m));
       return s;
     }
     case "turn.started": {

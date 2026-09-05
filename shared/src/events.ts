@@ -3,6 +3,12 @@
 
 export type ActorKind = "user" | "ai" | "system";
 export type MessageMode = "directive" | "note" | "promoted";
+
+/** What a message is about: a card, or one component of the architecture model as shown on that card. */
+export interface MessageAnchor {
+  artifactId: string;
+  componentId?: string;
+}
 export type Policy = "lww" | "hybrid" | "review" | "consensus";
 export type PayerMode = "speaker" | "sponsor";
 export type ProposalOp = "create" | "update" | "delete" | "restore";
@@ -72,7 +78,8 @@ export type Payloads = {
   "participant.joined": { role: "owner" | "editor" | "viewer"; name: string; color: string; avatarUrl?: string };
   "participant.left": Record<string, never>;
   "participant.consented": { providers: string[] };
-  "message.posted": { text: string; mode: MessageMode; attachments: string[]; replyTo?: string; fromNoteEventId?: string; intent?: "compile"; mentions?: string[] };
+  "message.posted": { text: string; mode: MessageMode; attachments: string[]; replyTo?: string; fromNoteEventId?: string; intent?: "compile"; mentions?: string[]; anchor?: MessageAnchor };
+  "thread.resolved": { rootEventId: string; resolved: boolean }; // a thread anchored to a card is closed (or reopened) by a person
   "turn.started": { payerUserId: string; provider: string; modelRequested: string; batchEventIds: string[]; onBehalfOf: string };
   "turn.model_degraded": { requested: string; used: string; reason: string };
   "ai.message": { text: string; addressedTo: string[]; toolCallsCount: number; partial?: boolean; onBehalfOf: string; provider: string; model: string; payerUserId: string };

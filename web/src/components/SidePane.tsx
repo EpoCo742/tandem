@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, pendingProposals, contentText, describeTarget, targetOf, AI_COLOR, type Proposal } from "@tandem/shared";
+import { participantName, pendingProposals, contentText, describeAnchor, describeTarget, targetOf, AI_COLOR, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
@@ -65,9 +65,11 @@ function SideChannel({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
   const typing = useStore((s) => s.typing);
   const me = useStore((s) => s.me)!;
+  const setThreadTarget = useStore((s) => s.setThreadTarget);
   const [text, setText] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const notes = state.messages.filter((m) => m.kind === "user" && m.mode === "note");
+  const promotedFrom = new Set(state.messages.filter((m) => m.mode === "promoted").map((m) => state.eventsById[m.eventId]?.causedBy[0]).filter(Boolean));
   useEffect(() => {
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
   }, [notes.length]);
@@ -83,13 +85,18 @@ function SideChannel({ sessionId }: { sessionId: string }) {
   return (
     <>
       <div className="pane-body" ref={ref}>
-        <div className="muted" style={{ fontSize: 12 }}>Human-only. Nothing here reaches the AI unless you promote it.</div>
+        <div className="muted" style={{ fontSize: 12 }}>Human-only. Nothing here reaches the AI unless you promote it. Threads started on cards show up here too.</div>
         {notes.map((m) => (
-          <div key={m.eventId} className="msg note" style={{ borderLeftColor: state.participants[m.userId!]?.color }}>
+          <div key={m.eventId} className={"msg note" + (m.replyTo ? " reply" : "")} style={{ borderLeftColor: state.participants[m.userId!]?.color }}>
             <div className="who">
               <span style={{ color: state.participants[m.userId!]?.color }}>{participantName(state, m.userId)}</span>
+              {m.anchor && <button className="chip" style={{ cursor: "pointer" }} title="Open the thread on this card" onClick={() => setThreadTarget(m.anchor!)}>on {describeAnchor(state, m.anchor)}</button>}
               <span className="grow" />
-              <button style={{ padding: "0 6px", fontSize: 10.5 }} onClick={() => api("POST", `/api/v1/sessions/${sessionId}/messages/${m.eventId}/promote`)}>promote to AI</button>
+              {promotedFrom.has(m.eventId) ? (
+                <span className="chip" title="This message was sent to the AI">promoted</span>
+              ) : (
+                <button style={{ padding: "0 6px", fontSize: 10.5 }} onClick={() => api("POST", `/api/v1/sessions/${sessionId}/messages/${m.eventId}/promote`)}>promote to AI</button>
+              )}
             </div>
             <div className="text">{m.text}</div>
           </div>

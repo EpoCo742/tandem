@@ -133,6 +133,26 @@ const STAGES = [
     console.log("   Alice promotes the note");
     await waitForTurns(n + 1, "promoted note turn");
   }],
+  ["threads", "a thread on one component of the System architecture view; promoted with its anchor", async () => {
+    const n = await completedTurns();
+    const view = await latestArtifact("view");
+    console.log('   Bob opens a thread on System architecture › Postgres: "This belongs in a data tier boundary, not next to the services."');
+    const th = await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/messages`, { text: "This belongs in a data tier boundary, not next to the services.", mode: "note", anchor: { artifactId: view.artifactId, componentId: "postgres" } });
+    console.log('   Alice replies in the thread: "Agreed. Promote it so the model changes."');
+    await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/messages`, { text: "Agreed. Promote it so the model changes.", mode: "note", replyTo: th.eventId });
+    await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/messages/${th.eventId}/promote`);
+    console.log("   Alice promotes Bob's message; the AI sees it is about Postgres on the System architecture view");
+    await waitForTurns(n + 1, "anchored thread turn");
+    const evs = await events();
+    const prop = evs.filter((e) => e.type === "proposal.created" && e.payload.artifactType === "arch_model").pop();
+    const stillPending = prop && !evs.some((e) => (e.type === "proposal.approved" || e.type === "proposal.rejected") && e.payload.proposalId === prop.payload.proposalId);
+    if (stillPending) {
+      await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/proposals/${prop.payload.proposalId}/resolve`, { decision: "approve" });
+      console.log("   The AI acted for Bob on Alice's model, so the move is a proposal; Alice approves it");
+    }
+    await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/messages/${th.eventId}/resolve`, { resolved: true });
+    console.log("   Postgres is in the Data Tier boundary, with a decision about it for Bob; Bob resolves the thread");
+  }],
   ["history", "revert to the first commit as a forward commit; nothing is deleted", async () => {
     const commits = (await events()).filter((e) => e.type === "commit.created");
     await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/revert`, { commitId: commits[0].payload.commitId });

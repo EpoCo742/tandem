@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { randomBytes } from "node:crypto";
-import { allAdrs, pickColor, type ArtifactType, type DecisionPointContent, type Policy } from "@tandem/shared";
+import { allAdrs, pickColor, threadRootOf, type ArchModelContent, type ArtifactType, type DecisionPointContent, type MessageAnchor, type Policy } from "@tandem/shared";
 import { db, now, schema } from "../db/index.js";
 import { requireUser } from "../auth.js";
 import { appendEvent, getState, listEvents, sessionExists } from "../ledger.js";
@@ -115,7 +115,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.post<{ Params: { id: string }; Body: { text: string; mode?: "directive" | "note"; replyTo?: string; attachments?: string[] } }>("/api/v1/sessions/:id/messages", async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { text: string; mode?: "directive" | "note"; replyTo?: string; attachments?: string[]; anchor?: MessageAnchor } }>("/api/v1/sessions/:id/messages", async (req, reply) => {
     const user = requireUser(req, reply);
     const me = participantOr403(req.params.id, user.id);
     if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot post" });
@@ -127,7 +127,18 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const state = getState(req.params.id);
     const attachments = (req.body.attachments ?? []).filter((id) => typeof id === "string" && state.artifacts[id] && !state.artifacts[id]!.deleted).slice(0, 8);
     const mentions = parseMentions(req.params.id, text);
-    const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: user.id, payload: { text, mode, attachments, replyTo: req.body.replyTo, ...(mentions.length ? { mentions } : {}) } });
+    // Threads: a reply points at an earlier message and inherits what that thread is about;
+    // an anchor names the card (and optionally the model component) the message is about.
+    let replyTo: string | undefined;
+    if (req.body.replyTo) {
+      const parent = state.messages.find((m) => m.eventId === req.body.replyTo);
+      if (!parent) return reply.code(400).send({ error: "replyTo is not a message in this session" });
+      replyTo = parent.eventId;
+    }
+    let anchor = anchorOf(state, req.body.anchor);
+    if (req.body.anchor && !anchor) return reply.code(400).send({ error: "anchor does not name a card in this session" });
+    if (!anchor && replyTo) anchor = threadRootOf(state, replyTo)?.anchor;
+    const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: user.id, payload: { text, mode, attachments, replyTo, ...(anchor ? { anchor } : {}), ...(mentions.length ? { mentions } : {}) } });
     if (mode === "directive") brokerFor(req.params.id).onDirective(ev);
     db.update(schema.sessions).set({ updatedAt: now() }).where(eq(schema.sessions.id, req.params.id)).run();
     return { eventId: ev.id, seq: ev.seq };
@@ -139,10 +150,25 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const state = getState(req.params.id);
     const note = state.eventsById[req.params.eventId];
     if (!note || note.type !== "message.posted" || (note.payload as { mode: string }).mode !== "note") return reply.code(400).send({ error: "not a side-channel note" });
-    const p = note.payload as { text: string };
-    const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: note.actorUserId, causedBy: [note.id], payload: { text: p.text, mode: "promoted", attachments: [], fromNoteEventId: note.id } });
+    const p = note.payload as { text: string; anchor?: MessageAnchor };
+    // The promoted message carries what the thread is about, so "this" means something to the AI.
+    const anchor = p.anchor ?? threadRootOf(state, note.id)?.anchor;
+    const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: note.actorUserId, causedBy: [note.id], payload: { text: p.text, mode: "promoted", attachments: [], fromNoteEventId: note.id, ...(anchor ? { anchor } : {}) } });
     brokerFor(req.params.id).onDirective(ev);
     return { eventId: ev.id };
+  });
+
+  // Close or reopen a thread anchored to a card. Any participant can; the ledger says who did.
+  app.post<{ Params: { id: string; eventId: string }; Body: { resolved?: boolean } }>("/api/v1/sessions/:id/messages/:eventId/resolve", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot resolve threads" });
+    const state = getState(req.params.id);
+    const root = state.messages.find((m) => m.eventId === req.params.eventId);
+    if (!root || root.mode !== "note" || !root.anchor || root.replyTo) return reply.code(400).send({ error: "not the first message of a thread" });
+    const resolved = req.body?.resolved ?? true;
+    const ev = appendEvent(req.params.id, { type: "thread.resolved", actorKind: "user", actorUserId: user.id, causedBy: [root.eventId], payload: { rootEventId: root.eventId, resolved } });
+    return { eventId: ev.id, resolved };
   });
 
   app.post<{ Params: { id: string } }>("/api/v1/sessions/:id/turns/send-now", async (req, reply) => {
@@ -422,4 +448,18 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     reply.header("Content-Disposition", `attachment; filename="${state.title.replace(/[^\w-]+/g, "-") || "session"}.md"`);
     return exportMarkdown(state);
   });
+}
+
+// A valid anchor names a live card; a component anchor must exist in the architecture model.
+function anchorOf(state: ReturnType<typeof getState>, raw: MessageAnchor | undefined): MessageAnchor | undefined {
+  if (!raw || typeof raw.artifactId !== "string") return undefined;
+  const art = state.artifacts[raw.artifactId];
+  if (!art || art.deleted) return undefined;
+  const anchor: MessageAnchor = { artifactId: raw.artifactId };
+  if (raw.componentId) {
+    const model = Object.values(state.artifacts).find((a) => a.type === "arch_model" && !a.deleted)?.current.content as ArchModelContent | undefined;
+    if (!model?.components.some((c) => c.id === raw.componentId)) return undefined;
+    anchor.componentId = raw.componentId;
+  }
+  return anchor;
 }

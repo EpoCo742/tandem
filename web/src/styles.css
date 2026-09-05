@@ -132,6 +132,13 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .msg.ai { border-left-color: var(--ai); background: var(--ai-soft); }
 .msg.system { border-left-color: var(--line); background: transparent; color: var(--ink-2); font-size: 13px; }
 .msg.note { background: transparent; border-left-style: dashed; }
+.msg.note.reply { margin-left: 14px; }
+.msg .who button.chip { background: none; font-size: 10.5px; padding: 0 6px; text-transform: none; letter-spacing: 0; }
+.thread { border: 1px solid var(--line); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.thread.resolved { opacity: .75; }
+.thread .msg { padding: 6px 8px; }
+.modal.threads { width: min(600px, 92vw); }
+.art-head button.icon.has-threads { color: var(--accent); }
 .msg.approval { border-left-color: var(--accent); background: var(--accent-soft); }
 .msg.approval .who { color: var(--accent); }
 .msg.approval .row button { font-size: 12px; }

@@ -8,13 +8,23 @@ import { callMcpTool } from "../mcp.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function extractBatch(prompt: string): { speaker: string; text: string; eventId: string }[] {
+type BatchMessage = { speaker: string; text: string; eventId: string; about?: { label: string; artifactId: string; componentId?: string } };
+
+function extractBatch(prompt: string): BatchMessage[] {
   const idx = prompt.lastIndexOf("## Current messages");
   const tail = idx >= 0 ? prompt.slice(idx) : prompt;
-  const out: { speaker: string; text: string; eventId: string }[] = [];
+  const out: BatchMessage[] = [];
   for (const line of tail.split("\n")) {
     const m = line.match(/^\[(.+?)\]\s*\(event (\S+)\)\s*(.*)$/);
-    if (m) out.push({ speaker: m[1]!, eventId: m[2]!, text: m[3]! });
+    if (!m) continue;
+    let text = m[3]!;
+    let about: BatchMessage["about"];
+    const tag = text.match(/\s*\[about: (.+?) \(artifact (\S+?)(?:, component (\S+?))?\)\]$/);
+    if (tag) {
+      about = { label: tag[1]!, artifactId: tag[2]!, ...(tag[3] ? { componentId: tag[3] } : {}) };
+      text = text.slice(0, tag.index).trim();
+    }
+    out.push({ speaker: m[1]!, eventId: m[2]!, text, ...(about ? { about } : {}) });
   }
   return out;
 }
@@ -279,6 +289,48 @@ export const fakeProvider: ProviderAdapter = {
         await emit(`The tool failed: ${(e as Error).message}`);
       }
       return { text, toolCallsCount: 1, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0f. A message written on a card or a component (a thread promoted from the canvas): "this"
+    //     is that thing. Move it into a boundary or rename it when asked; otherwise record the point.
+    const anchored = batch.filter((m) => m.about);
+    if (anchored.length) {
+      const modelArt = artifacts.find((a) => a.type === "arch_model");
+      const modelText = modelArt ? extractContents(req.context.prompt).get(modelArt.id) ?? "" : "";
+      const componentIn = (id: string) => {
+        const m = modelText.match(new RegExp(`^- ${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}: (.+?) \\((\\w+)`, "m"));
+        return m ? { name: m[1]!, kind: m[2]! } : null;
+      };
+      for (const m of anchored) {
+        const a = m.about!;
+        const c = a.componentId ? componentIn(a.componentId) : null;
+        const bm = m.text.match(/(?:belongs|goes|should (?:be|sit|live)|put (?:this|it)|move (?:this|it)) (?:in|to|into|inside) (?:a |the )?([\w -]+?)(?: (boundary|tier|zone))?(?:[,.!]|$)/i);
+        // "a data tier boundary" names the boundary "data tier"; "the payments zone" keeps its word.
+        const boundaryName = bm ? `${bm[1]!.trim().replace(/\s+boundary$/i, "")}${bm[2] && bm[2].toLowerCase() !== "boundary" ? ` ${bm[2]}` : ""}` : null;
+        const rename = m.text.match(/\b(?:rename|call) (?:this|it)(?: to)? ["“]?(.+?)["”]?[.!]?$/i)?.[1] ?? null;
+        if (c && a.componentId && (boundaryName || rename)) {
+          await call("upsert_components", {
+            components: [{ id: a.componentId, name: rename ?? c.name, kind: c.kind, ...(boundaryName ? { boundary: slugId(boundaryName) } : {}) }],
+            derivedFrom: [m.eventId],
+            rationale: `${m.speaker} asked for it in a thread on ${a.label}`,
+          });
+          await emit(rename ? `Renamed ${c.name} to ${rename} on the architecture model; every view follows. ` : `Moved ${c.name} into the ${boundaryName} boundary on the architecture model; the System architecture view follows. `);
+        } else {
+          await emit(`On ${a.label}: noted, ${m.speaker}. `);
+        }
+        const r = await call("record_decision", {
+          statement: m.text.replace(/\.$/, ""),
+          status: "agreed",
+          agreedBy: [userIdFor(req.context.prompt, m.speaker)],
+          supersedes: null,
+          evidence: [m.eventId],
+          about: a.componentId ? [a.componentId] : [],
+          context: `${m.speaker} raised this in a thread on ${a.label}.`,
+          consequences: c ? "Applied to the architecture model." : "Recorded against the card it was written on.",
+        });
+        if (r.status === "recorded") await emit(`Recorded ${r.label} for ${m.speaker}.`);
+      }
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
     // 0b. Data model request: derive entities from tables and events mentioned so far.

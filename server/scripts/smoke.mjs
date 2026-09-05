@@ -419,6 +419,38 @@ assert(tryEdit.status !== "blocked_by_decision_point", `the model is editable ag
 const afterExpiry = (await bob.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);
 assert(!afterExpiry.waiting.decisionPoints.some((d) => d.artifactId === dp2.artifactId), "an expired decision point no longer waits on anyone");
 
+// Threads anchored to cards: people talk on a card (or one component of the model) without the AI;
+// promoting a message carries the anchor, so the AI acts on that component and keeps the author.
+const viewCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "view").pop().payload;
+const thread = await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "This belongs in a data tier boundary, not next to the services.", mode: "note", anchor: { artifactId: viewCard.artifactId, componentId: "postgres" } });
+const threadReply = await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Agreed. Promote it so the model changes.", mode: "note", replyTo: thread.eventId });
+const turnsBeforeThread = subA.events.filter((e) => e.type === "turn.started").length;
+await wait(300);
+assert(subA.events.filter((e) => e.type === "turn.started").length === turnsBeforeThread, "a thread on a card did not trigger a turn");
+const replyEv = subA.events.find((e) => e.id === threadReply.eventId);
+assert(replyEv && replyEv.payload.replyTo === thread.eventId && replyEv.payload.anchor?.componentId === "postgres", "a reply inherits the thread's anchor");
+const bad = await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "nope", mode: "note", anchor: { artifactId: viewCard.artifactId, componentId: "no-such-component" } }).catch((e) => ({ error: String(e.message) }));
+assert(bad.error, "an anchor to an unknown component is refused");
+const completedBeforeThread = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages/${thread.eventId}/promote`);
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > completedBeforeThread, "anchored thread turn");
+const promotedThread = subA.events.find((e) => e.type === "message.posted" && e.payload.mode === "promoted" && e.payload.fromNoteEventId === thread.eventId);
+assert(promotedThread && promotedThread.actorUserId === bobId && promotedThread.payload.anchor?.componentId === "postgres", "the promoted message keeps Bob as author and carries the anchor");
+// The AI acted for Bob on Alice's model, so the change is a proposal for Alice; she approves it.
+const threadProposal = subA.events.filter((e) => e.type === "proposal.created" && e.payload.artifactType === "arch_model").pop();
+assert(threadProposal && /thread on System architecture › Postgres/.test(threadProposal.payload.rationale), "the model change from the thread is a proposal for the model's owner, citing the thread");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/proposals/${threadProposal.payload.proposalId}/resolve`, { decision: "approve" });
+await waitFor(() => subA.events.some((e) => e.type === "artifact.applied" && e.payload.proposalId === threadProposal.payload.proposalId), "thread proposal applied");
+const modelAfterThread = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "arch_model").pop().payload.content;
+assert(modelAfterThread.components.find((c) => c.id === "postgres")?.boundary === "data-tier", "the AI moved Postgres into the data tier boundary from the anchored thread");
+assert(modelAfterThread.boundaries.some((b) => b.id === "data-tier"), "the boundary was created on the model");
+const threadDecision = subA.events.filter((e) => e.type === "decision.recorded").pop();
+assert(threadDecision && threadDecision.payload.about?.includes("postgres"), "the decision from the thread is about the component");
+const resolved = await bob.call("POST", `/api/v1/sessions/${sessionId}/messages/${thread.eventId}/resolve`, { resolved: true });
+assert(resolved.resolved === true && subA.events.some((e) => e.type === "thread.resolved" && e.payload.rootEventId === thread.eventId), "bob resolved the thread");
+const notRoot = await bob.call("POST", `/api/v1/sessions/${sessionId}/messages/${threadReply.eventId}/resolve`, { resolved: true }).catch((e) => ({ error: String(e.message) }));
+assert(notRoot.error, "only the first message of a thread can be resolved");
+
 // Brief: a forced compaction folds older messages into an attributed summary that later prompts use.
 const briefRes = await alice.call("POST", `/api/v1/sessions/${sessionId}/brief`);
 assert(briefRes.status === "compacted" && briefRes.folded >= 3, `forced compaction folded ${briefRes.folded} messages`);
@@ -462,6 +494,7 @@ l2.provider.destroy();
 const md = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(typeof md === "string" && md.includes("## Decision log") && md.includes("<!-- artifact"), "markdown export carries provenance comments");
 assert(md.includes("## External actions") && md.includes("confluence_publish_page") && md.includes("jira_create_story") && md.includes("denied"), "markdown export lists external actions with their outcomes");
+assert(md.includes("## Discussion threads") && /On System architecture › Postgres\*\* \(resolved\)/.test(md) && md.includes("*(promoted to the AI)*"), "markdown export carries the thread with its anchor, status and promotion");
 
 // Reconnect replay equals live view.
 const subC = subscribe(bob, sessionId);

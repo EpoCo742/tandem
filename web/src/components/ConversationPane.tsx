@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { participantName, pendingProposals, describeTarget, targetOf, AI_COLOR, type ExternalCall, type Proposal } from "@tandem/shared";
+import { participantName, pendingProposals, describeAnchor, describeTarget, targetOf, AI_COLOR, type ExternalCall, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
@@ -42,6 +42,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
     ...pendingProposals(state).map((p) => ({ kind: "proposal" as const, at: p.createdAt, p })),
   ].sort((a, b) => a.at.localeCompare(b.at));
   const requestTab = useStore((s) => s.requestTab);
+  const setFocusArtifact = useStore((s) => s.setFocusArtifact);
 
   useEffect(() => {
     const el = bodyRef.current;
@@ -104,7 +105,8 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
           return (
             <div key={m.eventId} id={`msg-${m.eventId}`} className={cls + flash} style={m.kind === "user" ? { borderLeftColor: color } : undefined}>
               <div className="who">
-                {m.kind === "user" && <span style={{ color }}>{participantName(state, m.userId)}{m.mode === "promoted" ? " · promoted from side channel" : ""}</span>}
+                {m.kind === "user" && <span style={{ color }}>{participantName(state, m.userId)}{m.mode === "promoted" ? (m.anchor ? " · promoted from a thread" : " · promoted from side channel") : ""}</span>}
+                {m.kind === "user" && m.anchor && <button className="chip" style={{ cursor: "pointer" }} title="Show the card this message is about" onClick={() => setFocusArtifact(m.anchor!.artifactId)}>about {describeAnchor(state, m.anchor)}</button>}
                 {m.mentions?.includes(myId) && <span className="chip accent">mentions you</span>}
                 {m.kind === "ai" && (
                   <>

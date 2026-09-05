@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { contentText, liveArtifacts, modelToMermaid, participantName, type AnyLedgerEvent, type ArchModelContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { contentText, describeAnchor, liveArtifacts, modelToMermaid, participantName, threadRootOf, threads, type AnyLedgerEvent, type ArchModelContent, type MessageAnchor, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 import type { ContextAttachment, RenderedContext } from "../providers/types.js";
 import { db, schema } from "../db/index.js";
 import { SYSTEM_PROMPT } from "./system.js";
@@ -84,7 +84,7 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
     .filter((m) => !batchIds.has(m.eventId))
     .filter((m) => m.seq > state.briefThroughSeq);
   for (const m of transcript.slice(-TRANSCRIPT_WINDOW)) {
-    if (m.kind === "user") lines.push(`[${participantName(state, m.userId)}] (event ${m.eventId}) ${m.text}`);
+    if (m.kind === "user") lines.push(`[${participantName(state, m.userId)}] (event ${m.eventId}) ${m.text}${m.anchor ? aboutTag(state, m.anchor) : ""}`);
     else if (m.kind === "ai") lines.push(`[AI, for ${participantName(state, m.onBehalfOf)}] ${m.text}`);
     else if (m.kind === "clarification") lines.push(`[AI asks ${m.onBehalfOf ? participantName(state, m.onBehalfOf) : "everyone"}] ${m.text}`);
     else lines.push(`[System] ${m.text}`);
@@ -115,11 +115,26 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
 
   lines.push("## Current messages");
   for (const b of batch) {
-    const p = b.payload as { text: string; attachments?: string[] };
+    const p = b.payload as { text: string; attachments?: string[]; anchor?: MessageAnchor; fromNoteEventId?: string };
     const who = b.actorKind === "system" ? "System" : participantName(state, b.actorUserId);
     const attached = (p.attachments ?? []).map((id) => state.artifacts[id]).filter(Boolean).map((a) => `${a!.title} (artifact ${a!.id})`);
-    lines.push(`[${who}] (event ${b.id}) ${p.text}${attached.length ? ` [attached: ${attached.join(", ")}]` : ""}`);
+    lines.push(`[${who}] (event ${b.id}) ${p.text}${attached.length ? ` [attached: ${attached.join(", ")}]` : ""}${p.anchor ? aboutTag(state, p.anchor) : ""}`);
+    // A message promoted out of a thread brings the rest of that thread as background (people talking to people).
+    if (p.fromNoteEventId) {
+      const root = threadRootOf(state, p.fromNoteEventId);
+      const t = root ? threads(state).find((x) => x.root.eventId === root.eventId) : undefined;
+      const earlier = t ? [t.root, ...t.replies].filter((m) => m.eventId !== p.fromNoteEventId) : [];
+      if (t && earlier.length) {
+        lines.push(`  (promoted from a thread between people on ${describeAnchor(state, t.anchor)}; the rest of that thread, for context only:)`);
+        for (const m of earlier.slice(-8)) lines.push(`  - [${participantName(state, m.userId)}] ${m.text}`);
+      }
+    }
   }
 
   return { system: SYSTEM_PROMPT, prompt: lines.join("\n"), attachments };
+}
+
+// "[about: System architecture › Postgres (artifact 01…, component postgres)]": what "this" refers to.
+function aboutTag(state: SessionState, anchor: MessageAnchor): string {
+  return ` [about: ${describeAnchor(state, anchor)} (artifact ${anchor.artifactId}${anchor.componentId ? `, component ${anchor.componentId}` : ""})]`;
 }

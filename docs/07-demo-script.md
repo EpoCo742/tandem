@@ -107,6 +107,22 @@ Fake architect: no service names in the text, so it captures a **Notes** card an
 
 Point at: the promoted message is labelled "Bob · promoted from side channel".
 
+## Stage 5b: threads on cards
+
+Feature: conversations between people anchored to a card, or to one component of the architecture model; promotion carries the anchor.
+
+| Who | Does |
+|---|---|
+| Bob | On the **Architecture model** card, clicks the thread icon on the **Postgres** row (or the thread icon in any card's header and picks a component). Writes: "This belongs in a data tier boundary, not next to the services." |
+| Alice | Sees the note in the **Side channel** tab tagged "on System architecture › Postgres". Opens the thread and replies: "Agreed. Promote it so the model changes." |
+| Alice | Clicks **promote to AI** on Bob's message in the thread. |
+| Alice | The model is hers and the AI acted for Bob, so the move arrives as a proposal in her AI lane. She approves it. |
+| Bob | Clicks **resolve** on the thread. |
+
+Fake architect: the promoted message reaches it tagged with what it is about; it moves **Postgres** into a new **Data Tier** boundary on the model (the Boundary column and the System architecture view change once Alice approves) and records a decision **about** the Postgres component, attributed to Bob.
+
+Point at: the AI lane message reads "Bob · promoted from a thread" with an **about System architecture › Postgres** chip that centers the canvas on the card; the rest of the thread went to the AI as background only; the export gets a **Discussion threads** section. Nothing in a thread reaches the AI until someone promotes it.
+
 ## Stage 6: history
 
 Feature: commits after every turn and applied edit; revert is a forward commit.
