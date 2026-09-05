@@ -30,9 +30,11 @@ Open http://localhost:5173. With `TANDEM_DEV_AUTH=1` you can log in with any han
 
 **Without a Copilot seat:** set `TANDEM_PROVIDER=fake`, connect the `fake` provider under credentials, and create a session. The offline provider is a scripted architect that draws diagrams, records decisions, and raises decision points on contradictions. It exists so the collaboration loop can be demoed without spending premium requests.
 
-**With Copilot:** under credentials pick `copilot` and paste a GitHub token (`gho_`, `ghu_`, or fine-grained `github_pat_`) from an account with an active Copilot seat. Validation starts the bundled Copilot runtime and lists the models your plan allows. Or configure a GitHub OAuth App (`GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`, callback `{APP_URL}/auth/github/callback`) and sign in with GitHub; the OAuth token is stored as a Copilot credential automatically.
+**With Copilot:** under credentials pick `copilot` and paste a GitHub token (`gho_`, `ghu_`, or fine-grained `github_pat_`) from an account with an active Copilot seat. For a fine-grained token: resource owner is your personal account (not an organization), account permission **Copilot Requests: Read**, no repository access; classic `ghp_` tokens are not accepted by Copilot. Validation starts the bundled Copilot runtime and lists the models your plan allows. Or configure a GitHub OAuth App (`GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`, callback `{APP_URL}/auth/github/callback`) and sign in with GitHub; the OAuth token is stored as a Copilot credential automatically.
 
 Sponsor mode (default) funds every turn with the session creator's credential, so only the creator needs a seat.
+
+**Long sessions:** once more than `TANDEM_COMPACT_AFTER` messages (default 8) have fallen out of the model's transcript window, the server folds them into a running brief that keeps who said what and the message ids, and the AI reads the brief instead. That summary is one extra provider request on the sponsor's plan each time it runs. The Brief tab shows it and can refresh it by hand.
 
 ## One container
 

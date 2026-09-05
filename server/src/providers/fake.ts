@@ -105,10 +105,31 @@ function serviceNames(text: string): string[] {
   return [...names];
 }
 
+function firstSentence(text: string, max = 150): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  const cut = t.search(/[.!?](\s|$)/);
+  const s = cut > 20 ? t.slice(0, cut + 1) : t;
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
 export const fakeProvider: ProviderAdapter = {
   id: "fake",
   async validate() {
     return { ok: true, models: ["fake-architect-1"] };
+  },
+  // Deterministic brief: one attributed line per folded message, decisions by label, bounded length.
+  async summarize(req) {
+    const prev = req.previousBrief ? req.previousBrief.split("\n") : [];
+    const prevPoints = prev.filter((l) => l.startsWith("- ")).slice(-30);
+    const points = req.messages
+      .filter((m) => m.kind !== "system")
+      .map((m) => `- **${m.speaker}** [${m.eventId}]: ${firstSentence(m.text)}`);
+    const decisions = req.decisions.map((d) => `- ${d.label} (${d.status}${d.by ? `, ${d.by}` : ""}): ${d.statement}`);
+    const out = [`## Brief for ${req.title}`, "", "### Discussion so far", ...prevPoints, ...points];
+    if (decisions.length) out.push("", "### Decisions recorded in this stretch", ...decisions);
+    const questions = req.messages.filter((m) => m.kind === "clarification").map((m) => `- ${firstSentence(m.text)}`);
+    if (questions.length) out.push("", "### Open questions", ...questions);
+    return out.join("\n");
   },
   async runTurn(req: TurnRequest): Promise<TurnResult> {
     const batch = extractBatch(req.context.prompt);

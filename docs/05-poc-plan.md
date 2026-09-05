@@ -203,7 +203,9 @@ Also added: an AI-drafted data model card; session forking (M3 item pulled forwa
 
 Validated against a real Copilot seat on 2026-09-04: the model drives the canvas tools through the same prompt the offline provider is scripted against.
 
-Not yet done: GitHub OAuth end-to-end (routes exist, needs an OAuth App; the OAuth scope may need widening beyond read:user), live Yjs text editing, compaction.
+2026-09-05: compaction. Messages outside the transcript window are folded into a running brief by the provider (deterministic in the offline provider; a summarisation prompt with attribution rules on Copilot), stored as a `brief.updated` event with the seq it covers, rendered at the top of every prompt, shown in a Brief tab with a manual refresh. One provider request per compaction on the sponsor's plan; `TANDEM_COMPACT_AFTER=0` disables the automatic runs.
+
+Not yet done: GitHub OAuth end-to-end (routes exist, needs an OAuth App; the OAuth scope may need widening beyond read:user), live Yjs text editing.
 
 ## 8. Known POC limitations to state in the demo
 

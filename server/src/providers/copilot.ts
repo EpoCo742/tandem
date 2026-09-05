@@ -18,8 +18,50 @@ function makeClient(token: string) {
   });
 }
 
+const SUMMARY_SYSTEM = `You maintain the running brief of a multi-person software design session. You will be given the previous brief and a stretch of messages that are about to leave the model's context window. Produce the new brief in Markdown, under 350 words, that a colleague could read to catch up.
+
+Rules:
+- Keep attribution. Every point names who said it in bold and cites the event id in square brackets, e.g. "- **Alice** [01H...]: prefers Kafka for OrderPlaced".
+- Merge the previous brief with the new stretch; drop points that were superseded, keep points that still matter, never invent anything.
+- Sections: "### Discussion so far", "### Decisions recorded in this stretch" (label, status, who), "### Open questions".
+- Terse lines, no preamble, no closing remarks. Output only the brief.`;
+
 export const copilotProvider: ProviderAdapter = {
   id: "copilot",
+
+  async summarize(req) {
+    const [, release] = await turnSlots.acquire();
+    const client = makeClient(req.token);
+    try {
+      await client.start();
+      const session = await client.createSession({
+        model: req.model,
+        streaming: false,
+        systemMessage: { mode: "replace", content: SUMMARY_SYSTEM },
+        tools: [],
+        availableTools: [],
+        onPermissionRequest: approveAll,
+        skipCustomInstructions: true,
+        enableSkills: false,
+      });
+      try {
+        const lines = [`# Session: ${req.title}`, "", "## Previous brief", req.previousBrief || "(none yet)", "", "## Messages leaving the window (oldest first)"];
+        for (const m of req.messages) lines.push(`[${m.speaker}] (event ${m.eventId}) ${m.text}`);
+        if (req.decisions.length) {
+          lines.push("", "## Decisions recorded in this stretch");
+          for (const d of req.decisions) lines.push(`- ${d.label} [${d.status}]${d.by ? ` by ${d.by}` : ""}: ${d.statement}`);
+        }
+        lines.push("", "Write the new brief now.");
+        const final = await session.sendAndWait({ prompt: lines.join("\n") }, req.timeoutMs);
+        return final?.data.content ?? "";
+      } finally {
+        await session.disconnect().catch(() => undefined);
+      }
+    } finally {
+      await client.stop().catch(() => undefined);
+      release();
+    }
+  },
 
   async validate(token) {
     const client = makeClient(token);

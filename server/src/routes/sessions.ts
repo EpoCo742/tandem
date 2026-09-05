@@ -10,6 +10,7 @@ import { brokerFor } from "../turn/broker.js";
 import { config } from "../config.js";
 import { findCredentialForUser, listCredentials } from "../credentials.js";
 import { contentHash, createCommit, requestChange, resolveProposal, revertTo } from "../governance.js";
+import { maybeCompact } from "../context/compact.js";
 import { mintCollabToken } from "../crypto.js";
 import { exportMarkdown } from "../export.js";
 
@@ -354,6 +355,14 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     appendEvent(id, { type: "brief.updated", actorKind: "system", actorUserId: null, payload: { brief: `Forked from "${src.title}" (session ${src.id}) at commit ${state.headCommitId ?? "none"} on ${ts}. The canvas and agreed decisions were carried over; superseded decisions and resolved decision points were not.`, throughSeq: 0 } });
     createCommit(id, user.id, null, `Forked from ${src.title}`);
     return { id, title };
+  });
+
+  // Refresh the brief by hand: folds everything but the last few messages. Costs one provider request.
+  app.post<{ Params: { id: string } }>("/api/v1/sessions/:id/brief", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot refresh the brief" });
+    return maybeCompact(req.params.id, { force: true });
   });
 
   app.get<{ Params: { id: string }; Querystring: { format?: string } }>("/api/v1/sessions/:id/export", async (req, reply) => {

@@ -3,6 +3,7 @@ import type { RenderedContext } from "../providers/types.js";
 import { SYSTEM_PROMPT } from "./system.js";
 
 const TRANSCRIPT_TURNS = 24;
+export const TRANSCRIPT_WINDOW = TRANSCRIPT_TURNS * 2; // messages kept verbatim in the prompt
 const INDEX_FULL_CONTENT_CHARS = 6000;
 
 export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], operatorNotes: string[] = []): RenderedContext {
@@ -13,7 +14,7 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
   for (const p of Object.values(state.participants)) lines.push(`- ${p.name} (id ${p.userId}, role ${p.role})`);
   lines.push("");
 
-  if (state.brief) lines.push("## Brief", state.brief, "");
+  if (state.brief) lines.push(`## Brief (earlier conversation, folded through message seq ${state.briefThroughSeq}; attribution and event ids inside are authoritative)`, state.brief, "");
 
   lines.push("## Decision registry");
   const decisions = Object.values(state.decisions).sort((a, b) => a.label.localeCompare(b.label));
@@ -52,8 +53,11 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
 
   lines.push("## Recent transcript");
   const batchIds = new Set(batch.map((b) => b.id));
-  const transcript = state.messages.filter((m) => m.kind !== "user" || m.mode !== "note").filter((m) => !batchIds.has(m.eventId));
-  for (const m of transcript.slice(-TRANSCRIPT_TURNS * 2)) {
+  const transcript = state.messages
+    .filter((m) => m.kind !== "user" || m.mode !== "note")
+    .filter((m) => !batchIds.has(m.eventId))
+    .filter((m) => m.seq > state.briefThroughSeq);
+  for (const m of transcript.slice(-TRANSCRIPT_WINDOW)) {
     if (m.kind === "user") lines.push(`[${participantName(state, m.userId)}] (event ${m.eventId}) ${m.text}`);
     else if (m.kind === "ai") lines.push(`[AI, for ${participantName(state, m.onBehalfOf)}] ${m.text}`);
     else if (m.kind === "clarification") lines.push(`[AI asks ${m.onBehalfOf ? participantName(state, m.onBehalfOf) : "everyone"}] ${m.text}`);

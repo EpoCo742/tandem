@@ -260,6 +260,16 @@ assert(forkEvents.some((e) => e.type === "participant.joined" && e.actorUserId =
 const forkMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
 assert(forkMeta.me.consented === false && forkMeta.forkedFrom.sessionId === sessionId, "participants must re-consent in the fork");
 
+// Brief: a forced compaction folds older messages into an attributed summary that later prompts use.
+const briefRes = await alice.call("POST", `/api/v1/sessions/${sessionId}/brief`);
+assert(briefRes.status === "compacted" && briefRes.folded >= 3, `forced compaction folded ${briefRes.folded} messages`);
+await wait(200);
+const briefEv = subA.events.filter((e) => e.type === "brief.updated").pop();
+assert(briefEv && briefEv.payload.brief.includes("**Alice**") && briefEv.payload.brief.includes("**Bob**") && /\[01[0-9A-Z]{24}\]/.test(briefEv.payload.brief), "brief names both speakers and cites event ids");
+assert(briefEv.payload.brief.includes("### Decisions recorded") && /D-01 \(/.test(briefEv.payload.brief), "brief lists the decisions recorded in the folded stretch");
+const again = await alice.call("POST", `/api/v1/sessions/${sessionId}/brief`);
+assert(again.status === "nothing_to_compact", "a second forced compaction has nothing new to fold");
+
 // Canvas layout round-trips through the embedded Hocuspocus: a second client sees the first
 // client's write after the first has disconnected (this regressed silently once).
 const meta = await alice.call("GET", `/api/v1/sessions/${sessionId}`);

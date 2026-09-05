@@ -51,7 +51,12 @@ export function Settings() {
             </label>
             <button className="primary" onClick={add} disabled={busy || (provider !== "fake" && !token)} style={{ alignSelf: "flex-end" }}>{busy ? "Validating…" : "Connect"}</button>
           </div>
-          {provider === "copilot" && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Validation starts the bundled Copilot runtime with your token and lists the models your plan allows. The first run can take 10-20 seconds.</p>}
+          {provider === "copilot" && (
+            <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+              Validation starts the bundled Copilot runtime with your token and lists the models your plan allows. The first run can take 10-20 seconds.
+              For a fine-grained token: resource owner must be your personal account (not an organization), account permission <b>Copilot Requests: Read</b>, no repository access needed. Classic <code>ghp_</code> tokens are not accepted by Copilot.
+            </p>
+          )}
           {err && <div className="err">{err}</div>}
         </div>
         {(data?.credentials ?? []).map((c) => (

@@ -156,6 +156,8 @@ export interface SessionState {
   turns: Record<string, Turn>;
   conflicts: Record<string, Conflict>;
   brief: string;
+  briefThroughSeq: number; // messages at or below this seq are folded into the brief
+  briefUpdatedAt: string | null;
   forkedFrom: { sessionId: string; commitId: string | null; title: string } | null;
   uploads: Record<string, UploadInfo>;
   lastSeq: number;
@@ -190,6 +192,8 @@ export function emptyState(sessionId: string): SessionState {
     turns: {},
     conflicts: {},
     brief: "",
+    briefThroughSeq: 0,
+    briefUpdatedAt: null,
     forkedFrom: null,
     uploads: {},
     lastSeq: 0,
@@ -482,7 +486,10 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       return s;
     }
     case "brief.updated": {
-      s.brief = (ev.payload as Payloads["brief.updated"]).brief;
+      const p = ev.payload as Payloads["brief.updated"];
+      s.brief = p.brief;
+      s.briefThroughSeq = Math.max(s.briefThroughSeq, p.throughSeq);
+      s.briefUpdatedAt = ev.createdAt;
       return s;
     }
     default:

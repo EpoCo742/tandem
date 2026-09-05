@@ -10,6 +10,7 @@ import { getProvider } from "../providers/index.js";
 import { buildToolBindings } from "../tools/executor.js";
 import { createCommit } from "../governance.js";
 import { findCredentialForUser, loadRawCredential, type RawCredential } from "../credentials.js";
+import { maybeCompact } from "../context/compact.js";
 
 // One broker per active session. Serializes AI turns: collect a batch, run one turn,
 // apply, commit. Directives that arrive mid-turn queue for the next batch.
@@ -196,6 +197,10 @@ class SessionBroker {
       this.state = "committed";
       createCommit(this.sessionId, null, turnId, `Turn for ${state.participants[payer.onBehalfOf]?.name ?? payer.onBehalfOf}`);
       appendEvent(this.sessionId, { type: "turn.completed", actorKind: "system", actorUserId: null, turnId, payload: { turnId, usage: result.usage, modelUsed: result.modelUsed } });
+      // Fold anything that has left the transcript window into the brief; runs off the turn path.
+      void maybeCompact(this.sessionId).then((r) => {
+        if (r.status === "failed") console.warn(`[tandem] compaction failed for ${this.sessionId}: ${r.error}`);
+      });
     } catch (e) {
       const interrupted = this.abort.signal.aborted;
       if (interrupted && streamed) {

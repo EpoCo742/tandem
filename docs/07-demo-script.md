@@ -2,7 +2,7 @@
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
-This file tracks the features as they land. Last updated 2026-09-04 (canvas resizing and expand, attachments, delete, sources list, export preview).
+This file tracks the features as they land. Last updated 2026-09-05 (session brief and compaction).
 
 ## Two ways to run it
 
@@ -181,7 +181,20 @@ Point at: the new session "Order platform v2" with every live card at v1, agreed
 
 Point at: the Markdown carries `<!-- artifact … -->` provenance comments, the decision log, and the commit history.
 
-## Stage 12: theme and canvas grid (no script)
+## Stage 12: the brief (long sessions)
+
+Feature: compaction that keeps attribution. When the conversation outgrows the model's transcript window, older messages are folded into a running brief; each point names the speaker and cites the message id, and the AI reads the brief in place of the folded messages.
+
+| Who | Does |
+|---|---|
+| Anyone | **Brief** tab in the right pane. Early in a session it says nothing is folded yet. |
+| Alice | **Refresh brief** to force it (folds everything but the last six messages; one provider request). |
+
+Fake architect: writes one attributed line per folded message plus the decisions recorded in that stretch. A real model merges the previous brief with the new stretch under the same rules.
+
+Point at: the count "N of M messages folded"; every line carries a name and an event id; the export's Brief section; the next AI turn still answers in context of the folded discussion.
+
+## Stage 13: theme and canvas grid (no script)
 
 Feature: personal UI preferences, not shared state.
 

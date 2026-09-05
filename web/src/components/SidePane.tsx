@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { participantName, pendingProposals, contentText, AI_COLOR, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
 
-type Tab = "side" | "proposals" | "decisions" | "history" | "sources";
+type Tab = "side" | "proposals" | "decisions" | "history" | "sources" | "brief";
 
 export function SidePane({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
@@ -21,12 +22,14 @@ export function SidePane({ sessionId }: { sessionId: string }) {
         <button className={tab === "decisions" ? "active" : ""} onClick={() => setTab("decisions")}>Decisions</button>
         <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>History</button>
         <button className={tab === "sources" ? "active" : ""} onClick={() => setTab("sources")}>Sources</button>
+        <button className={tab === "brief" ? "active" : ""} onClick={() => setTab("brief")}>Brief</button>
       </div>
       {tab === "side" && <SideChannel sessionId={sessionId} />}
       {tab === "proposals" && <Proposals sessionId={sessionId} proposals={pending} />}
       {tab === "decisions" && <Decisions />}
       {tab === "history" && <History sessionId={sessionId} />}
       {tab === "sources" && <Sources sessionId={sessionId} />}
+      {tab === "brief" && <Brief sessionId={sessionId} />}
     </div>
   );
 }
@@ -143,6 +146,47 @@ function Decisions() {
           {d.supersedes && <div className="mono">supersedes {state.decisions[d.supersedes]?.label}</div>}
         </div>
       ))}
+    </div>
+  );
+}
+
+function Brief({ sessionId }: { sessionId: string }) {
+  const state = useStore((s) => s.state);
+  const meta = useStore((s) => s.meta);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const transcript = state.messages.filter((m) => !(m.kind === "user" && m.mode === "note"));
+  const folded = transcript.filter((m) => m.seq <= state.briefThroughSeq).length;
+  async function refresh() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api<{ status: string; folded?: number; error?: string }>("POST", `/api/v1/sessions/${sessionId}/brief`);
+      setMsg(
+        r.status === "compacted" ? `Folded ${r.folded} message(s) into the brief.`
+        : r.status === "nothing_to_compact" ? "Nothing to fold yet; the whole conversation still fits in the model's window."
+        : r.status === "no_credential" ? "No credential can fund the summary."
+        : r.status === "busy" ? "A compaction is already running."
+        : r.status === "disabled" ? "Compaction is disabled on this server or provider."
+        : `Failed: ${r.error ?? r.status}`,
+      );
+    } catch (e) {
+      setMsg((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="pane-body">
+      <div className="muted" style={{ fontSize: 12 }}>
+        The running summary the AI reads instead of the full transcript once the conversation outgrows its window. Every point keeps who said it and the message it came from. Regenerated automatically; refreshing by hand costs one {meta?.provider ?? "provider"} request on the sponsor's plan.
+      </div>
+      <div className="row">
+        <button onClick={refresh} disabled={busy}>{busy ? "Summarising…" : "Refresh brief"}</button>
+        <span className="mono">{state.brief ? `${folded} of ${transcript.length} messages folded` : "no brief yet"}{state.briefUpdatedAt ? ` · ${new Date(state.briefUpdatedAt).toLocaleTimeString()}` : ""}</span>
+      </div>
+      {msg && <div className="muted" style={{ fontSize: 12 }}>{msg}</div>}
+      {state.brief ? <div className="md brief"><ReactMarkdown>{state.brief}</ReactMarkdown></div> : <div className="muted">The brief appears once older messages are folded.</div>}
     </div>
   );
 }

@@ -140,7 +140,7 @@ export type Payloads = {
   "commit.reverted_to": { targetCommitId: string; newCommitId: string };
   "upload.added": { uploadId: string; mime: string; bytes: number; name: string };
   "source.ingested": { uploadId: string; artifactId: string };
-  "brief.updated": { brief: string; throughSeq: number };
+  "brief.updated": { brief: string; throughSeq: number; payerUserId?: string; provider?: string; model?: string; folded?: number };
 };
 
 export type EventType = keyof Payloads;

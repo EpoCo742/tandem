@@ -44,13 +44,13 @@ strong{font-weight:600}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
 </style>
 <div class="page">
-<nav class="toc"><div class="k">Contents</div><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-theme-and-canvas-grid-no-script">Stage 12: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
+<nav class="toc"><div class="k">Contents</div><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-13-theme-and-canvas-grid-no-script">Stage 13: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
 <article>
 <div class="eyebrow"><span>Tandem design package · 07 · Demo script</span><span>2026-09-03</span></div>
 <h1>Tandem POC: Demo Script</h1>
 
 <p>The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.</p>
-<p>This file tracks the features as they land. Last updated 2026-09-04 (canvas resizing and expand, attachments, delete, sources list, export preview).</p>
+<p>This file tracks the features as they land. Last updated 2026-09-05 (session brief and compaction).</p>
 <h2 id="two-ways-to-run-it">Two ways to run it</h2>
 <p><strong>By hand.</strong> Alice in a normal browser window, Bob in a private window (or via <code>bob.mjs</code> below). Type the quoted lines exactly; the fake architect keys off specific words (see the trigger table at the end).</p>
 <p><strong>Seeded.</strong> With a dev-auth server running (<code>TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake</code>):</p>
@@ -352,7 +352,29 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tbody>
 </table></div>
 <p>Point at: the Markdown carries <code>&lt;!-- artifact … --&gt;</code> provenance comments, the decision log, and the commit history.</p>
-<h2 id="stage-12-theme-and-canvas-grid-no-script">Stage 12: theme and canvas grid (no script)</h2>
+<h2 id="stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</h2>
+<p>Feature: compaction that keeps attribution. When the conversation outgrows the model's transcript window, older messages are folded into a running brief; each point names the speaker and cites the message id, and the AI reads the brief in place of the folded messages.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anyone</td>
+<td><strong>Brief</strong> tab in the right pane. Early in a session it says nothing is folded yet.</td>
+</tr>
+<tr>
+<td>Alice</td>
+<td><strong>Refresh brief</strong> to force it (folds everything but the last six messages; one provider request).</td>
+</tr>
+</tbody>
+</table></div>
+<p>Fake architect: writes one attributed line per folded message plus the decisions recorded in that stretch. A real model merges the previous brief with the new stretch under the same rules.</p>
+<p>Point at: the count "N of M messages folded"; every line carries a name and an event id; the export's Brief section; the next AI turn still answers in context of the folded discussion.</p>
+<h2 id="stage-13-theme-and-canvas-grid-no-script">Stage 13: theme and canvas grid (no script)</h2>
 <p>Feature: personal UI preferences, not shared state.</p>
 <div class="table-wrap"><table>
 <thead>

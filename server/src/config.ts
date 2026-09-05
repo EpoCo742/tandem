@@ -37,6 +37,8 @@ export const config = {
   batchMaxWindowMs: Number(env("TANDEM_BATCH_MAX_WINDOW_MS", "4000")),
   approvalTimeoutS: Number(env("TANDEM_APPROVAL_TIMEOUT_S", "60")),
   turnTimeoutMs: Number(env("TANDEM_TURN_TIMEOUT_MS", "240000")),
+  // Compact once this many messages have fallen out of the transcript window (0 disables).
+  compactAfter: Number(env("TANDEM_COMPACT_AFTER", "8")),
   webDist: path.resolve(env("WEB_DIST", "../web/dist")),
   isProd: process.env.NODE_ENV === "production",
 };

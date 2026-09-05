@@ -167,6 +167,11 @@ button.icon { padding: 3px 7px; font-family: var(--mono); font-size: 11px; lette
 .source-row.gone { color: var(--ink-3); }
 .source-row button { padding: 1px 6px; font-size: 10.5px; font-family: var(--mono); }
 .confirm { display: inline-flex; gap: 4px; align-items: center; }
+.brief { font-size: 12.5px; line-height: 1.45; }
+.brief h2, .brief h3 { font-size: 12px; font-family: var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); margin: 10px 0 4px; }
+.brief ul { padding-left: 16px; margin: 0; }
+.brief li { margin: 2px 0; word-break: break-word; }
+.brief code { font-family: var(--mono); font-size: 11px; }
 .art-body pre { margin: 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
 .art-body .md p { margin: 0 0 6px; }
 .art-body .md h1, .art-body .md h2, .art-body .md h3 { font-size: 14px; margin: 8px 0 4px; }

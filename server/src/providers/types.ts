@@ -33,8 +33,29 @@ export interface TurnResult {
   modelUsed: string;
 }
 
+export interface SummaryMessage {
+  eventId: string;
+  seq: number;
+  kind: "user" | "ai" | "clarification" | "system";
+  speaker: string;
+  text: string;
+}
+
+export interface SummaryRequest {
+  sessionId: string;
+  model: string;
+  token: string;
+  title: string;
+  previousBrief: string;
+  messages: SummaryMessage[]; // the messages being folded, oldest first
+  decisions: { label: string; statement: string; status: string; by: string }[];
+  timeoutMs: number;
+}
+
 export interface ProviderAdapter {
   id: string;
   validate(token: string): Promise<{ ok: boolean; models: string[]; error?: string }>;
   runTurn(req: TurnRequest): Promise<TurnResult>;
+  /** Fold older messages into a running brief that keeps speaker attribution and event ids. */
+  summarize?(req: SummaryRequest): Promise<string>;
 }
