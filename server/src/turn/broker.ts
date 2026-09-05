@@ -182,6 +182,7 @@ class SessionBroker {
           bus.publish(this.sessionId, { kind: "ephemeral", event: { kind: "ai.delta", sessionId: this.sessionId, turnId, text } });
         },
         onToolProgress: (tool, status, artifactId) => bus.publish(this.sessionId, { kind: "ephemeral", event: { kind: "ai.tool_progress", sessionId: this.sessionId, turnId, tool, status, artifactId } }),
+        onNote: (text) => appendEvent(this.sessionId, { type: "turn.note", actorKind: "system", actorUserId: null, turnId, payload: { turnId, text: text.slice(0, 1500) } }),
       });
       this.state = "applying";
       this.publishState();

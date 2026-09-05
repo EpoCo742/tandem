@@ -480,6 +480,11 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       if (t) s.turns = { ...s.turns, [t.id]: { ...t, status: "committed", usage: p.usage, modelUsed: p.modelUsed } };
       return s;
     }
+    case "turn.note": {
+      const p = ev.payload as Payloads["turn.note"];
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: p.text, turnId: ev.turnId, createdAt: ev.createdAt }];
+      return s;
+    }
     case "turn.failed": {
       const p = ev.payload as Payloads["turn.failed"];
       const t = s.turns[p.turnId];

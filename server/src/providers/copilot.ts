@@ -7,7 +7,7 @@ function toCopilotMcp(servers: McpServerForTurn[]): Record<string, MCPServerConf
   for (const s of servers) {
     out[s.name] = s.config.transport === "stdio"
       ? { type: "stdio", command: s.config.command, args: s.config.args, env: s.config.env, workingDirectory: s.config.cwd, tools: ["*"] }
-      : { type: "http", url: s.config.url, headers: s.config.headers, tools: ["*"] };
+      : { type: s.config.sse ? "sse" : "http", url: s.config.url, headers: s.config.headers, tools: ["*"] };
   }
   return out;
 }
@@ -121,10 +121,17 @@ export const copilotProvider: ProviderAdapter = {
         return { kind: "approve-once" };
       };
       const pendingCalls = new Map<string, string>();
+      const mcpToolNames = req.mcpServers.flatMap((s) => s.tools.map((t) => `${s.name}-${t.name}`));
       const session = await client.createSession({
         model: req.model,
         streaming: true,
         systemMessage: { mode: "replace", content: req.context.system },
+        // A remote MCP server asking for OAuth cannot be satisfied here (no browser, no token); say so
+        // in the session instead of leaving the runtime waiting, and point at the stdio route.
+        onMcpAuthRequest: (auth) => {
+          req.onNote(`External tool server "${auth.serverName}" (${auth.serverUrl}) asked for an OAuth login (${auth.reason}); the headers on file were not accepted. Register it as a stdio server through mcp-remote so the login can happen in a browser, or supply a valid Authorization header.`);
+          return { kind: "cancelled" };
+        },
         tools,
         // The runtime names an MCP tool "<server>-<tool>" and the allow-list wants the "mcp:" form;
         // without these entries the model is handed the servers but cannot see their tools.
@@ -134,6 +141,11 @@ export const copilotProvider: ProviderAdapter = {
         enableSkills: false,
         ...(req.mcpServers.length ? { mcpServers: toCopilotMcp(req.mcpServers) } : {}),
       });
+      // What the runtime says about the attached servers, surfaced to the people in the session.
+      const offErr = session.on("session.error", (e) => req.onNote(`Runtime error (${e.data.errorType}): ${e.data.message}`));
+      const offMcpChanged = session.on("mcp.tools.list_changed", (e) => req.onNote(`External tool server "${e.data.serverName}" connected; its tools are available this turn.`));
+      const offHeaders = session.on("mcp.headers_refresh_required", (e) => req.onNote(`External tool server "${(e.data as { serverName?: string }).serverName ?? "?"}" asked for refreshed headers; re-register it with current credentials.`));
+      if (req.mcpServers.length) console.log(`[tandem] turn ${req.turnId}: attached MCP servers ${req.mcpServers.map((s) => `${s.name} (${s.config.transport}${s.config.transport === "http" && s.config.sse ? "/sse" : ""}, ${s.tools.length} tools)`).join(", ")}; allow-list adds ${mcpToolNames.map((n) => `mcp:${n}`).join(", ")}`);
       const offDelta = session.on("assistant.message_delta", (e) => {
         text += e.data.deltaContent;
         req.onDelta(e.data.deltaContent);
@@ -183,6 +195,9 @@ export const copilotProvider: ProviderAdapter = {
         if (!text && final?.data.content) text = final.data.content;
       } finally {
         req.signal.removeEventListener("abort", onAbort);
+        offErr();
+        offMcpChanged();
+        offHeaders();
         offDelta();
         offUsage();
         offStart();

@@ -133,6 +133,7 @@ export type Payloads = {
   "turn.interrupted": { turnId: string; partialTextKept: boolean };
   "turn.completed": { turnId: string; usage: Usage; modelUsed: string };
   "turn.failed": { turnId: string; error: string };
+  "turn.note": { turnId: string; text: string }; // something the runtime reported mid-turn (MCP connection, auth, tool list)
   "commit.created": {
     commitId: string;
     parentCommitId: string | null;

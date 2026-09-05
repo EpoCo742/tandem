@@ -15,7 +15,7 @@ import { seal, unseal } from "./crypto.js";
 
 export type McpConfig =
   | { transport: "stdio"; command: string; args: string[]; env: Record<string, string>; cwd?: string }
-  | { transport: "http"; url: string; headers: Record<string, string> };
+  | { transport: "http"; url: string; headers: Record<string, string>; sse?: boolean }; // sse: the endpoint speaks the older SSE transport
 
 export interface McpToolInfo {
   name: string;
@@ -101,7 +101,7 @@ export function normalizeConfig(input: unknown): McpConfig {
   if (kind === "http") {
     const url = String(c.url ?? "").trim();
     if (!/^https?:\/\//.test(url)) throw new Error("http transport needs a URL starting with http:// or https://");
-    return { transport: "http", url, headers: stringMap(c.headers) };
+    return { transport: "http", url, headers: stringMap(c.headers), ...(c.type === "sse" || c.sse === true || /\/sse\/?$/.test(url) ? { sse: true } : {}) };
   }
   const command = String(c.command ?? "").trim();
   if (!command) throw new Error("stdio transport needs a command");
