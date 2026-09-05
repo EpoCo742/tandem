@@ -3,10 +3,14 @@ import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { randomBytes } from "node:crypto";
 import { allAdrs, pickColor, threadRootOf, type ArchModelContent, type ArtifactType, type DecisionPointContent, type MessageAnchor, type Policy, type Role } from "@tandem/shared";
-import { db, now, schema } from "../db/index.js";
+import { db, now, schema, sqlite } from "../db/index.js";
 import { requireUser } from "../auth.js";
 import { appendEvent, getState, listEvents, sessionExists } from "../ledger.js";
-import { brokerFor } from "../turn/broker.js";
+import { brokerFor, dropBroker } from "../turn/broker.js";
+import fs from "node:fs";
+import path from "node:path";
+import { bus } from "../bus.js";
+import { invalidateState } from "../ledger.js";
 import { config } from "../config.js";
 import { findCredentialForUser, listCredentials } from "../credentials.js";
 import { contentHash, createCommit, requestChange, resolveProposal, revertTo } from "../governance.js";
@@ -27,17 +31,91 @@ function participantOr403(sessionId: string, userId: string) {
   return p;
 }
 
+function ownerOr403(sessionId: string, userId: string) {
+  const p = participantOr403(sessionId, userId);
+  if (p.role !== "owner") throw Object.assign(new Error("only the session owner can do that"), { statusCode: 403 });
+  return p;
+}
+
+// Writes an archived session refuses. Everything else under /sessions/:id that changes state
+// is caught by one guard rather than a check in every route; the listed sub-paths are the ones
+// that manage the session itself (or read it), so they stay open.
+const ARCHIVE_EXEMPT = new Set(["", "/archive", "/fork", "/seen", "/export", "/adrs"]);
+const SESSION_PATH = /^\/api\/v1\/sessions\/([^/?]+)((?:\/[^?]*)?)/;
+
+const deleteSessionTx = sqlite.transaction((id: string) => {
+  sqlite.prepare(`delete from events where session_id = ?`).run(id);
+  sqlite.prepare(`delete from participants where session_id = ?`).run(id);
+  sqlite.prepare(`delete from invites where session_id = ?`).run(id);
+  sqlite.prepare(`delete from uploads where session_id = ?`).run(id);
+  sqlite.prepare(`delete from yjs_documents where name like ?`).run(`session:${id}:%`);
+  sqlite.prepare(`delete from sessions where id = ?`).run(id);
+});
+
 export async function registerSessionRoutes(app: FastifyInstance) {
+  app.addHook("preHandler", async (req, reply) => {
+    if (req.method === "GET" || req.method === "HEAD") return;
+    const m = SESSION_PATH.exec(req.url);
+    if (!m || ARCHIVE_EXEMPT.has(m[2]!) || (req.method === "DELETE" && m[2] === "")) return;
+    const s = db.select({ status: schema.sessions.status }).from(schema.sessions).where(eq(schema.sessions.id, m[1]!)).get();
+    if (s?.status === "archived") return reply.code(409).send({ error: "This session is archived and read only. The owner can reopen it from the session menu." });
+  });
+
   app.get("/api/v1/sessions", async (req, reply) => {
     const user = requireUser(req, reply);
     const rows = db
-      .select({ s: schema.sessions })
+      .select({ s: schema.sessions, role: schema.participants.role })
       .from(schema.participants)
       .innerJoin(schema.sessions, eq(schema.participants.sessionId, schema.sessions.id))
       .where(eq(schema.participants.userId, user.id))
       .orderBy(desc(schema.sessions.updatedAt))
       .all();
-    return rows.map(({ s }) => ({ id: s.id, title: s.title, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt }));
+    return rows.map(({ s, role }) => ({ id: s.id, title: s.title, status: s.status, role, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt, updatedAt: s.updatedAt }));
+  });
+
+  // Rename: owner only. The ledger carries the change so open tabs pick it up live.
+  app.patch<{ Params: { id: string }; Body: { title?: string } }>("/api/v1/sessions/:id", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    ownerOr403(req.params.id, user.id);
+    const title = (req.body?.title ?? "").trim().slice(0, 120);
+    if (!title) return reply.code(400).send({ error: "a title is needed" });
+    const s = db.select().from(schema.sessions).where(eq(schema.sessions.id, req.params.id)).get()!;
+    if (s.title !== title) {
+      db.update(schema.sessions).set({ title, updatedAt: now() }).where(eq(schema.sessions.id, req.params.id)).run();
+      appendEvent(req.params.id, { type: "session.renamed", actorKind: "user", actorUserId: user.id, payload: { title, previous: s.title } });
+    }
+    return { id: s.id, title };
+  });
+
+  // Archive (read only, out of the digest) or reopen: owner only.
+  app.post<{ Params: { id: string }; Body: { archived?: boolean } | undefined }>("/api/v1/sessions/:id/archive", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    ownerOr403(req.params.id, user.id);
+    const archived = req.body?.archived ?? true;
+    const s = db.select().from(schema.sessions).where(eq(schema.sessions.id, req.params.id)).get()!;
+    const status = archived ? "archived" : "active";
+    if (s.status !== status) {
+      if (archived) brokerFor(req.params.id).sendNow(); // nothing new can be posted; let a collecting batch go
+      db.update(schema.sessions).set({ status, updatedAt: now() }).where(eq(schema.sessions.id, req.params.id)).run();
+      appendEvent(req.params.id, { type: "session.archived", actorKind: "user", actorUserId: user.id, payload: { archived } });
+    }
+    return { id: s.id, status };
+  });
+
+  // Delete: owner only, and everything goes: ledger, cards, uploads on disk, layout, invites.
+  // Forks made from this session keep their own copy; only their "forked from" link goes dead.
+  app.delete<{ Params: { id: string } }>("/api/v1/sessions/:id", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    ownerOr403(req.params.id, user.id);
+    dropBroker(req.params.id);
+    bus.publish(req.params.id, { kind: "ephemeral", event: { kind: "session.deleted", sessionId: req.params.id } });
+    deleteSessionTx(req.params.id);
+    invalidateState(req.params.id);
+    fs.rmSync(path.join(config.filesDir, req.params.id), { recursive: true, force: true });
+    return { ok: true };
   });
 
   app.post<{ Body: { title: string; policy?: Policy; payerMode?: "sponsor" | "speaker"; pinnedModel?: string; provider?: string; sponsorCredentialId?: string } }>("/api/v1/sessions", async (req, reply) => {
@@ -72,6 +150,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       payerMode: s.payerMode,
       pinnedModel: s.pinnedModel,
       provider: s.provider,
+      status: s.status,
       createdBy: s.createdBy,
       forkedFrom: s.forkedFromSessionId ? { sessionId: s.forkedFromSessionId, commitId: s.forkedAtCommitId } : null,
       me: { role: me.role, consented: Boolean(me.consentedAt), hasCredential: Boolean(findCredentialForUser(user.id, s.provider)) },
@@ -82,6 +161,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string }; Querystring: { from_seq?: string } }>("/api/v1/sessions/:id/events", async (req, reply) => {
     const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
     participantOr403(req.params.id, user.id);
     return listEvents(req.params.id, Number(req.query.from_seq ?? 0));
   });

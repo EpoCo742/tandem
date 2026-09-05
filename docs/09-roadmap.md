@@ -4,6 +4,8 @@ Plan of record from 2026-09-05. Everything built so far is listed in `05-poc-pla
 
 ## Where the product stands
 
+Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger.
+
 The POC does the moment of collaboration well: two to five people in one AI conversation, turns batched and attributed, a governed canvas with proposals and decision points, versions and forks, a compiled design document, per-person AI credentials and per-person external tools with gated writes, a running brief for long sessions, and an export with provenance.
 
 It is weak on either side of that moment. Underneath, diagrams are free text with no model, so consistency depends on the AI behaving. Around it, only people who are online can take part, and decisions are statements rather than records. After it, nothing carries into the next session.
@@ -130,6 +132,7 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 ## Carried over from the earlier backlog
 
+- **Publishing design documents.** Shipped so far: sessions are private to their participants (creator plus accepted invites); a design document leaves a session only by export (Markdown) or by the AI committing it to a repository through a GitHub MCP tool. A public, versioned, read-only page per approved design document (publish on sign-off, one URL per document, a version list, revocable) is a natural next item after B4 and overlaps with C1: the library needs the same "published, approved documents" index. Estimate two to three days.
 - **Constraint check after hand edits.** Direct edits of the model or of free Mermaid cards are not checked against the constraints; only the AI's own changes are. The cheap version tells the AI on its next turn that the model changed by hand so it re-checks; the user's concern is that this spends tokens on every turn after a manual edit. Park until there is evidence of hand edits breaking constraints.
 - **Sandboxed MCP servers.** Stdio servers run as children of the Tandem server; production needs a per-user sandbox. Production item; unchanged.
 - **Copilot runtime MCP path on a real seat.** Wired and typechecked, not yet exercised on a seat. Needs a person with an Atlassian or GitHub MCP registered to ask the AI to publish something. Half a day, user-driven.

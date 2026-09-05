@@ -169,6 +169,7 @@ export interface SessionState {
   briefThroughSeq: number; // messages at or below this seq are folded into the brief
   briefUpdatedAt: string | null;
   forkedFrom: { sessionId: string; commitId: string | null; title: string } | null;
+  status: "active" | "archived"; // archived sessions are read only until the owner reopens them
   uploads: Record<string, UploadInfo>;
   externalCalls: Record<string, ExternalCall>;
   reviews: Record<string, ReviewState>; // by design document artifact id
@@ -241,6 +242,7 @@ export function emptyState(sessionId: string): SessionState {
     briefThroughSeq: 0,
     briefUpdatedAt: null,
     forkedFrom: null,
+    status: "active",
     uploads: {},
     externalCalls: {},
     reviews: {},
@@ -260,6 +262,20 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       s.payerMode = p.payerMode;
       s.pinnedModel = p.pinnedModel;
       s.forkedFrom = p.forkedFrom ?? null;
+      return s;
+    }
+    case "session.renamed": {
+      const p = ev.payload as Payloads["session.renamed"];
+      s.title = p.title;
+      const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "someone";
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${who} renamed the session to "${p.title}"`, turnId: ev.turnId, createdAt: ev.createdAt }];
+      return s;
+    }
+    case "session.archived": {
+      const p = ev.payload as Payloads["session.archived"];
+      s.status = p.archived ? "archived" : "active";
+      const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "someone";
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: p.archived ? `${who} archived the session; it is read only until it is reopened` : `${who} reopened the session`, turnId: ev.turnId, createdAt: ev.createdAt }];
       return s;
     }
     case "participant.joined": {

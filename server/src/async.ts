@@ -83,6 +83,8 @@ export function digestFor(userId: string): DigestSession[] {
   const rows = db.select().from(schema.participants).where(eq(schema.participants.userId, userId)).all();
   const out: DigestSession[] = [];
   for (const row of rows) {
+    const meta = db.select({ status: schema.sessions.status }).from(schema.sessions).where(eq(schema.sessions.id, row.sessionId)).get();
+    if (!meta || meta.status === "archived") continue; // nothing can be waiting in a read-only session
     const state = getState(row.sessionId);
     if (!state.participants[userId]) continue;
     const name = (id: string | null) => (id ? state.participants[id]?.name ?? id : "AI");

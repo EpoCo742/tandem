@@ -30,6 +30,7 @@ interface Store {
   setHighlight: (ids: string[]) => void;
   connected: boolean;
   setConnected: (c: boolean) => void;
+  gone: boolean; // the session was deleted while this tab had it open
   focusArtifactId: string | null;
   setFocusArtifact: (id: string | null) => void;
   focusComponentId: string | null; // architecture model component whose decisions the side pane shows
@@ -46,7 +47,7 @@ export const useStore = create<Store>((set, get) => ({
   meta: null,
   setMeta: (meta) => set({ meta }),
   state: emptyState(""),
-  reset: (sessionId) => set({ state: emptyState(sessionId), streaming: null, toolProgress: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
+  reset: (sessionId) => set({ state: emptyState(sessionId), gone: false, streaming: null, toolProgress: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
   applyEvent: (ev) => {
     const next = reduce(get().state, ev);
     const patch: Partial<Store> = { state: next };
@@ -70,8 +71,11 @@ export const useStore = create<Store>((set, get) => ({
       if (ev.active) typing[ev.userId] = ev.lane;
       else delete typing[ev.userId];
       set({ typing });
+    } else if (ev.kind === "session.deleted") {
+      set({ gone: true });
     }
   },
+  gone: false,
   streaming: null,
   toolProgress: null,
   turn: { state: "idle", queued: 0, turnId: null, payerUserId: null },

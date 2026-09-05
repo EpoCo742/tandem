@@ -33,6 +33,7 @@ export interface SessionMeta {
   payerMode: string;
   pinnedModel: string;
   provider: string;
+  status: "active" | "archived";
   createdBy: string;
   me: { role: string; consented: boolean; hasCredential: boolean };
   collabToken: string;

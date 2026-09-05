@@ -3,8 +3,9 @@ import { api, type CredentialView } from "../api";
 import { navigate } from "../App";
 import { TopBar } from "../components/TopBar";
 import { useStore } from "../state/store";
+import { SessionMenu } from "../components/SessionMenu";
 
-interface SessionRow { id: string; title: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string }
+interface SessionRow { id: string; title: string; status: "active" | "archived"; role: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string; updatedAt: string }
 interface DigestSession {
   sessionId: string;
   title: string;
@@ -31,9 +32,15 @@ export function Home() {
   const [model, setModel] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
+  function reload() {
     api<SessionRow[]>("GET", "/api/v1/sessions").then(setSessions);
     api<{ sessions: DigestSession[] }>("GET", "/api/v1/digest").then((r) => setDigest(r.sessions)).catch(() => undefined);
+  }
+  const active = sessions.filter((s) => s.status !== "archived");
+  const archived = sessions.filter((s) => s.status === "archived");
+
+  useEffect(() => {
+    reload();
     api<typeof creds>("GET", "/api/v1/credentials").then((c) => {
       setCreds(c);
       setProvider(c!.defaultProvider);
@@ -105,18 +112,31 @@ export function Home() {
 
         <Digest sessions={digest} />
         <h2 style={{ fontSize: 22, margin: "22px 0 10px" }}>Your sessions</h2>
-        {sessions.length === 0 && <p className="muted">None yet.</p>}
-        {sessions.map((s) => (
-          <div key={s.id} className="card row" style={{ cursor: "pointer" }} onClick={() => navigate(`/s/${s.id}`)}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>{s.title}</div>
-              <div className="mono">{s.provider} · {s.pinnedModel} · {s.payerMode} · {s.policy}</div>
-            </div>
-            <span className="mono">{new Date(s.createdAt).toLocaleString()}</span>
-          </div>
-        ))}
+        <p className="muted" style={{ marginTop: 0 }}>Sessions you created or were invited to. Nobody else can see them.</p>
+        {active.length === 0 && <p className="muted">None yet.</p>}
+        {active.map((s) => <SessionListRow key={s.id} s={s} onChange={reload} />)}
+        {archived.length > 0 && (
+          <>
+            <h3 style={{ fontSize: 16, margin: "22px 0 8px", color: "var(--ink-3)" }}>Archived</h3>
+            <p className="muted" style={{ marginTop: 0 }}>Read only and out of the digest. The owner can reopen one from its menu.</p>
+            {archived.map((s) => <SessionListRow key={s.id} s={s} onChange={reload} />)}
+          </>
+        )}
       </div>
     </>
+  );
+}
+
+function SessionListRow({ s, onChange }: { s: SessionRow; onChange: () => void }) {
+  return (
+    <div className={`card row session-row${s.status === "archived" ? " archived" : ""}`} onClick={() => navigate(`/s/${s.id}`)}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600 }}>{s.title}{s.status === "archived" && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}</div>
+        <div className="mono">{s.provider} · {s.pinnedModel} · {s.payerMode} · {s.policy} · you are {s.role}</div>
+      </div>
+      <span className="mono" title={`created ${new Date(s.createdAt).toLocaleString()}`}>{new Date(s.updatedAt).toLocaleString()}</span>
+      <SessionMenu sessionId={s.id} title={s.title} status={s.status} isOwner={s.role === "owner"} onChange={onChange} onDeleted={onChange} />
+    </div>
   );
 }
 

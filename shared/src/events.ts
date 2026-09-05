@@ -79,6 +79,8 @@ export interface Option {
 
 export type Payloads = {
   "session.created": { title: string; policy: Policy; payerMode: PayerMode; pinnedModel: string; forkedFrom?: { sessionId: string; commitId: string | null; title: string } };
+  "session.renamed": { title: string; previous: string }; // the owner gave the session a new title
+  "session.archived": { archived: boolean }; // the owner closed the session (read only) or reopened it
   "participant.joined": { role: Role; name: string; color: string; avatarUrl?: string };
   "participant.left": Record<string, never>;
   "participant.consented": { providers: string[] };
@@ -187,7 +189,8 @@ export type EphemeralEvent =
   | { kind: "ai.delta"; sessionId: string; turnId: string; text: string }
   | { kind: "ai.tool_progress"; sessionId: string; turnId: string; tool: string; artifactId?: string; status: "start" | "done" | "error" }
   | { kind: "turn.state"; sessionId: string; state: TurnStatus | "idle"; queued: number; turnId: string | null; payerUserId: string | null }
-  | { kind: "typing"; sessionId: string; userId: string; lane: "ai" | "side"; active: boolean };
+  | { kind: "typing"; sessionId: string; userId: string; lane: "ai" | "side"; active: boolean }
+  | { kind: "session.deleted"; sessionId: string }; // the owner deleted the session; open tabs go home
 
 export type WireMessage =
   | { t: "event"; event: AnyLedgerEvent }

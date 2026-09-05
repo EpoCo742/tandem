@@ -62,6 +62,14 @@ class SessionBroker {
     if (this.state === "collecting") this.closeBatch();
   }
 
+  dispose() {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.batch = [];
+    this.queued = [];
+    this.abort?.abort();
+  }
+
   async interrupt(userId: string) {
     if (this.state !== "generating" || !this.abort || !this.currentTurnId) return false;
     appendEvent(this.sessionId, { type: "turn.interrupted", actorKind: "user", actorUserId: userId, turnId: this.currentTurnId, payload: { turnId: this.currentTurnId, partialTextKept: true } });
@@ -263,6 +271,14 @@ export function pickClosest(requested: string, available: string[]): string {
 }
 
 const brokers = new Map<string, SessionBroker>();
+
+/** Forget a session's broker (on delete). A running turn is cut off; nothing else is written. */
+export function dropBroker(sessionId: string) {
+  const b = brokers.get(sessionId);
+  if (!b) return;
+  b.dispose();
+  brokers.delete(sessionId);
+}
 
 export function brokerFor(sessionId: string): SessionBroker {
   let b = brokers.get(sessionId);

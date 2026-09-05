@@ -335,6 +335,44 @@ assert(forkEvents.some((e) => e.type === "participant.joined" && e.actorUserId =
 const forkMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
 assert(forkMeta.me.consented === false && forkMeta.forkedFrom.sessionId === sessionId, "participants must re-consent in the fork");
 
+// Managing sessions: rename, archive, delete are the owner's; the fork is the guinea pig so the main session stays.
+const fails = (p) => p.then(() => null, (e) => e.message);
+assert(/403/.test(await fails(bob.call("PATCH", `/api/v1/sessions/${fork.id}`, { title: "Bob's" }))), "a non-owner cannot rename a session");
+const renamedSession = await alice.call("PATCH", `/api/v1/sessions/${fork.id}`, { title: "Order platform v2 (renamed)" });
+assert(renamedSession.title === "Order platform v2 (renamed)", "the owner renamed the fork");
+const listAfterRename = await alice.call("GET", "/api/v1/sessions");
+const forkRow = listAfterRename.find((s) => s.id === fork.id);
+assert(forkRow?.title === "Order platform v2 (renamed)" && forkRow.status === "active" && forkRow.role === "owner", "the session list carries the new title, status and my role");
+const forkEventsAfterRename = await alice.call("GET", `/api/v1/sessions/${fork.id}/events`);
+assert(forkEventsAfterRename.some((e) => e.type === "session.renamed" && e.payload.previous === "Order platform v2"), "the rename is in the ledger with the previous title");
+assert(/403/.test(await fails(bob.call("POST", `/api/v1/sessions/${fork.id}/archive`, { archived: true }))), "a non-owner cannot archive");
+assert(/403/.test(await fails(bob.call("DELETE", `/api/v1/sessions/${fork.id}`))), "a non-owner cannot delete");
+const archivedSession = await alice.call("POST", `/api/v1/sessions/${fork.id}/archive`, { archived: true });
+assert(archivedSession.status === "archived", "the owner archived the fork");
+assert(/409/.test(await fails(alice.call("POST", `/api/v1/sessions/${fork.id}/messages`, { text: "anyone there?" }))), "an archived session refuses new messages");
+assert(/409/.test(await fails(alice.call("POST", `/api/v1/sessions/${fork.id}/artifacts`, { type: "card", title: "x", content: { markdown: "x" } }))), "an archived session refuses new cards");
+assert(/409/.test(await fails(bob.call("POST", `/api/v1/sessions/${fork.id}/invites`, {}))), "an archived session refuses invites");
+const archivedMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
+assert(archivedMeta.status === "archived", "participants can still open an archived session");
+const archivedExport = await bob.call("GET", `/api/v1/sessions/${fork.id}/export`);
+assert(typeof archivedExport === "string" && archivedExport.includes("## Decision log"), "an archived session still exports");
+const digestArchived = (await alice.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === fork.id);
+assert(!digestArchived, "archived sessions drop out of the digest");
+const listArchived = (await alice.call("GET", "/api/v1/sessions")).find((s) => s.id === fork.id);
+assert(listArchived?.status === "archived", "the session list marks the fork archived");
+const reopened = await alice.call("POST", `/api/v1/sessions/${fork.id}/archive`, { archived: false });
+assert(reopened.status === "active", "the owner reopened the fork");
+const archiveEvents = (await alice.call("GET", `/api/v1/sessions/${fork.id}/events`)).filter((e) => e.type === "session.archived").map((e) => e.payload.archived);
+assert(archiveEvents.length === 2 && archiveEvents[0] === true && archiveEvents[1] === false, "archive and reopen are both in the ledger");
+await alice.call("POST", `/api/v1/sessions/${fork.id}/messages`, { text: "back again", mode: "note" });
+const forkDeleted = await alice.call("DELETE", `/api/v1/sessions/${fork.id}`);
+assert(forkDeleted.ok === true, "the owner deleted the fork");
+assert(/404/.test(await fails(alice.call("GET", `/api/v1/sessions/${fork.id}`))), "a deleted session is gone");
+assert(!(await bob.call("GET", "/api/v1/sessions")).some((s) => s.id === fork.id), "a deleted session leaves everyone's list");
+assert(/404/.test(await fails(alice.call("GET", `/api/v1/sessions/${fork.id}/events`))), "a deleted session has no ledger");
+const mainStill = await alice.call("GET", `/api/v1/sessions/${sessionId}`);
+assert(mainStill.id === sessionId && mainStill.status === "active", "the original session is untouched by deleting its fork");
+
 // External tools: Alice registers the demo MCP server (a stand-in for Atlassian); Bob has none.
 const demoDir = fileURLToPath(new URL("../data-smoke/mcp-demo", import.meta.url));
 fs.rmSync(demoDir, { recursive: true, force: true });

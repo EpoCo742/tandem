@@ -10,6 +10,7 @@ import { Canvas } from "../components/Canvas";
 import { SidePane } from "../components/SidePane";
 import { ExportPreview } from "../components/ExportPreview";
 import { ThreadPanel } from "../components/ThreadPanel";
+import { SessionMenu } from "../components/SessionMenu";
 
 export function Session({ sessionId }: { sessionId: string }) {
   const me = useStore((s) => s.me)!;
@@ -19,6 +20,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
   const presence = useStore((s) => s.presence);
   const connected = useStore((s) => s.connected);
+  const gone = useStore((s) => s.gone);
   const [err, setErr] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState<"editor" | "reviewer" | "viewer">("editor");
@@ -62,8 +64,21 @@ export function Session({ sessionId }: { sessionId: string }) {
     setCollab(c);
   }, [meta, myParticipant, sessionId, me.user]);
 
+  if (gone) {
+    return (
+      <>
+        <TopBar />
+        <div className="page">
+          <p>This session was deleted by its owner.</p>
+          <button onClick={() => navigate("/")}>Back to your sessions</button>
+        </div>
+      </>
+    );
+  }
   if (err) return <div className="page err">{err}</div>;
   if (!meta) return <div className="page muted">Loading session…</div>;
+  const isOwner = meta.me.role === "owner";
+  const archived = state.status === "archived";
 
   async function invite() {
     const r = await api<{ url: string }>("POST", `/api/v1/sessions/${sessionId}/invites`, { role: inviteRole });
@@ -76,9 +91,11 @@ export function Session({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="session">
+    <div className={`session${archived ? " archived" : ""}`}>
       <TopBar>
         <span style={{ fontWeight: 600 }}>{state.title || meta.title}</span>
+        <SessionMenu sessionId={sessionId} title={state.title || meta.title} status={archived ? "archived" : "active"} isOwner={isOwner} onDeleted={() => navigate("/")} />
+        {archived && <span className="chip" title="Read only until the owner reopens it">archived</span>}
         <span className="mono">{meta.provider} · {meta.pinnedModel} · {meta.payerMode} · {state.policy}</span>
         <span className="mono" style={{ color: connected ? "var(--ok)" : "var(--warn)" }}>{connected ? "live" : "reconnecting"}</span>
         <div className="presence" title="present now">
@@ -89,15 +106,20 @@ export function Session({ sessionId }: { sessionId: string }) {
           <option value="reviewer">as reviewer</option>
           <option value="viewer">as viewer</option>
         </select>
-        <button onClick={invite}>Invite</button>
+        <button onClick={invite} disabled={archived}>Invite</button>
         {inviteUrl && <span className="mono" style={{ userSelect: "all" }}>{inviteUrl}</span>}
         {state.forkedFrom && (
           <a className="mono" href={`/s/${state.forkedFrom.sessionId}`} onClick={(e) => { e.preventDefault(); navigate(`/s/${state.forkedFrom!.sessionId}`); }} title="This session was forked from another one">forked from {state.forkedFrom.title}</a>
         )}
-        <button className="primary" title="Ask the AI to assemble a design document from the canvas and decision registry" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/compile`).catch((e) => setErr((e as Error).message))}>Compile design doc</button>
+        <button className="primary" disabled={archived} title="Ask the AI to assemble a design document from the canvas and decision registry" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/compile`).catch((e) => setErr((e as Error).message))}>Compile design doc</button>
         <button title="Start a new session from the current canvas and agreed decisions; this one stays intact" onClick={() => api<{ id: string }>("POST", `/api/v1/sessions/${sessionId}/fork`, {}).then((r) => navigate(`/s/${r.id}`)).catch((e) => setErr((e as Error).message))}>Fork as v2</button>
         <button onClick={() => setExporting(true)} title="Preview the Markdown export, then copy or download it">Export .md</button>
       </TopBar>
+      {archived && (
+        <div className="archived-banner">
+          This session is archived: everything stays readable and exportable, nothing can change.{isOwner ? " Reopen it from the session menu next to the title." : " The owner can reopen it."}
+        </div>
+      )}
       {exporting && <ExportPreview sessionId={sessionId} title={state.title || meta.title} onClose={() => setExporting(false)} />}
       <ThreadPanel sessionId={sessionId} />
       <ConversationPane sessionId={sessionId} />

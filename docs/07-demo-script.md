@@ -43,6 +43,19 @@ Feature: dev login, encrypted credential, sponsor-mode session, invite, consent.
 
 Point at: the top bar reads `fake · fake-architect-1 · sponsor · hybrid · live`, "2 participants", both avatars.
 
+## Stage 1c: managing sessions (no script)
+
+Feature: rename, archive, delete; who sees what.
+
+| Who | Does |
+|---|---|
+| Alice | Home: the **⋯** menu on a session row (or next to the title in the top bar) offers **Rename…**, **Archive**, **Delete…**. Renames "Order platform v1" to "Order platform (demo)"; the open session's title and a system line in the lane change at once for Bob too. |
+| Alice | **Archive**. The session moves under **Archived** on the home page, drops out of everyone's digest, and every write (messages, cards, votes, invites) is refused with "This session is archived". Export and the history still work. **Reopen** brings it back. |
+| Alice | **Delete…** on the fork from stage 10: an inline confirmation, then it is gone for everyone; Bob's open tab shows "This session was deleted by its owner". |
+| Bob | Opens the menu: told that only the owner can rename, archive or delete. |
+
+Point at: a session is visible only to the people in it (creator plus everyone who accepted an invite); there is no browse-all list. Archive is reversible and keeps everything; delete is not.
+
 ## Stage 1b: as-is from code
 
 Feature: with a read-only repository tool registered (a GitHub MCP server, or the demo server's `repo_tree` / `repo_file`), "draw the current architecture of repository X" reads the repository's manifests, never its source, and records the result as the model's **as-is** baseline. When the model is empty it becomes the model; from then on the model is the target state and an **As-is vs to-be** view shows added (green), removed (dashed red), changed (amber) and unchanged (grey) components.

@@ -103,6 +103,18 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .who-name { display: inline-flex; flex-direction: column; line-height: 1.1; }
 .who-name .mono { font-size: 10px; }
 
+/* session menu (rename, archive, delete) */
+.session-menu { position: relative; display: inline-flex; }
+.session-menu > button.icon { padding: 2px 7px; }
+.session-menu .pop { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; min-width: 240px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.session-menu .pop button { text-align: left; border-color: transparent; background: transparent; }
+.session-menu .pop button:hover { background: var(--panel-2); }
+.session-menu .pop .confirm { padding: 6px; border-top: 1px solid var(--line); margin-top: 2px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.session-menu .pop .confirm .row button { border-color: var(--line); }
+.session-row { cursor: pointer; }
+.session-row.archived { opacity: .7; }
+.archived-banner { grid-column: 1 / -1; background: var(--panel-2); border-bottom: 1px solid var(--line); padding: 6px 14px; font-size: 13px; color: var(--ink-2); }
+
 /* pages */
 .page { max-width: 880px; margin: 0 auto; padding: 32px 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; margin-bottom: 14px; }
@@ -114,6 +126,7 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 /* session layout */
 .session { display: grid; grid-template-columns: 380px 1fr 330px; grid-template-rows: 46px 1fr; height: 100vh; }
 .session .topbar { grid-column: 1 / -1; }
+.session.archived { grid-template-rows: 46px auto 1fr; }
 .pane { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .pane.right { border-right: none; border-left: 1px solid var(--line); }
 .pane-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
