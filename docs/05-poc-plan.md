@@ -207,7 +207,7 @@ Validated against a real Copilot seat on 2026-09-04: the model drives the canvas
 
 2026-09-05, second feedback round: GitHub OAuth confirmed working end to end (avatar and login shown in the top bar). Text uploads are kept whole (was 20k characters) and a card attached to a message gets an 80k-character allowance in the prompt; attached files are also handed to the Copilot runtime as file attachments, which is how images reach a vision-capable model. Export renders data models as tables and quotes only the top of uploaded files; the compile prompt says the same. Export preview draws diagrams at natural size and renders Markdown tables.
 
-Not yet done: live Yjs text editing; an "editing" indicator on cards (today a concurrent edit is caught by the version check on save, not shown while it happens).
+Not yet done: see `08-backlog.md` (per-user MCP servers first, then collapsed source cards, an editing indicator, live text editing, GitHub App tokens, M4).
 
 ## 8. Known POC limitations to state in the demo
 
