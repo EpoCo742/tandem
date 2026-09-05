@@ -177,7 +177,7 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
       {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
       {a.type === "arch_model" && <ModelTable content={v.content as ArchModelContent} />}
       {a.type === "view" && <ModelView content={v.content as ViewContent} />}
-      {a.type === "decision_point" && <DecisionPoint content={v.content as DecisionPointContent} myId={myId} onVote={onVote} />}
+      {a.type === "decision_point" && <DecisionPoint content={v.content as DecisionPointContent} myId={myId} onVote={onVote} sessionId={sessionId} artifactId={a.id} />}
     </>
   );
 }
@@ -270,13 +270,50 @@ function DataModel({ content }: { content: DataModelContent }) {
   );
 }
 
-function DecisionPoint({ content, myId, onVote }: { content: DecisionPointContent; myId: string; onVote: (id: string) => void }) {
+function DecisionPoint({ content, myId, onVote, sessionId, artifactId }: { content: DecisionPointContent; myId: string; onVote: (id: string) => void; sessionId?: string; artifactId?: string }) {
   const state = useStore((s) => s.state);
   const tally = new Map<string, string[]>();
   for (const [u, o] of Object.entries(content.votes ?? {})) tally.set(o, [...(tally.get(o) ?? []), u]);
+  const closed = Boolean(content.resolvedOptionId || content.expired);
+  const deadline = content.deadline ? new Date(content.deadline) : null;
+  const [copied, setCopied] = useState(false);
+  async function setDeadline(minutes: number) {
+    if (!sessionId || !artifactId) return;
+    await api("POST", `/api/v1/sessions/${sessionId}/decision-points/${artifactId}/deadline`, { minutes });
+  }
+  async function copyLink() {
+    if (!sessionId || !artifactId) return;
+    try {
+      await navigator.clipboard.writeText(`${location.origin}/s/${sessionId}/vote/${artifactId}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked */
+    }
+  }
   return (
     <div>
       <div style={{ marginBottom: 8 }}>{content.context}</div>
+      {content.expired && <div className="consent" style={{ marginBottom: 8 }}>Expired without a majority. The blocked cards are editable again; the question is still open if anyone wants to raise it.</div>}
+      {!closed && (
+        <div className="row" style={{ flexWrap: "wrap", marginBottom: 8, fontSize: 12 }}>
+          {deadline ? (
+            <span className="mono" title={deadline.toLocaleString()}>closes {deadline.getTime() - Date.now() < 3_600_000 ? `in ${Math.max(1, Math.round((deadline.getTime() - Date.now()) / 60_000))} min` : deadline.toLocaleString()}</span>
+          ) : (
+            <span className="mono">no deadline</span>
+          )}
+          {sessionId && (
+            <select defaultValue="" onChange={(e) => { if (e.target.value) setDeadline(Number(e.target.value)); e.target.value = ""; }} style={{ width: "auto", padding: "0 4px", fontSize: 11 }} title="Set a deadline; without a majority by then the point expires and unblocks its cards">
+              <option value="">{deadline ? "move deadline…" : "set deadline…"}</option>
+              <option value="60">1 hour</option>
+              <option value="240">4 hours</option>
+              <option value="1440">1 day</option>
+              <option value="4320">3 days</option>
+            </select>
+          )}
+          {sessionId && <button style={{ padding: "0 6px", fontSize: 11 }} onClick={copyLink} title="A link that opens just this decision for someone who is not in the session">{copied ? "link copied" : "copy vote link"}</button>}
+        </div>
+      )}
       {content.options.map((o) => {
         const voters = tally.get(o.id) ?? [];
         const mine = content.votes?.[myId] === o.id;
@@ -287,7 +324,7 @@ function DecisionPoint({ content, myId, onVote }: { content: DecisionPointConten
               <b>{o.title}</b>
               <div className="votes">
                 {voters.map((u) => <span key={u} className="chip solid" style={{ background: state.participants[u]?.color ?? AI_COLOR }}>{participantName(state, u)}</span>)}
-                {!content.resolvedOptionId && <button className={mine ? "primary" : ""} onClick={() => onVote(o.id)}>{mine ? "voted" : "vote"}</button>}
+                {!closed && <button className={mine ? "primary" : ""} onClick={() => onVote(o.id)}>{mine ? "voted" : "vote"}</button>}
                 {chosen && <span className="chip" style={{ color: "var(--ok)" }}>chosen</span>}
               </div>
             </div>

@@ -5,10 +5,24 @@ import { TopBar } from "../components/TopBar";
 import { useStore } from "../state/store";
 
 interface SessionRow { id: string; title: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string }
+interface DigestSession {
+  sessionId: string;
+  title: string;
+  lastSeenSeq: number;
+  lastSeq: number;
+  waiting: {
+    decisionPoints: { artifactId: string; question: string; deadline: string | null; options: { id: string; title: string }[]; votes: number; voters: number }[];
+    proposals: { id: string; title: string; op: string; proposer: string; autoApplyAt: string | null }[];
+    externalCalls: { id: string; summary: string; onBehalfOf: string }[];
+  };
+  since: { messages: number; aiReplies: number; decisions: string[]; artifacts: string[]; mentions: { eventId: string; from: string; text: string }[] };
+  lastActivityAt: string;
+}
 
 export function Home() {
   const me = useStore((s) => s.me);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [digest, setDigest] = useState<DigestSession[]>([]);
   const [creds, setCreds] = useState<{ credentials: CredentialView[]; providers: string[]; defaultProvider: string; defaultModel: string } | null>(null);
   const [title, setTitle] = useState("");
   const [provider, setProvider] = useState("");
@@ -18,6 +32,7 @@ export function Home() {
 
   useEffect(() => {
     api<SessionRow[]>("GET", "/api/v1/sessions").then(setSessions);
+    api<{ sessions: DigestSession[] }>("GET", "/api/v1/digest").then((r) => setDigest(r.sessions)).catch(() => undefined);
     api<typeof creds>("GET", "/api/v1/credentials").then((c) => {
       setCreds(c);
       setProvider(c!.defaultProvider);
@@ -87,6 +102,7 @@ export function Home() {
           </div>
         </div>
 
+        <Digest sessions={digest} />
         <h2 style={{ fontSize: 22, margin: "22px 0 10px" }}>Your sessions</h2>
         {sessions.length === 0 && <p className="muted">None yet.</p>}
         {sessions.map((s) => (
@@ -99,6 +115,67 @@ export function Home() {
           </div>
         ))}
       </div>
+    </>
+  );
+}
+
+// What is waiting on you, then what changed while you were away. Built from each session's ledger
+// and how far you had read it; a link takes you straight to the thing, not to the whole canvas.
+function Digest({ sessions }: { sessions: DigestSession[] }) {
+  const waiting = sessions.filter((s) => s.waiting.decisionPoints.length + s.waiting.proposals.length + s.waiting.externalCalls.length > 0);
+  const changed = sessions.filter((s) => s.since.messages + s.since.aiReplies + s.since.decisions.length + s.since.artifacts.length > 0);
+  if (waiting.length === 0 && changed.length === 0) return null;
+  const closes = (iso: string | null) => (iso ? ` · closes ${new Date(iso).toLocaleString()}` : "");
+  return (
+    <>
+      {waiting.length > 0 && (
+        <>
+          <h2 style={{ fontSize: 22, margin: "22px 0 10px" }}>Waiting on you</h2>
+          {waiting.map((s) => (
+            <div key={s.sessionId} className="card stack" style={{ gap: 6 }}>
+              <div style={{ fontWeight: 600 }}>{s.title}</div>
+              {s.waiting.decisionPoints.map((d) => (
+                <div key={d.artifactId} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                  <span>Decision point: <b>{d.question}</b> <span className="mono">{d.votes} of {d.voters} voted{closes(d.deadline)}</span></span>
+                  <button className="primary" onClick={() => navigate(`/s/${s.sessionId}/vote/${d.artifactId}`)}>Vote</button>
+                </div>
+              ))}
+              {s.waiting.proposals.map((p) => (
+                <div key={p.id} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                  <span>Proposal from {p.proposer}: {p.op} <b>{p.title}</b>{p.autoApplyAt ? <span className="mono"> · applies by itself {new Date(p.autoApplyAt).toLocaleTimeString()}</span> : null}</span>
+                  <button onClick={() => navigate(`/s/${s.sessionId}`)}>Review</button>
+                </div>
+              ))}
+              {s.waiting.externalCalls.map((c) => (
+                <div key={c.id} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                  <span>Outbound write for {c.onBehalfOf} with your tool: <b>{c.summary}</b></span>
+                  <button onClick={() => navigate(`/s/${s.sessionId}`)}>Decide</button>
+                </div>
+              ))}
+            </div>
+          ))}
+        </>
+      )}
+      {changed.length > 0 && (
+        <>
+          <h2 style={{ fontSize: 22, margin: "22px 0 10px" }}>Since you last looked</h2>
+          {changed.map((s) => (
+            <div key={s.sessionId} className="card" style={{ cursor: "pointer" }} onClick={() => navigate(`/s/${s.sessionId}`)}>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span style={{ fontWeight: 600 }}>{s.title}</span>
+                <span className="mono">{s.since.messages} message{s.since.messages === 1 ? "" : "s"} · {s.since.aiReplies} AI repl{s.since.aiReplies === 1 ? "y" : "ies"}</span>
+              </div>
+              {s.since.mentions.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  {s.since.mentions.map((m) => <div key={m.eventId} className="msg" style={{ padding: "4px 8px", marginTop: 4 }}><span className="mono">{m.from} mentioned you</span><div>{m.text}</div></div>)}
+                </div>
+              )}
+              {s.since.decisions.length > 0 && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Decisions: {s.since.decisions.join("; ")}</div>}
+              {s.since.artifacts.length > 0 && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>Cards changed: {s.since.artifacts.join(", ")}</div>}
+            </div>
+          ))}
+        </>
+      )}
     </>
   );
 }

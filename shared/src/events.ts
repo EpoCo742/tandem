@@ -71,7 +71,7 @@ export type Payloads = {
   "participant.joined": { role: "owner" | "editor" | "viewer"; name: string; color: string; avatarUrl?: string };
   "participant.left": Record<string, never>;
   "participant.consented": { providers: string[] };
-  "message.posted": { text: string; mode: MessageMode; attachments: string[]; replyTo?: string; fromNoteEventId?: string; intent?: "compile" };
+  "message.posted": { text: string; mode: MessageMode; attachments: string[]; replyTo?: string; fromNoteEventId?: string; intent?: "compile"; mentions?: string[] };
   "turn.started": { payerUserId: string; provider: string; modelRequested: string; batchEventIds: string[]; onBehalfOf: string };
   "turn.model_degraded": { requested: string; used: string; reason: string };
   "ai.message": { text: string; addressedTo: string[]; toolCallsCount: number; partial?: boolean; onBehalfOf: string; provider: string; model: string; payerUserId: string };
@@ -124,6 +124,8 @@ export type Payloads = {
     consequences?: string; // ADR: what follows from it
   };
   "decision.voted": { decisionPointArtifactId: string; optionId: string };
+  "decision.deadline_set": { decisionPointArtifactId: string; at: string };
+  "decision.expired": { decisionPointArtifactId: string }; // the deadline passed without a majority
   "decision.resolved": { decisionPointArtifactId: string; optionId: string; decisionId: string | null };
   "conflict.flagged": {
     conflictId: string;

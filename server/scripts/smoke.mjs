@@ -373,6 +373,32 @@ const adrCommits = JSON.parse(fs.readFileSync(path.join(demoDir, "commits.json")
 assert(adrCommits.length === adrs.files.length && adrCommits.every((c) => c.repo === "acme/order-platform"), `${adrCommits.length} ADR files committed, the rest pre-approved for the repository`);
 assert(fs.existsSync(path.join(demoDir, "repos", "acme_order-platform", "docs", "adr", adrs.files[0].filename)), "the ADR file exists in the demo repository");
 
+// Asynchronous participation: a decision point with a deadline expires instead of staying open,
+// the digest shows what waits on a person and what changed since they last looked, mentions land.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Remove Postgres. Service B should write the OrderPlaced event to Kafka instead." });
+await waitFor(() => subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "decision_point").length >= 2, "second decision point");
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "contradiction turn");
+const dp2 = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "decision_point").pop().payload;
+const deadline = await alice.call("POST", `/api/v1/sessions/${sessionId}/decision-points/${dp2.artifactId}/deadline`, { at: new Date(Date.now() + 2500).toISOString() });
+assert(deadline.at, "alice set a deadline on the decision point");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "@bob can you look at the cache before the deadline?", mode: "note" });
+const bobDigest = await bob.call("GET", "/api/v1/digest");
+const mine = bobDigest.sessions.find((s) => s.sessionId === sessionId);
+assert(mine && mine.waiting.decisionPoints.some((d) => d.artifactId === dp2.artifactId && d.deadline), "bob's digest lists the decision point waiting on him with its deadline");
+assert(mine.since.mentions.some((m) => /cache/.test(m.text) && m.from === "Alice"), "bob's digest lists alice's mention of him");
+assert(mine.since.messages > 0 && mine.lastSeenSeq === 0, "bob has unseen activity");
+await bob.call("POST", `/api/v1/sessions/${sessionId}/seen`, { seq: mine.lastSeq });
+const seen = (await bob.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);
+assert(seen.since.messages === 0 && seen.since.mentions.length === 0, "marking the session seen clears the since-you-looked counts");
+await waitFor(() => subA.events.some((e) => e.type === "decision.expired" && e.payload.decisionPointArtifactId === dp2.artifactId), "decision point expired", 15000);
+const stateAfterExpiry = await alice.call("GET", `/api/v1/sessions/${sessionId}/events`);
+const modelBlocked = stateAfterExpiry.filter((e) => e.type === "artifact.blocked" || e.type === "artifact.unblocked");
+const tryEdit = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${diagram.artifactId}/versions`, { content: modelV2, rationale: "after expiry" });
+assert(tryEdit.status !== "blocked_by_decision_point", `the model is editable again after the expiry (${tryEdit.status})`);
+const afterExpiry = (await bob.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);
+assert(!afterExpiry.waiting.decisionPoints.some((d) => d.artifactId === dp2.artifactId), "an expired decision point no longer waits on anyone");
+
 // Brief: a forced compaction folds older messages into an attributed summary that later prompts use.
 const briefRes = await alice.call("POST", `/api/v1/sessions/${sessionId}/brief`);
 assert(briefRes.status === "compacted" && briefRes.folded >= 3, `forced compaction folded ${briefRes.folded} messages`);

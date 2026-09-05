@@ -43,6 +43,14 @@ export function Session({ sessionId }: { sessionId: string }) {
     };
   }, [sessionId, reset, setMeta]);
 
+  // Tell the server how far I have read, so the digest can say what changed since; throttled, and only while visible.
+  const lastSeq = state.lastSeq;
+  useEffect(() => {
+    if (!meta || !lastSeq || document.visibilityState !== "visible") return;
+    const t = setTimeout(() => void api("POST", `/api/v1/sessions/${sessionId}/seen`, { seq: lastSeq }).catch(() => undefined), 1500);
+    return () => clearTimeout(t);
+  }, [lastSeq, meta, sessionId]);
+
   // Connect Yjs once we know our participant colour.
   const myParticipant = state.participants[me.user!.id];
   useEffect(() => {

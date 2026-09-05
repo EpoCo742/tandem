@@ -29,6 +29,13 @@
       "when": 1788619750028,
       "tag": "0003_neat_wild_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788630453697,
+      "tag": "0004_lazy_micromacro",
+      "breakpoints": true
     }
   ]
 }

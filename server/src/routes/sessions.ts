@@ -12,6 +12,7 @@ import { findCredentialForUser, listCredentials } from "../credentials.js";
 import { contentHash, createCommit, requestChange, resolveProposal, revertTo } from "../governance.js";
 import { maybeCompact } from "../context/compact.js";
 import { resolveExternalCall } from "../external.js";
+import { digestFor, markSeen, parseMentions, scheduleExpiry } from "../async.js";
 import { mintCollabToken } from "../crypto.js";
 import { exportMarkdown } from "../export.js";
 
@@ -125,7 +126,8 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     // Attachments are artifact ids of source cards created by this user's uploads.
     const state = getState(req.params.id);
     const attachments = (req.body.attachments ?? []).filter((id) => typeof id === "string" && state.artifacts[id] && !state.artifacts[id]!.deleted).slice(0, 8);
-    const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: user.id, payload: { text, mode, attachments, replyTo: req.body.replyTo } });
+    const mentions = parseMentions(req.params.id, text);
+    const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: user.id, payload: { text, mode, attachments, replyTo: req.body.replyTo, ...(mentions.length ? { mentions } : {}) } });
     if (mode === "directive") brokerFor(req.params.id).onDirective(ev);
     db.update(schema.sessions).set({ updatedAt: now() }).where(eq(schema.sessions.id, req.params.id)).run();
     return { eventId: ev.id, seq: ev.seq };
@@ -366,6 +368,35 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     } catch (e) {
       return reply.code(400).send({ error: (e as Error).message });
     }
+  });
+
+  // A deadline on an open decision point: when it passes without a majority the point expires and unblocks its cards.
+  app.post<{ Params: { id: string; artifactId: string }; Body: { at?: string; minutes?: number } }>("/api/v1/sessions/:id/decision-points/:artifactId/deadline", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot set deadlines" });
+    const state = getState(req.params.id);
+    const dp = state.artifacts[req.params.artifactId];
+    if (!dp || dp.type !== "decision_point" || dp.deleted) return reply.code(404).send({ error: "decision point not found" });
+    const c = dp.current.content as DecisionPointContent;
+    if (c.resolvedOptionId || c.expired) return reply.code(400).send({ error: "already closed" });
+    const at = req.body?.at ? new Date(req.body.at) : new Date(Date.now() + Math.max(0.05, Number(req.body?.minutes ?? 60)) * 60_000);
+    if (Number.isNaN(at.getTime())) return reply.code(400).send({ error: "bad deadline" });
+    appendEvent(req.params.id, { type: "decision.deadline_set", actorKind: "user", actorUserId: user.id, causedBy: [dp.current.eventId], payload: { decisionPointArtifactId: dp.id, at: at.toISOString() } });
+    scheduleExpiry(req.params.id, dp.id, at.toISOString());
+    return { at: at.toISOString() };
+  });
+
+  app.post<{ Params: { id: string }; Body: { seq: number } }>("/api/v1/sessions/:id/seen", async (req, reply) => {
+    const user = requireUser(req, reply);
+    participantOr403(req.params.id, user.id);
+    markSeen(req.params.id, user.id, Number(req.body?.seq ?? 0));
+    return { ok: true };
+  });
+
+  app.get("/api/v1/digest", async (req, reply) => {
+    const user = requireUser(req, reply);
+    return { sessions: digestFor(user.id) };
   });
 
   // Refresh the brief by hand: folds everything but the last few messages. Costs one provider request.

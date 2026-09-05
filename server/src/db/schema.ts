@@ -67,6 +67,7 @@ export const participants = sqliteTable(
     color: text("color").notNull(),
     consentedAt: text("consented_at"),
     joinedAt: text("joined_at").notNull(),
+    lastSeenSeq: integer("last_seen_seq").notNull().default(0), // for "since you last looked"
   },
   (t) => [primaryKey({ columns: [t.sessionId, t.userId] })],
 );

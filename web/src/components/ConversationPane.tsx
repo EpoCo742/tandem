@@ -105,6 +105,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
             <div key={m.eventId} id={`msg-${m.eventId}`} className={cls + flash} style={m.kind === "user" ? { borderLeftColor: color } : undefined}>
               <div className="who">
                 {m.kind === "user" && <span style={{ color }}>{participantName(state, m.userId)}{m.mode === "promoted" ? " · promoted from side channel" : ""}</span>}
+                {m.mentions?.includes(myId) && <span className="chip accent">mentions you</span>}
                 {m.kind === "ai" && (
                   <>
                     <span style={{ color: AI_COLOR }}>AI · for {participantName(state, m.onBehalfOf)}</span>

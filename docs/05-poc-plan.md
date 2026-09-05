@@ -215,6 +215,8 @@ Validated against a real Copilot seat on 2026-09-04: the model drives the canvas
 
 2026-09-05, roadmap item A2: decisions as records. `record_decision` carries context, options considered (chosen one marked) and consequences; the Decisions tab shows the record; the export has a "Decision records" section in ADR form; `GET /adrs` and a zip download give one file per decision under `docs/adr`; the `render_adr` tool lets the AI commit them through a registered file tool, gated like any outbound write. Data-model entities can name their owning component.
 
+2026-09-05, roadmap item B1: asynchronous participation. Decision points take a deadline and expire without a majority (cards unblocked, question kept open); a vote page at `/s/:id/vote/:artifactId` works from a link; the home page opens with a digest (what waits on you: decision points, proposals, outbound writes; what changed since you last looked, including mentions); `@name` mentions are recorded on messages; the session reports how far each person has read.
+
 Not yet done: see `09-roadmap.md` (per-user MCP servers first, then collapsed source cards, an editing indicator, live text editing, GitHub App tokens, M4).
 
 ## 8. Known POC limitations to state in the demo

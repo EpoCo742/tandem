@@ -5,6 +5,7 @@ import { Home } from "./pages/Home";
 import { Settings } from "./pages/Settings";
 import { Join } from "./pages/Join";
 import { Session } from "./pages/Session";
+import { Vote } from "./pages/Vote";
 import { Login } from "./pages/Login";
 
 function usePath() {
@@ -40,6 +41,8 @@ export function App() {
 
   const join = path.match(/^\/join\/([^/]+)/);
   if (join) return <Join token={join[1]!} />;
+  const vote = path.match(/^\/s\/([^/]+)\/vote\/([^/]+)/);
+  if (vote) return <Vote sessionId={vote[1]!} artifactId={vote[2]!} />;
   const session = path.match(/^\/s\/([^/]+)/);
   if (session) return <Session sessionId={session[1]!} />;
   if (path.startsWith("/settings")) return <Settings />;

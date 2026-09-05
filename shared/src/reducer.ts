@@ -41,6 +41,7 @@ export interface ChatMessage {
   partial?: boolean;
   createdAt: string;
   attachments?: string[];
+  mentions?: string[];
 }
 
 export interface ArtifactVersion {
@@ -257,7 +258,7 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       const p = ev.payload as Payloads["message.posted"];
       s.messages = [
         ...s.messages,
-        { eventId: ev.id, seq: ev.seq, kind: "user", mode: p.mode, intent: p.intent, userId: ev.actorUserId, text: p.text, turnId: ev.turnId, createdAt: ev.createdAt, attachments: p.attachments },
+        { eventId: ev.id, seq: ev.seq, kind: "user", mode: p.mode, intent: p.intent, userId: ev.actorUserId, text: p.text, turnId: ev.turnId, createdAt: ev.createdAt, attachments: p.attachments, mentions: p.mentions },
       ];
       return s;
     }
@@ -432,6 +433,28 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       content.votes = { ...(content.votes ?? {}), [ev.actorUserId!]: p.optionId };
       const current = { ...a.current, content };
       s.artifacts = { ...s.artifacts, [a.id]: { ...a, current, versions: [...a.versions.slice(0, -1), current] } };
+      return s;
+    }
+    case "decision.deadline_set": {
+      const p = ev.payload as Payloads["decision.deadline_set"];
+      const a = s.artifacts[p.decisionPointArtifactId];
+      if (!a) return s;
+      const current = { ...a.current, content: { ...(a.current.content as Record<string, unknown>), deadline: p.at } };
+      s.artifacts = { ...s.artifacts, [a.id]: { ...a, current, versions: [...a.versions.slice(0, -1), current] } };
+      return s;
+    }
+    case "decision.expired": {
+      const p = ev.payload as Payloads["decision.expired"];
+      const a = s.artifacts[p.decisionPointArtifactId];
+      if (!a) return s;
+      const current = { ...a.current, content: { ...(a.current.content as Record<string, unknown>), expired: true } };
+      s.artifacts = { ...s.artifacts, [a.id]: { ...a, current, versions: [...a.versions.slice(0, -1), current] } };
+      for (const id of (a.current.content as { blocksArtifactIds?: string[] }).blocksArtifactIds ?? []) {
+        const b = s.artifacts[id];
+        if (b && b.blockedByDecisionPoint === a.id) s.artifacts = { ...s.artifacts, [id]: { ...b, blockedByDecisionPoint: null } };
+      }
+      const q = (a.current.content as { question?: string }).question ?? a.title;
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `Decision point "${q}" expired without a majority; its cards are editable again and the question stays open.`, turnId: null, createdAt: ev.createdAt }];
       return s;
     }
     case "decision.resolved": {

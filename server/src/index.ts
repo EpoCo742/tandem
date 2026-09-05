@@ -12,6 +12,7 @@ import { registerAuthRoutes } from "./auth.js";
 import { registerCredentialRoutes } from "./routes/credentials.js";
 import { registerSessionRoutes } from "./routes/sessions.js";
 import { registerMcpRoutes } from "./routes/mcp.js";
+import { rehydrateDeadlines } from "./async.js";
 import { registerLedgerSocket } from "./ws.js";
 import { registerCollabSocket, hocuspocus } from "./collab.js";
 
@@ -60,6 +61,7 @@ async function main() {
   process.on("SIGTERM", shutdown);
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
+  rehydrateDeadlines();
   app.log.info(`Tandem POC on ${config.appUrl} (provider ${config.defaultProvider}, dev auth ${config.devAuth ? "on" : "off"})`);
 }
 

@@ -47,6 +47,8 @@ export interface DecisionPointContent {
   resolvedOptionId?: string;
   resultingDecisionId?: string;
   blocksArtifactIds: string[];
+  deadline?: string; // ISO time by which a majority is needed
+  expired?: boolean; // the deadline passed without one; the point is closed and its artifacts unblocked
 }
 
 export interface SourceContent {

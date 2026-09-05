@@ -2,7 +2,7 @@
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
-This file tracks the features as they land. Last updated 2026-09-05 (decisions as records: ADR fields, ADR files, commit to a repository).
+This file tracks the features as they land. Last updated 2026-09-05 (asynchronous participation: deadlines, vote page, digest, mentions).
 
 ## Two ways to run it
 
@@ -217,6 +217,18 @@ Feature: every decision is an architecture decision record: context, options con
 Fake architect: renders every decision as a file and proposes the first write through the file tool. Alice picks **Approve, always for repo acme/order-platform**; the remaining files are written without asking; the reply counts them. A real model does the same through a registered GitHub MCP server with `render_adr` and its file tool.
 
 Point at: D-03, the resolved decision point, lists the three options with "Combine both" chosen; the History tab shows one external action per file; the demo repository under `data/mcp-demo/repos` holds the files.
+
+## Stage 12c: people who are not in the room
+
+Feature: a decision point can carry a deadline and expires without a majority instead of staying open; anyone can vote from a link without opening the canvas; the home page opens with what is waiting on you and what changed since you last looked; "@name" in a message or note reaches that person's digest.
+
+| Who | Does |
+|---|---|
+| Alice | Raises a contradiction (as in stage 4) but nobody votes. On the decision point card she picks **set deadline… 4 hours** and **copy vote link**. In the side channel: "@bob please vote on the Kafka question today". |
+| Bob | Opens the home page in his own window. **Waiting on you** shows the decision point with "0 of 2 voted · closes …" and a **Vote** button; **Since you last looked** shows Alice's mention, the new decisions and the cards that changed. |
+| Bob | **Vote** opens the decision alone, with the options and trade-offs; he votes. Back in the session the card shows his vote. |
+
+Point at: the deadline on the card; that the digest counts reset once Bob has looked at the session; and, if the deadline passes with no majority, the system line "expired without a majority" and the cards becoming editable again. For the demo, set the deadline through the API with `{"minutes": 0.1}` to watch the expiry happen.
 
 ## Stage 13: external tools (MCP)
 
