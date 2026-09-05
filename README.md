@@ -28,7 +28,17 @@ pnpm dev                            # server on :3000, Vite on :5173 (proxies /a
 
 For a single-process run instead of `pnpm dev`: `pnpm build` then `pnpm --filter @tandem/server start`, and open http://localhost:3000.
 
-### If the install or build fails
+### If a card says "This version of the card cannot be shown"
+
+A version was stored whose content does not fit the card type (older builds let the model do this). The rest of the session keeps working. To restore the card as a forward version, stop the server and run, from `server/`:
+
+```
+npx tsx scripts/repair-card.ts <sessionId> <artifactId> [--resolve <optionId> --decision <decisionId>]
+```
+
+The ids are in the card's tooltip and the History tab. `--resolve` closes a decision point with the given option when the decision was already recorded.
+
+## If the install or build fails
 
 The one failure that has actually bitten: **the server cannot find or start `@github/copilot-sdk`**, often after a coding agent has "helpfully" edited `server/src/providers/copilot.ts` to resolve the SDK by hand. The cause is a version drift, not the code. On 2026-09-04 the SDK moved its runtime out of the package into per-platform optional packages; the lockfile pins the earlier version that bundles the runtime, and anything that installs without honouring the lockfile picks up the new one and then has no runtime.
 

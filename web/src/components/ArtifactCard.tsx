@@ -364,7 +364,7 @@ function DecisionPoint({ content, myId, onVote, sessionId, artifactId }: { conte
           {sessionId && <button style={{ padding: "0 6px", fontSize: 11 }} onClick={copyLink} title="A link that opens just this decision for someone who is not in the session">{copied ? "link copied" : "copy vote link"}</button>}
         </div>
       )}
-      {content.options.map((o) => {
+      {(content.options ?? []).map((o) => {
         const voters = tally.get(o.id) ?? [];
         const mine = content.votes?.[myId] === o.id;
         const chosen = content.resolvedOptionId === o.id;

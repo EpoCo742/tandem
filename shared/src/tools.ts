@@ -252,6 +252,7 @@ export type ToolResult =
   | { status: "pending_approval"; proposalId: string; artifactId: string; approvers: string[] }
   | { status: "stale"; artifactId: string; currentVersionNo: number; message: string }
   | { status: "blocked_by_decision_point"; artifactId: string; decisionPointArtifactId: string }
+  | { status: "invalid_content"; artifactId: string; message: string }
   | { status: "recorded"; decisionId: string; label: string }
   | { status: "asked" }
   | { status: "content"; artifactId: string; versionNo: number; content: unknown }

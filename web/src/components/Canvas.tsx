@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -25,6 +25,39 @@ type ArtNode = Node<{ artifact: Artifact; sessionId: string; sized: boolean; res
 const MIN_W = 220;
 const MIN_H = 80;
 
+// A card whose content cannot be rendered (a bad version, an old client) shows an error in its
+// place instead of taking the whole session down with it.
+class CardBoundary extends Component<{ artifact: Artifact; children: ReactNode }, { error: Error | null; forVersion: string | null }> {
+  state = { error: null as Error | null, forVersion: null as string | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  static getDerivedStateFromProps(props: { artifact: Artifact }, state: { error: Error | null; forVersion: string | null }) {
+    // A newer version of the card gets a fresh chance to render.
+    if (state.error && state.forVersion && state.forVersion !== props.artifact.current.versionId) return { error: null, forVersion: null };
+    if (state.error && !state.forVersion) return { forVersion: props.artifact.current.versionId };
+    return null;
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const a = this.props.artifact;
+    return (
+      <div className="art broken" style={{ borderTopColor: "var(--warn)" }}>
+        <div className="art-head">
+          <span className="chip" style={{ color: "var(--warn)" }}>{a.type.replace("_", " ")}</span>
+          <span className="title">{a.title}</span>
+          <span className="mono">v{a.current.versionNo}</span>
+        </div>
+        <div className="art-body nodrag" style={{ fontSize: 12.5 }}>
+          <div style={{ marginBottom: 6 }}>This version of the card cannot be shown. Its content does not match what a {a.type.replace("_", " ")} card needs.</div>
+          <div className="muted" style={{ marginBottom: 6 }}>Use <b>History</b> to revert to the commit before this version, or edit the card and restore its previous content.</div>
+          <div className="mono muted" style={{ fontSize: 11 }}>{this.state.error.message}</div>
+        </div>
+      </div>
+    );
+  }
+}
+
 function ArtifactNode({ data, selected }: NodeProps<ArtNode>) {
   return (
     <>
@@ -35,7 +68,9 @@ function ArtifactNode({ data, selected }: NodeProps<ArtNode>) {
         lineClassName="art-resize-line"
         handleClassName="art-resize-handle"
       />
-      <ArtifactCard artifact={data.artifact} sessionId={data.sessionId} sized={data.sized} onResetSize={() => data.resetSize(data.artifact.id)} />
+      <CardBoundary artifact={data.artifact}>
+        <ArtifactCard artifact={data.artifact} sessionId={data.sessionId} sized={data.sized} onResetSize={() => data.resetSize(data.artifact.id)} />
+      </CardBoundary>
     </>
   );
 }

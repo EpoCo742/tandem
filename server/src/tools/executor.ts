@@ -122,6 +122,7 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
 
     bind("create_artifact", async (input) => {
       const r = requestChange({ ...common, op: "create", artifactId: null, artifactType: input.type, title: input.title, content: input.content, summary: input.summary, rationale: input.rationale, baseVersionNo: null });
+      if (r.status === "invalid_content") return { status: "error", message: `${r.message}. Nothing was changed.` };
       return r as ToolResult;
     }),
 
@@ -129,7 +130,11 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       const state = getState(scope.sessionId);
       const a = state.artifacts[input.artifactId];
       if (!a) return { status: "error", message: `No artifact ${input.artifactId}` };
+      if (a.type === "decision_point") {
+        return { status: "error", message: "Decision point cards are not edited or resolved by you: people resolve them by voting on the card, and you get a system message when that happens. Record what people said with record_decision and leave the card as it is." };
+      }
       const r = requestChange({ ...common, op: "update", artifactId: a.id, artifactType: a.type, title: a.title, content: input.content, summary: input.summary, rationale: input.rationale, baseVersionNo: input.baseVersionNo });
+      if (r.status === "invalid_content") return { status: "error", message: `${r.message}. Keep the card's existing shape (call read_artifact to see it). Nothing was changed.` };
       return r as ToolResult;
     }),
 

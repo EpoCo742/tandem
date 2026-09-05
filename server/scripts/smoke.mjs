@@ -416,6 +416,9 @@ const stateAfterExpiry = await alice.call("GET", `/api/v1/sessions/${sessionId}/
 const modelBlocked = stateAfterExpiry.filter((e) => e.type === "artifact.blocked" || e.type === "artifact.unblocked");
 const tryEdit = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${diagram.artifactId}/versions`, { content: modelV2, rationale: "after expiry" });
 assert(tryEdit.status !== "blocked_by_decision_point", `the model is editable again after the expiry (${tryEdit.status})`);
+// Content that cannot render never reaches the ledger (a model once rewrote a decision point as Markdown and blanked every client).
+const badEdit = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${diagram.artifactId}/versions`, { content: { markdown: "not a model" }, rationale: "oops" }).catch((e) => ({ error: String(e.message) }));
+assert(badEdit.error && /needs .{0,2}components/.test(badEdit.error), "a version whose content does not fit the card type is refused");
 const afterExpiry = (await bob.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);
 assert(!afterExpiry.waiting.decisionPoints.some((d) => d.artifactId === dp2.artifactId), "an expired decision point no longer waits on anyone");
 

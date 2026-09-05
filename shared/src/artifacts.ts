@@ -1,4 +1,4 @@
-import type { Option, Provenance } from "./events.js";
+import type { ArtifactType, Option, Provenance } from "./events.js";
 import { modelToText, type ArchModelContent, type ViewContent } from "./model.js";
 
 export interface Section {
@@ -171,4 +171,41 @@ export function provenanceOf(type: string, content: unknown): Provenance[] {
     return c.sections.map((s) => ({ sectionId: s.id, derivedFrom: s.derivedFrom ?? [] }));
   }
   return [];
+}
+
+/**
+ * Why a content object cannot be shown as a card of the given type, or null when it can.
+ * The ledger keeps whatever is appended, so this runs before anything is appended: a model
+ * that rewrites a decision point as Markdown would otherwise blank every client that loads it.
+ */
+export function contentProblem(type: ArtifactType, content: unknown): string | null {
+  const c = content as Record<string, unknown> | null;
+  if (!c || typeof c !== "object" || Array.isArray(c)) return `${type} content must be an object`;
+  const need = (key: string, kind: "string" | "array" | "object"): string | null => {
+    const v = c[key];
+    const ok = kind === "string" ? typeof v === "string" : kind === "array" ? Array.isArray(v) : v !== null && typeof v === "object" && !Array.isArray(v);
+    return ok ? null : `${type} content needs "${key}" (${kind})`;
+  };
+  switch (type) {
+    case "markdown":
+    case "design_doc":
+      return need("markdown", "string");
+    case "mermaid":
+    case "code":
+      return need("source", "string");
+    case "data_model":
+      return need("entities", "array");
+    case "arch_model":
+      return need("components", "array") ?? need("relationships", "array") ?? need("boundaries", "array");
+    case "view":
+      return need("kind", "string");
+    case "constraints":
+      return need("constraints", "array");
+    case "decision_point":
+      return need("question", "string") ?? need("options", "array") ?? need("votes", "object") ?? need("blocksArtifactIds", "array");
+    case "source":
+      return need("uploadId", "string");
+    default:
+      return null;
+  }
 }

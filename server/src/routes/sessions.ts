@@ -209,6 +209,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       causedBy: [],
       provenance: [{ sectionId: "edit", derivedFrom: [] }],
     });
+    if (outcome.status === "invalid_content") return reply.code(400).send({ error: outcome.message });
     if (outcome.status === "applied") createCommit(req.params.id, user.id, null, `${user.displayName || user.handle} edited ${a.title}`);
     return outcome;
   });

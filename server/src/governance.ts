@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { ulid } from "ulid";
 import type { ArtifactType, Policy, ProposalOp, Provenance, Risk } from "@tandem/shared";
-import { provenanceOf, type SessionState } from "@tandem/shared";
+import { contentProblem, provenanceOf, type SessionState } from "@tandem/shared";
 import { appendEvent, getState } from "./ledger.js";
 import { config } from "./config.js";
 
@@ -73,13 +73,18 @@ export type ChangeOutcome =
   | { status: "applied"; artifactId: string; versionNo: number; title: string }
   | { status: "pending_approval"; proposalId: string; artifactId: string; approvers: string[] }
   | { status: "stale"; artifactId: string; currentVersionNo: number; message: string }
-  | { status: "blocked_by_decision_point"; artifactId: string; decisionPointArtifactId: string };
+  | { status: "blocked_by_decision_point"; artifactId: string; decisionPointArtifactId: string }
+  | { status: "invalid_content"; artifactId: string; message: string };
 
 export function requestChange(req: ChangeRequest): ChangeOutcome {
   const state = getState(req.sessionId);
   const artifactId = req.artifactId ?? ulid();
   const existing = req.artifactId ? state.artifacts[req.artifactId] : undefined;
   if (req.artifactId && !existing) throw new Error(`artifact ${req.artifactId} not found`);
+  if (req.op === "create" || req.op === "update") {
+    const problem = contentProblem(req.artifactType, req.content);
+    if (problem) return { status: "invalid_content", artifactId, message: problem };
+  }
   if (existing?.blockedByDecisionPoint && req.op !== "restore") {
     return { status: "blocked_by_decision_point", artifactId, decisionPointArtifactId: existing.blockedByDecisionPoint };
   }
