@@ -426,7 +426,7 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 </tbody>
 </table></div>
-<p>Fake architect: picks Alice's <code>confluence_publish_page</code>, proposes it. The <strong>Proposals</strong> tab shows an <em>outbound write</em> card with the exact arguments; only Alice (or the session owner) can approve. She picks <strong>Approve, always for space ARCH</strong>; the tool runs; the AI lane shows a system line with the result.</p>
+<p>Fake architect: picks Alice's <code>confluence_publish_page</code>, proposes it. An <strong>Approval needed</strong> card appears in the AI lane itself with Approve, "Approve, always for space ARCH" and Deny, and the side pane jumps to <strong>Proposals</strong>, which shows the same request with the exact arguments; only Alice (or the session owner) can decide. She picks <strong>Approve, always for space ARCH</strong>; the card becomes a one-line record, the tool runs, and the result follows as a system line.</p>
 <div class="table-wrap"><table>
 <thead>
 <tr>

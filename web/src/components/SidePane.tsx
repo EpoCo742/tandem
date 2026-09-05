@@ -16,6 +16,27 @@ export function SidePane({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     if (focusComponent) setTab("decisions");
   }, [focusComponent]);
+  const requestedTab = useStore((s) => s.requestedTab);
+  const requestTab = useStore((s) => s.requestTab);
+  useEffect(() => {
+    if (requestedTab) {
+      setTab(requestedTab as Tab);
+      requestTab(null);
+    }
+  }, [requestedTab, requestTab]);
+  // Something new is waiting on me: bring the Proposals tab forward once per item.
+  const seen = useRef(new Set<string>());
+  const waitingOnMe = [
+    ...pendingProposals(state).filter((p) => p.requiresApprovalFrom.includes(me.user!.id)).map((p) => p.id),
+    ...Object.values(state.externalCalls).filter((c) => c.status === "pending" && c.ownerUserId === me.user!.id).map((c) => c.id),
+  ];
+  useEffect(() => {
+    const fresh = waitingOnMe.filter((id) => !seen.current.has(id));
+    if (fresh.length) {
+      fresh.forEach((id) => seen.current.add(id));
+      setTab("proposals");
+    }
+  }, [waitingOnMe.join("|")]);
   const pending = pendingProposals(state);
   const myCalls = Object.values(state.externalCalls).filter((c) => c.status === "pending" && c.ownerUserId === me.user!.id).length;
   const myPending = pending.filter((p) => p.requiresApprovalFrom.includes(me.user!.id)).length + myCalls;

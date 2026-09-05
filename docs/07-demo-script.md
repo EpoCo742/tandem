@@ -219,7 +219,7 @@ Fake architect: Bob has no tools, so it says to register one and proposes nothin
 |---|---|
 | Alice | "Publish the design document to Confluence under ARCH." |
 
-Fake architect: picks Alice's `confluence_publish_page`, proposes it. The **Proposals** tab shows an *outbound write* card with the exact arguments; only Alice (or the session owner) can approve. She picks **Approve, always for space ARCH**; the tool runs; the AI lane shows a system line with the result.
+Fake architect: picks Alice's `confluence_publish_page`, proposes it. An **Approval needed** card appears in the AI lane itself with Approve, "Approve, always for space ARCH" and Deny, and the side pane jumps to **Proposals**, which shows the same request with the exact arguments; only Alice (or the session owner) can decide. She picks **Approve, always for space ARCH**; the card becomes a one-line record, the tool runs, and the result follows as a system line.
 
 | Who | Says |
 |---|---|

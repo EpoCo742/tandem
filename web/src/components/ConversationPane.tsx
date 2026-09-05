@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { participantName, AI_COLOR } from "@tandem/shared";
+import { participantName, pendingProposals, describeTarget, targetOf, AI_COLOR, type ExternalCall, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
@@ -34,11 +34,19 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const myId = me.user!.id;
   const consented = state.participants[myId]?.consented ?? meta.me.consented;
   const messages = state.messages.filter((m) => !(m.kind === "user" && m.mode === "note"));
+  // Approvals are decisions people make; show them where people are looking, in the lane, in time order.
+  type Row = { kind: "msg"; at: string; m: (typeof messages)[number] } | { kind: "call"; at: string; c: ExternalCall } | { kind: "proposal"; at: string; p: Proposal };
+  const rows: Row[] = [
+    ...messages.map((m) => ({ kind: "msg" as const, at: m.createdAt, m })),
+    ...Object.values(state.externalCalls).map((c) => ({ kind: "call" as const, at: c.createdAt, c })),
+    ...pendingProposals(state).map((p) => ({ kind: "proposal" as const, at: p.createdAt, p })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
+  const requestTab = useStore((s) => s.requestTab);
 
   useEffect(() => {
     const el = bodyRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length, streaming?.text]);
+  }, [rows.length, streaming?.text]);
 
   useEffect(() => {
     if (highlight.length === 0) return;
@@ -86,7 +94,10 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
     <div className="pane">
       <div className="pane-head">AI lane <span className="grow" /><span>{Object.keys(state.participants).length} participants</span></div>
       <div className="pane-body" ref={bodyRef}>
-        {messages.map((m) => {
+        {rows.map((row) => {
+          if (row.kind === "call") return <ExternalCallCard key={row.c.id} call={row.c} sessionId={sessionId} myId={myId} onOpen={() => requestTab("proposals")} />;
+          if (row.kind === "proposal") return <ProposalCard key={row.p.id} proposal={row.p} sessionId={sessionId} myId={myId} onOpen={() => requestTab("proposals")} />;
+          const m = row.m;
           const color = m.kind === "user" ? state.participants[m.userId!]?.color ?? "#999" : AI_COLOR;
           const cls = m.kind === "ai" ? "msg ai" : m.kind === "system" ? "msg system" : m.kind === "clarification" ? "msg ai" : "msg";
           const flash = highlight.includes(m.eventId) ? " flash" : "";
@@ -165,6 +176,71 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// An outbound write waiting for its owner, or the record of what happened to it.
+function ExternalCallCard({ call: c, sessionId, myId, onOpen }: { call: ExternalCall; sessionId: string; myId: string; onOpen: () => void }) {
+  const state = useStore((s) => s.state);
+  const mine = c.ownerUserId === myId || state.participants[myId]?.role === "owner";
+  const target = describeTarget(targetOf(c.args));
+  const decide = (decision: "approved" | "denied", remember = false) => api("POST", `/api/v1/sessions/${sessionId}/external-calls/${c.id}/resolve`, { decision, remember });
+  if (c.status === "pending") {
+    return (
+      <div className="msg approval" id={`call-${c.id}`}>
+        <div className="who"><span>Approval needed</span><span className="chip accent">outbound write</span></div>
+        <div className="text">
+          The AI, for {participantName(state, c.onBehalfOf)}, wants to run <b>{c.serverName}.{c.toolName}</b> ({target}) with {participantName(state, c.ownerUserId)}'s tool.
+          {c.readOnly ? "" : " Nothing is sent until it is approved; unanswered, it is denied."}
+        </div>
+        <div className="row" style={{ flexWrap: "wrap", marginTop: 6 }}>
+          {mine ? (
+            <>
+              <button className="primary" onClick={() => decide("approved")}>Approve</button>
+              {c.ownerUserId === myId && <button onClick={() => decide("approved", true)} title="Approve, and let this tool run for this target without asking again">Approve, always for {target}</button>}
+              <button onClick={() => decide("denied")}>Deny</button>
+            </>
+          ) : (
+            <span className="muted">Waiting for {participantName(state, c.ownerUserId)}.</span>
+          )}
+          <button className="icon" onClick={onOpen} title="See the full arguments in the Proposals tab">details</button>
+        </div>
+      </div>
+    );
+  }
+  // Resolved: one quiet line. The result itself arrives as a system message when the tool ran.
+  return (
+    <div className="msg system" style={{ fontSize: 12 }}>
+      {c.serverName}.{c.toolName} {c.status === "denied" ? "denied" : "approved"}{c.decidedBy ? ` by ${participantName(state, c.decidedBy)}` : c.reason ? ` (${c.reason})` : ""}
+    </div>
+  );
+}
+
+// A change to someone's card waiting for them.
+function ProposalCard({ proposal: p, sessionId, myId, onOpen }: { proposal: Proposal; sessionId: string; myId: string; onOpen: () => void }) {
+  const state = useStore((s) => s.state);
+  const mine = p.requiresApprovalFrom.includes(myId) || state.participants[myId]?.role === "owner";
+  const secs = p.autoApplyAt ? Math.max(0, Math.round((new Date(p.autoApplyAt).getTime() - Date.now()) / 1000)) : null;
+  const decide = (decision: "approve" | "reject") => api("POST", `/api/v1/sessions/${sessionId}/proposals/${p.id}/resolve`, { decision });
+  return (
+    <div className="msg approval">
+      <div className="who"><span>Approval needed</span><span className="chip accent">{p.risk.replace(/_/g, " ")}</span></div>
+      <div className="text">
+        {p.turnId ? "The AI, for " : ""}{participantName(state, p.proposerUserId)} wants to {p.op} <b>{p.title}</b>: {p.rationale}
+        {secs !== null ? ` Applies by itself in ${secs}s if nobody answers.` : ""}
+      </div>
+      <div className="row" style={{ flexWrap: "wrap", marginTop: 6 }}>
+        {mine ? (
+          <>
+            <button className="primary" onClick={() => decide("approve")}>Approve</button>
+            <button onClick={() => decide("reject")}>Reject</button>
+          </>
+        ) : (
+          <span className="muted">Waiting for {p.requiresApprovalFrom.map((u) => participantName(state, u)).join(", ")}.</span>
+        )}
+        <button className="icon" onClick={onOpen} title="See the diff in the Proposals tab">details</button>
       </div>
     </div>
   );

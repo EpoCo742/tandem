@@ -34,6 +34,8 @@ interface Store {
   setFocusArtifact: (id: string | null) => void;
   focusComponentId: string | null; // architecture model component whose decisions the side pane shows
   setFocusComponent: (id: string | null) => void;
+  requestedTab: string | null; // a tab another part of the UI wants the side pane to show
+  requestTab: (tab: string | null) => void;
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -84,4 +86,6 @@ export const useStore = create<Store>((set, get) => ({
   setFocusArtifact: (focusArtifactId) => set({ focusArtifactId }),
   focusComponentId: null,
   setFocusComponent: (focusComponentId) => set({ focusComponentId }),
+  requestedTab: null,
+  requestTab: (requestedTab) => set({ requestedTab }),
 }));
