@@ -68,6 +68,9 @@ function mermaidId(id: string): string {
   return "n_" + id.replace(/[^a-zA-Z0-9_]/g, "_");
 }
 
+// Inside a quoted Mermaid label, a double quote is written as #quot;. Every label the generator
+// emits is quoted (nodes, subgraphs and edges alike): unquoted edge text breaks the parser on
+// parentheses, pipes and brackets, and one bad edge hides the whole diagram.
 function quote(s: string): string {
   return s.replace(/"/g, "#quot;");
 }
@@ -125,7 +128,7 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
       const key = `${a}|${b}|${r.kind}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      lines.push(`  ${a} -->|${quote(r.label ?? VERB[r.kind])}| ${b}`);
+      lines.push(`  ${a} -->|"${quote(r.label ?? VERB[r.kind])}"| ${b}`);
     }
     return lines.join("\n");
   }
@@ -153,7 +156,7 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
   }
   for (const r of model.relationships) {
     if (!include.has(r.from) || !include.has(r.to)) continue;
-    lines.push(`  ${mermaidId(r.from)} -->|${quote(r.label ?? VERB[r.kind])}| ${mermaidId(r.to)}`);
+    lines.push(`  ${mermaidId(r.from)} -->|"${quote(r.label ?? VERB[r.kind])}"| ${mermaidId(r.to)}`);
   }
   if (view.kind === "component" && view.focus) lines.push(`  style ${mermaidId(view.focus)} stroke-width:3px`);
   return lines.join("\n");
