@@ -15,6 +15,13 @@
       "when": 1788497318383,
       "tag": "0001_flawless_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788615404221,
+      "tag": "0002_powerful_madrox",
+      "breakpoints": true
     }
   ]
 }

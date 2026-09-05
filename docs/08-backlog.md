@@ -2,7 +2,11 @@
 
 What is not built yet, in the order it is worth doing. Status of what is built lives in `05-poc-plan.md` section 7. Last updated 2026-09-05.
 
-## 1. Per-user MCP servers (new, 2026-09-05)
+Shipped from this list on 2026-09-05: the first slice of per-user MCP servers (registration, discovery, speaker-only tools, outbound-write gate, offline demo server), collapsed source cards, the editing indicator. What remains of item 1 is noted inside it.
+
+## 1. Per-user MCP servers (first slice shipped 2026-09-05)
+
+**Still to do.** Pre-approved targets (so a person can let "publish to ARCH" run without a prompt each time); running stdio servers in a per-user sandbox rather than as children of the Tandem server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test); showing external calls in the export's history.
 
 **Ask.** Each participant registers their own MCP servers with their own credentials and configuration, for example Atlassian and GitHub. In the chat a person can say "upload the design document to Confluence", "create epics and stories for the data model", or "commit the diagrams to the repo", and the AI discovers and uses that person's tools to do it.
 

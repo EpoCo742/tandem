@@ -13,7 +13,8 @@ export function SidePane({ sessionId }: { sessionId: string }) {
   const me = useStore((s) => s.me)!;
   const [tab, setTab] = useState<Tab>("side");
   const pending = pendingProposals(state);
-  const myPending = pending.filter((p) => p.requiresApprovalFrom.includes(me.user!.id)).length;
+  const myCalls = Object.values(state.externalCalls).filter((c) => c.status === "pending" && c.ownerUserId === me.user!.id).length;
+  const myPending = pending.filter((p) => p.requiresApprovalFrom.includes(me.user!.id)).length + myCalls;
 
   return (
     <div className="pane right">
@@ -86,9 +87,29 @@ function Proposals({ sessionId, proposals }: { sessionId: string; proposals: Pro
     const t = setInterval(() => tick((x) => x + 1), 1000);
     return () => clearInterval(t);
   }, []);
+  const calls = Object.values(state.externalCalls).filter((c) => c.status === "pending").sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return (
     <div className="pane-body">
-      {proposals.length === 0 && <div className="muted">No pending proposals. Under the hybrid policy, additive changes apply at once; edits to someone else's artifact wait here.</div>}
+      {proposals.length === 0 && calls.length === 0 && <div className="muted">No pending proposals. Under the hybrid policy, additive changes apply at once; edits to someone else's artifact and writes to external systems wait here.</div>}
+      {calls.map((c) => {
+        const mine = c.ownerUserId === me.user!.id || state.participants[me.user!.id]?.role === "owner";
+        return (
+          <div key={c.id} className="proposal">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <b>external · {c.serverName}.{c.toolName}</b>
+              <span className="chip accent">outbound write</span>
+            </div>
+            <div style={{ fontSize: 12 }}>AI for {participantName(state, c.onBehalfOf)} wants to use {participantName(state, c.ownerUserId)}'s tool · waits for {participantName(state, c.ownerUserId)}; denied if nobody answers</div>
+            <pre>{JSON.stringify(c.args ?? {}, null, 2).slice(0, 1200)}</pre>
+            {mine && (
+              <div className="row">
+                <button className="primary" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/external-calls/${c.id}/resolve`, { decision: "approved" })}>Approve</button>
+                <button onClick={() => api("POST", `/api/v1/sessions/${sessionId}/external-calls/${c.id}/resolve`, { decision: "denied" })}>Deny</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
       {proposals.map((p) => {
         const mine = p.requiresApprovalFrom.includes(me.user!.id) || state.participants[me.user!.id]?.role === "owner";
         const secs = p.autoApplyAt ? Math.max(0, Math.round((new Date(p.autoApplyAt).getTime() - Date.now()) / 1000)) : null;

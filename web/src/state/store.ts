@@ -24,6 +24,8 @@ interface Store {
   typing: Record<string, "ai" | "side">;
   presence: PresenceUser[];
   setPresence: (p: PresenceUser[]) => void;
+  editing: Record<string, PresenceUser[]>; // artifactId -> who has it open in the editor
+  setEditing: (e: Record<string, PresenceUser[]>) => void;
   highlight: string[];
   setHighlight: (ids: string[]) => void;
   connected: boolean;
@@ -70,6 +72,8 @@ export const useStore = create<Store>((set, get) => ({
   typing: {},
   presence: [],
   setPresence: (presence) => set({ presence }),
+  editing: {},
+  setEditing: (editing) => set({ editing }),
   highlight: [],
   setHighlight: (highlight) => set({ highlight }),
   connected: false,

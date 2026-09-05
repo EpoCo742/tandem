@@ -2,7 +2,7 @@
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
-This file tracks the features as they land. Last updated 2026-09-05 (session brief and compaction).
+This file tracks the features as they land. Last updated 2026-09-05 (external tools through MCP, collapsed source cards, editing indicator).
 
 ## Two ways to run it
 
@@ -194,7 +194,36 @@ Fake architect: writes one attributed line per folded message plus the decisions
 
 Point at: the count "N of M messages folded"; every line carries a name and an event id; the export's Brief section; the next AI turn still answers in context of the folded discussion.
 
-## Stage 13: theme and canvas grid (no script)
+## Stage 13: external tools (MCP)
+
+Feature: each person registers their own MCP servers with their own credentials; the AI uses the speaker's tools; writes to outside systems are proposed to the tool's owner and denied if nobody answers.
+
+Setup: start nothing extra. The repo ships a stand-in for Atlassian, `server/scripts/mcp-demo-server.mjs`, which writes "pages" and "stories" to JSON files.
+
+| Who | Does |
+|---|---|
+| Alice | Credentials → External tools: name `atlassian`, transport stdio, command `node`, arguments `server/scripts/mcp-demo-server.mjs`. **Add and test** lists three tools; ✎ marks the ones that write. |
+| Bob | Says "Publish the design document to Confluence under ARCH." |
+
+Fake architect: Bob has no tools, so it says to register one and proposes nothing.
+
+| Who | Says |
+|---|---|
+| Alice | "Publish the design document to Confluence under ARCH." |
+
+Fake architect: picks Alice's `confluence_publish_page`, proposes it. The **Proposals** tab shows an *outbound write* card with the exact arguments; only Alice (or the session owner) can approve. She approves; the tool runs; the AI lane shows a system line with the result.
+
+| Who | Says |
+|---|---|
+| Alice | "Create a Jira story in ORD for the data model." then **Deny** on the proposal. |
+
+Point at: nothing ran; the AI says so; History carries the proposed, resolved and completed events with who decided. On a real seat the Copilot runtime connects to the same servers and every MCP write goes through the same gate.
+
+## Stage 13b: tidier cards (no script)
+
+Uploaded source cards start folded to one line (▾ opens them, double-click too). While someone has a card open in the editor, everyone else sees a "Name editing" chip on it; it is a courtesy, not a lock, and the version check on save remains the guard.
+
+## Stage 14: theme and canvas grid (no script)
 
 Feature: personal UI preferences, not shared state.
 

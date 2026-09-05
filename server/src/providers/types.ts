@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { ToolResult, Usage } from "@tandem/shared";
+import type { McpServerForTurn } from "../mcp.js";
 
 export interface ToolBinding {
   name: string;
@@ -21,6 +22,13 @@ export interface RenderedContext {
   attachments: ContextAttachment[]; // files referenced by the current batch
 }
 
+export interface ExternalGate {
+  /** Ask before an outbound call; resolves to the decision. Reads resolve at once. */
+  ask(server: McpServerForTurn, toolName: string, args: unknown, readOnly: boolean): Promise<{ callId: string; decision: "approved" | "denied" }>;
+  /** Record what happened after an approved call ran. */
+  done(callId: string, ok: boolean, summary: string): void;
+}
+
 export interface TurnRequest {
   sessionId: string;
   turnId: string;
@@ -28,6 +36,9 @@ export interface TurnRequest {
   token: string;
   context: RenderedContext;
   tools: ToolBinding[];
+  /** The speaker's own MCP servers, tested and healthy. Empty when they have none. */
+  mcpServers: McpServerForTurn[];
+  external: ExternalGate;
   signal: AbortSignal;
   timeoutMs: number;
   onDelta: (text: string) => void;

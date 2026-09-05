@@ -140,6 +140,9 @@ export type Payloads = {
   "commit.reverted_to": { targetCommitId: string; newCommitId: string };
   "upload.added": { uploadId: string; mime: string; bytes: number; name: string };
   "source.ingested": { uploadId: string; artifactId: string };
+  "external.call_proposed": { callId: string; ownerUserId: string; serverName: string; toolName: string; args: unknown; readOnly: boolean; summary: string; onBehalfOf: string };
+  "external.call_resolved": { callId: string; decision: "approved" | "denied"; reason?: string };
+  "external.call_completed": { callId: string; ok: boolean; summary: string };
   "brief.updated": { brief: string; throughSeq: number; payerUserId?: string; provider?: string; model?: string; folded?: number };
 };
 

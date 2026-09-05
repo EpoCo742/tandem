@@ -2,6 +2,9 @@
 //   TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake pnpm --filter @tandem/server dev
 // Usage: node scripts/smoke.mjs [baseUrl]
 import WebSocket from "ws";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 
@@ -108,6 +111,7 @@ assert(subA.events.filter((e) => e.type === "decision.recorded").length >= 2, "A
 assert(subA.events.some((e) => e.type === "commit.created"), "a commit was created after the turn");
 assert(subA.ephemeral.some((e) => e.kind === "ai.delta"), "tokens streamed to alice");
 assert(subB.ephemeral.some((e) => e.kind === "ai.delta"), "tokens streamed to bob");
+await waitFor(() => subB.events.length === subA.events.length, "bob's client to catch up");
 assert(subB.events.length === subA.events.length, "both clients see the same ledger");
 
 // Bob edits Alice's-turn artifact directly -> under hybrid this is a cross-owner edit -> proposal.
@@ -266,6 +270,51 @@ assert(!forkEvents.some((e) => e.type === "decision.recorded" && e.payload.statu
 assert(forkEvents.some((e) => e.type === "participant.joined" && e.actorUserId === bobId), "participants are carried into the fork");
 const forkMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
 assert(forkMeta.me.consented === false && forkMeta.forkedFrom.sessionId === sessionId, "participants must re-consent in the fork");
+
+// External tools: Alice registers the demo MCP server (a stand-in for Atlassian); Bob has none.
+const demoDir = fileURLToPath(new URL("../data-smoke/mcp-demo", import.meta.url));
+fs.rmSync(demoDir, { recursive: true, force: true });
+const mcp = await alice.call("POST", "/api/v1/mcp-servers", {
+  name: "atlassian",
+  config: { transport: "stdio", command: process.execPath, args: [fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url))], env: { MCP_DEMO_DIR: demoDir } },
+});
+assert(mcp.status === "ok" && mcp.tools.length === 3, `demo MCP server registered and probed: ${mcp.tools.map((t) => t.name + (t.readOnly ? "" : "*")).join(", ")}`);
+assert(mcp.tools.find((t) => t.name === "confluence_search").readOnly === true && mcp.tools.find((t) => t.name === "confluence_publish_page").readOnly === false, "read-only annotation is carried through");
+assert(!("config" in mcp) && !JSON.stringify(mcp).includes(demoDir), "the server config never comes back to the client");
+
+// Bob has no tool: the AI says so and nothing is proposed.
+let turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Publish the design document to Confluence under ARCH." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "bob's outbound turn");
+assert(!subA.events.some((e) => e.type === "external.call_proposed"), "no external call is proposed for a person without tools");
+assert(subA.events.filter((e) => e.type === "ai.message").pop().payload.text.includes("register a tool"), "bob is told to register a tool");
+
+// Alice asks; the write is proposed to her, she approves, the page lands.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Publish the design document to Confluence under ARCH." });
+await waitFor(() => subA.events.some((e) => e.type === "external.call_proposed"), "external call proposed");
+const proposedCall = subA.events.find((e) => e.type === "external.call_proposed").payload;
+assert(proposedCall.toolName === "confluence_publish_page" && proposedCall.readOnly === false && proposedCall.ownerUserId === aliceId, "publish is proposed to alice as an outbound write");
+const bobDecides = await bob.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${proposedCall.callId}/resolve`, { decision: "approved" }).catch((e) => e.message);
+assert(String(bobDecides).includes("400"), "bob cannot approve alice's tool");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${proposedCall.callId}/resolve`, { decision: "approved" });
+await waitFor(() => subA.events.some((e) => e.type === "external.call_completed"), "external call completed", 30000);
+const completed = subA.events.find((e) => e.type === "external.call_completed").payload;
+assert(completed.ok && completed.summary.includes("Published"), `tool ran: ${completed.summary}`);
+const pages = JSON.parse(fs.readFileSync(path.join(demoDir, "pages.json"), "utf8"));
+assert(pages.length === 1 && pages[0].space === "ARCH", "the demo Confluence has the page");
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "alice's outbound turn");
+
+// Denied: nothing runs.
+turnsBeforeExt = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Create a Jira story in ORD for the data model." });
+await waitFor(() => subA.events.filter((e) => e.type === "external.call_proposed").length >= 2, "second external call proposed");
+const second = subA.events.filter((e) => e.type === "external.call_proposed").pop().payload;
+assert(second.toolName === "jira_create_story", "ticket request picks the Jira tool");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/external-calls/${second.callId}/resolve`, { decision: "denied", reason: "not yet" });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > turnsBeforeExt, "denied turn");
+assert(!fs.existsSync(path.join(demoDir, "stories.json")), "a denied call does not run");
+assert(subA.events.filter((e) => e.type === "ai.message").pop().payload.text.includes("not approved"), "the AI reports the denial");
 
 // Brief: a forced compaction folds older messages into an attributed summary that later prompts use.
 const briefRes = await alice.call("POST", `/api/v1/sessions/${sessionId}/brief`);

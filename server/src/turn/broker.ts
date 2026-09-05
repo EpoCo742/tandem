@@ -11,6 +11,8 @@ import { buildToolBindings } from "../tools/executor.js";
 import { createCommit } from "../governance.js";
 import { findCredentialForUser, loadRawCredential, type RawCredential } from "../credentials.js";
 import { maybeCompact } from "../context/compact.js";
+import { serversForUser } from "../mcp.js";
+import { gateExternalCall, recordExternalResult } from "../external.js";
 
 // One broker per active session. Serializes AI turns: collect a batch, run one turn,
 // apply, commit. Directives that arrive mid-turn queue for the next batch.
@@ -88,7 +90,8 @@ class SessionBroker {
     // Synthetic system directives (decision point resolutions) act for the user named in causedBy, else the creator.
     const onBehalfOf = firstHuman ?? state.eventsById[batch[0]?.causedBy[0] ?? ""]?.actorUserId ?? session.createdBy;
     if (session.payerMode === "sponsor") {
-      const cred = session.sponsorCredentialId ? loadRawCredential(session.sponsorCredentialId) : findCredentialForUser(session.createdBy, session.provider);
+      // The pinned credential can disappear (revoked or re-connected under the same label); fall back to the creator's current one.
+      const cred = (session.sponsorCredentialId ? loadRawCredential(session.sponsorCredentialId) : null) ?? findCredentialForUser(session.createdBy, session.provider);
       if (!cred) throw new Error("The session sponsor has no active credential for " + session.provider);
       return { payerUserId: cred.userId, credential: cred, onBehalfOf };
     }
@@ -145,7 +148,8 @@ class SessionBroker {
     const notes: string[] = [];
     const blocked = Object.values(state.artifacts).filter((a) => a.blockedByDecisionPoint && !a.deleted);
     if (blocked.length) notes.push(`These artifacts are blocked by open decision points and must not be changed: ${blocked.map((a) => `${a.id} (${a.title})`).join(", ")}. If the batch resolves the decision point, apply the outcome.`);
-    const context = assembleContext(state, batch as AnyLedgerEvent[], notes);
+    const mcpServers = serversForUser(payer.onBehalfOf);
+    const context = assembleContext(state, batch as AnyLedgerEvent[], notes, mcpServers);
     const tools = buildToolBindings({
       sessionId: this.sessionId,
       turnId,
@@ -166,6 +170,11 @@ class SessionBroker {
         token: payer.credential.token,
         context,
         tools,
+        mcpServers,
+        external: {
+          ask: (server, toolName, args, readOnly) => gateExternalCall({ sessionId: this.sessionId, turnId, onBehalfOf: payer.onBehalfOf, ownerUserId: server.ownerUserId, serverName: server.name, toolName, args, readOnly, causedBy: batchEventIds }),
+          done: (callId, ok, summary) => recordExternalResult(this.sessionId, turnId, callId, ok, summary),
+        },
         signal: this.abort.signal,
         timeoutMs: config.turnTimeoutMs,
         onDelta: (text) => {

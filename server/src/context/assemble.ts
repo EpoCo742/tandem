@@ -3,13 +3,14 @@ import { contentText, liveArtifacts, participantName, type AnyLedgerEvent, type 
 import type { ContextAttachment, RenderedContext } from "../providers/types.js";
 import { db, schema } from "../db/index.js";
 import { SYSTEM_PROMPT } from "./system.js";
+import type { McpServerForTurn } from "../mcp.js";
 
 const TRANSCRIPT_TURNS = 24;
 const ATTACHMENT_CHARS = 80_000; // full text for cards attached to the current batch, on top of the index budget
 export const TRANSCRIPT_WINDOW = TRANSCRIPT_TURNS * 2; // messages kept verbatim in the prompt
 const INDEX_FULL_CONTENT_CHARS = 6000;
 
-export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], operatorNotes: string[] = []): RenderedContext {
+export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], operatorNotes: string[] = [], mcpServers: McpServerForTurn[] = []): RenderedContext {
   const lines: string[] = [];
 
   lines.push("# Session", `Title: ${state.title}`, `Policy: ${state.policy}`, "");
@@ -91,6 +92,19 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
     lines.push("## Pending proposals (awaiting human approval)");
     for (const p of pending) lines.push(`- ${p.id}: ${p.op} ${p.title} (${p.artifactId}), needs ${p.requiresApprovalFrom.map((u) => participantName(state, u)).join(", ")}`);
     lines.push("");
+  }
+
+  if (mcpServers.length) {
+    const owner = participantName(state, mcpServers[0]!.ownerUserId);
+    lines.push(`## External tools registered by ${owner} (the person this turn is for)`);
+    lines.push(`Use them when ${owner} asks for something in an outside system (publishing, creating tickets, committing). Read tools run at once; tools marked WRITE are proposed to ${owner} for approval before they run, and may be denied. Never use these for anyone else's request.`);
+    for (const s of mcpServers) {
+      lines.push(`- server "${s.name}":`);
+      for (const t of s.tools) lines.push(`  - ${t.name}${t.readOnly ? "" : " [WRITE]"}: ${t.description}`);
+    }
+    lines.push("");
+  } else {
+    lines.push("## External tools", "None registered by the person this turn is for. If they ask to publish, create tickets or commit somewhere, tell them to register the tool under credentials → External tools.", "");
   }
 
   for (const note of operatorNotes) lines.push(`## Operator note`, note, "");

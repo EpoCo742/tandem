@@ -23,6 +23,23 @@ export const providerCredentials = sqliteTable("provider_credentials", {
   createdAt: text("created_at").notNull(),
 });
 
+// Per-user MCP servers: the whole transport config (command, args, env or url, headers) is sealed.
+export const mcpServers = sqliteTable("mcp_servers", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  transport: text("transport").notNull(), // stdio | http
+  ciphertext: blob("ciphertext", { mode: "buffer" }).notNull(),
+  iv: blob("iv", { mode: "buffer" }).notNull(),
+  tag: blob("tag", { mode: "buffer" }).notNull(),
+  summary: text("summary").notNull(), // non-secret description shown in the UI (command or host)
+  tools: text("tools"), // JSON McpToolInfo[] from the last successful test
+  status: text("status").notNull().default("untested"),
+  lastError: text("last_error"),
+  createdAt: text("created_at").notNull(),
+  testedAt: text("tested_at"),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),

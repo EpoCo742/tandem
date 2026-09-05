@@ -26,6 +26,9 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false }: { artifa
   const [msg, setMsg] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const editors = useStore((s) => s.editing[a.id]) ?? [];
+  // Uploads stay first-class for provenance but start folded so generated work has the room.
+  const [open, setOpen] = useState(a.type !== "source");
 
   const v = viewVersion ? a.versions.find((x) => x.versionNo === viewVersion) ?? a.current : a.current;
   const authorColor = state.participants[v.authorUserId]?.color ?? AI_COLOR;
@@ -64,12 +67,22 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false }: { artifa
         <span className="mono">v{v.versionNo}</span>
         {a.blockedByDecisionPoint && <span className="chip" style={{ color: "var(--warn)" }} title="blocked until the decision point resolves">blocked</span>}
         {pending > 0 && <span className="chip accent">{pending} pending</span>}
+        {editors.map((u) => <span key={u.userId} className="chip solid" style={{ background: u.color }} title={`${u.name} has this card open in the editor`}>{u.name} editing</span>)}
+        {a.type === "source" && <button className="icon nodrag" style={{ padding: "0 5px" }} title={open ? "Fold this upload" : "Show the uploaded content"} onClick={() => setOpen((o) => !o)}>{open ? "▴" : "▾"}</button>}
         <button className="icon nodrag" style={{ padding: "0 5px" }} title="Open this card full size" onClick={() => setExpanded(true)}>&#x2922;</button>
       </div>
+      {open ? (
       <div className="art-body nodrag nowheel">
         <ArtifactBody artifact={a} version={v} sessionId={sessionId} myId={me.user!.id} onVote={vote} />
         {msg && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{msg}</div>}
       </div>
+      ) : (
+        <div className="art-body art-folded nodrag" onDoubleClick={() => setOpen(true)}>
+          <span className="mono">{(v.content as SourceContent).kind} · {(v.content as SourceContent).mime}</span>
+          <span className="muted" style={{ marginLeft: 8 }}>{(v.content as SourceContent).aiSummary}</span>
+          {msg && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{msg}</div>}
+        </div>
+      )}
       <div className="art-foot">
         <span style={{ color: authorColor }}>{authorLabel}</span>
         {derived.length > 0 && (

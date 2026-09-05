@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { contentText, type Artifact } from "@tandem/shared";
 import { api } from "../api";
+import { setEditingArtifact } from "../collab";
 
 // Direct human edit. Goes through the same governance path as AI changes:
 // your own artifact applies at once; someone else's becomes a proposal for them.
@@ -12,6 +13,12 @@ export function ArtifactEditor({ artifact: a, sessionId, onClose }: { artifact: 
   const [rationale, setRationale] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Announce the open editor to the other participants for as long as it is open.
+  useEffect(() => {
+    setEditingArtifact(a.id);
+    return () => setEditingArtifact(null);
+  }, [a.id]);
 
   async function save() {
     setBusy(true);

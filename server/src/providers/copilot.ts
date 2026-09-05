@@ -1,4 +1,15 @@
-import { CopilotClient, approveAll, defineTool } from "@github/copilot-sdk";
+import { CopilotClient, approveAll, defineTool, type MCPServerConfig, type PermissionHandler } from "@github/copilot-sdk";
+import type { McpServerForTurn } from "../mcp.js";
+
+function toCopilotMcp(servers: McpServerForTurn[]): Record<string, MCPServerConfig> {
+  const out: Record<string, MCPServerConfig> = {};
+  for (const s of servers) {
+    out[s.name] = s.config.transport === "stdio"
+      ? { type: "stdio", command: s.config.command, args: s.config.args, env: s.config.env, workingDirectory: s.config.cwd, tools: ["*"] }
+      : { type: "http", url: s.config.url, headers: s.config.headers, tools: ["*"] };
+  }
+  return out;
+}
 import { Semaphore } from "async-mutex";
 import { config } from "../config.js";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
@@ -96,15 +107,29 @@ export const copilotProvider: ProviderAdapter = {
           },
         }),
       );
+      // MCP tool calls come through the permission handler with the tool's read-only annotation;
+      // writes are proposed to the tool's owner and denied unless approved.
+      const byName = new Map(req.mcpServers.map((s) => [s.name, s]));
+      const gated: PermissionHandler = async (request) => {
+        if (request.kind !== "mcp") return approveAll(request, { sessionId: req.sessionId });
+        const server = byName.get(request.serverName);
+        if (!server) return { kind: "reject", feedback: "that server is not registered for this person" };
+        const { callId, decision } = await req.external.ask(server, request.toolName, request.args, request.readOnly);
+        if (decision !== "approved") return { kind: "reject", feedback: "the tool's owner did not approve this call; tell the user and stop" };
+        pendingCalls.set(`${request.serverName}:${request.toolName}`, callId);
+        return { kind: "approve-once" };
+      };
+      const pendingCalls = new Map<string, string>();
       const session = await client.createSession({
         model: req.model,
         streaming: true,
         systemMessage: { mode: "replace", content: req.context.system },
         tools,
         availableTools: req.tools.map((t) => t.name),
-        onPermissionRequest: approveAll,
+        onPermissionRequest: gated,
         skipCustomInstructions: true,
         enableSkills: false,
+        ...(req.mcpServers.length ? { mcpServers: toCopilotMcp(req.mcpServers) } : {}),
       });
       const offDelta = session.on("assistant.message_delta", (e) => {
         text += e.data.deltaContent;
@@ -120,7 +145,19 @@ export const copilotProvider: ProviderAdapter = {
         toolNames.set(e.data.toolCallId, e.data.toolName ?? "tool");
         req.onToolProgress(e.data.toolName ?? "tool", "start");
       });
-      const offDone = session.on("tool.execution_complete", (e) => req.onToolProgress(toolNames.get(e.data.toolCallId) ?? "tool", e.data.success ? "done" : "error"));
+      const offDone = session.on("tool.execution_complete", (e) => {
+        const name = toolNames.get(e.data.toolCallId) ?? "tool";
+        req.onToolProgress(name, e.data.success ? "done" : "error");
+        // MCP tools are named server/tool or server:tool depending on the runtime; match on the tool part.
+        for (const [key, callId] of pendingCalls) {
+          const tool = key.split(":")[1]!;
+          if (name.endsWith(tool)) {
+            pendingCalls.delete(key);
+            const result = (e.data as { result?: unknown }).result;
+            req.external.done(callId, Boolean(e.data.success), typeof result === "string" ? result.slice(0, 500) : e.data.success ? "completed" : "failed");
+          }
+        }
+      });
       const onAbort = () => void session.abort().catch(() => undefined);
       req.signal.addEventListener("abort", onAbort, { once: true });
       try {

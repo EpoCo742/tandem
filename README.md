@@ -34,6 +34,8 @@ Open http://localhost:5173. With `TANDEM_DEV_AUTH=1` you can log in with any han
 
 Sponsor mode (default) funds every turn with the session creator's credential, so only the creator needs a seat.
 
+**External tools:** under credentials → External tools, register your own MCP servers (stdio command or HTTP URL, with your own tokens in the environment or headers). The AI can use them on turns you direct; reads run at once, writes are proposed to you in the session's Proposals tab and denied if nobody answers. `node server/scripts/mcp-demo-server.mjs` is a stand-in for Atlassian for demos. Stdio servers run as child processes of the Tandem server, so only register commands you trust on the machine it runs on.
+
 **Long sessions:** once more than `TANDEM_COMPACT_AFTER` messages (default 8) have fallen out of the model's transcript window, the server folds them into a running brief that keeps who said what and the message ids, and the AI reads the brief instead. That summary is one extra provider request on the sponsor's plan each time it runs. The Brief tab shows it and can refresh it by hand.
 
 ## One container

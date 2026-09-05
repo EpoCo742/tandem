@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type CredentialView } from "../api";
+import { api, type CredentialView, type McpServerView } from "../api";
 import { TopBar } from "../components/TopBar";
 
 export function Settings() {
@@ -68,7 +68,116 @@ export function Settings() {
             <button className="danger" onClick={() => api("DELETE", `/api/v1/credentials/${c.id}`).then(load)}>Revoke</button>
           </div>
         ))}
+        <McpServers />
       </div>
+    </>
+  );
+}
+
+// Per-user MCP servers: your own tools with your own credentials. The AI can use them on
+// turns you direct; writes wait for your approval in the session's Proposals tab.
+function McpServers() {
+  const [servers, setServers] = useState<McpServerView[]>([]);
+  const [name, setName] = useState("");
+  const [transport, setTransport] = useState<"stdio" | "http">("stdio");
+  const [command, setCommand] = useState("");
+  const [args, setArgs] = useState("");
+  const [env, setEnv] = useState("");
+  const [url, setUrl] = useState("");
+  const [headers, setHeaders] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = () => api<{ servers: McpServerView[] }>("GET", "/api/v1/mcp-servers").then((r) => setServers(r.servers));
+  useEffect(() => { load(); }, []);
+
+  async function add() {
+    setBusy("add");
+    setErr(null);
+    try {
+      const config = transport === "stdio" ? { transport, command, args, env } : { transport, url, headers };
+      await api("POST", "/api/v1/mcp-servers", { name, config });
+      setName(""); setCommand(""); setArgs(""); setEnv(""); setUrl(""); setHeaders("");
+      await load();
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function test(id: string) {
+    setBusy(id);
+    try {
+      await api("POST", `/api/v1/mcp-servers/${id}/test`);
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      <h2 style={{ fontSize: 22, margin: "28px 0 8px" }}>External tools (MCP servers)</h2>
+      <p className="muted">
+        Your own MCP servers with your own credentials, for example Atlassian or GitHub. On turns you direct, the AI can use them: reads run at once, writes wait for your approval in the session's Proposals tab. Configuration is encrypted at rest and never sent back to the browser.
+      </p>
+      <div className="card stack">
+        <div className="row">
+          <label style={{ width: 180 }}>
+            <div className="mono">name</div>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="atlassian" />
+          </label>
+          <label style={{ width: 140 }}>
+            <div className="mono">transport</div>
+            <select value={transport} onChange={(e) => setTransport(e.target.value as "stdio" | "http")}>
+              <option value="stdio">stdio (local command)</option>
+              <option value="http">http (remote URL)</option>
+            </select>
+          </label>
+          {transport === "stdio" ? (
+            <>
+              <label style={{ width: 160 }}>
+                <div className="mono">command</div>
+                <input value={command} onChange={(e) => setCommand(e.target.value)} placeholder="npx" />
+              </label>
+              <label style={{ flex: 1 }}>
+                <div className="mono">arguments</div>
+                <input value={args} onChange={(e) => setArgs(e.target.value)} placeholder="-y mcp-remote https://mcp.atlassian.com/v1/sse" />
+              </label>
+            </>
+          ) : (
+            <label style={{ flex: 1 }}>
+              <div className="mono">url</div>
+              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.githubcopilot.com/mcp/" />
+            </label>
+          )}
+        </div>
+        <label>
+          <div className="mono">{transport === "stdio" ? "environment (one KEY=value per line; tokens go here)" : "headers (one Name: value per line, e.g. Authorization: Bearer …)"}</div>
+          <textarea value={transport === "stdio" ? env : headers} onChange={(e) => (transport === "stdio" ? setEnv(e.target.value) : setHeaders(e.target.value.replace(/^([^:=\n]+):\s*/gm, "$1=")))} style={{ minHeight: 48, fontFamily: "var(--mono)", fontSize: 12 }} placeholder={transport === "stdio" ? "ATLASSIAN_API_TOKEN=…" : "Authorization=Bearer …"} />
+        </label>
+        <div className="row">
+          <button className="primary" onClick={add} disabled={busy !== null || !name.trim() || (transport === "stdio" ? !command.trim() : !url.trim())}>{busy === "add" ? "Connecting…" : "Add and test"}</button>
+          {err && <span className="err">{err}</span>}
+        </div>
+      </div>
+      {servers.map((s) => (
+        <div key={s.id} className="card row" style={{ alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            <div><b>{s.name}</b> · <span className="mono">{s.transport} · {s.summary}</span> · <span className="chip" style={{ color: s.status === "ok" ? "var(--ok)" : s.status === "error" ? "var(--warn)" : "var(--ink-3)" }}>{s.status}</span></div>
+            {s.status === "error" && s.lastError && <div className="err" style={{ fontSize: 12 }}>{s.lastError}</div>}
+            {s.tools.length > 0 && (
+              <div className="mono" style={{ marginTop: 4 }}>
+                {s.tools.map((t) => <span key={t.name} title={t.description} style={{ marginRight: 10 }}>{t.name}{t.readOnly ? "" : " ✎"}</span>)}
+              </div>
+            )}
+            {s.tools.length > 0 && <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>✎ marks tools that change something and will ask for your approval.</div>}
+          </div>
+          <button onClick={() => test(s.id)} disabled={busy !== null}>{busy === s.id ? "Testing…" : "Test"}</button>
+          <button className="danger" onClick={() => api("DELETE", `/api/v1/mcp-servers/${s.id}`).then(load)}>Remove</button>
+        </div>
+      ))}
     </>
   );
 }

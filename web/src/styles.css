@@ -159,6 +159,7 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .art-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); cursor: grab; }
 .art-head .title { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .art-body { padding: 10px; max-height: 420px; overflow: auto; }
+.art-body.art-folded { padding: 6px 10px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .art-body .md pre, .art-body .md code { font-family: var(--mono); font-size: 12px; }
 .art-body .md pre { background: var(--panel-2); padding: 6px; overflow-x: auto; }
 .art-body .md ul, .art-body .md ol { padding-left: 18px; margin: 4px 0; }

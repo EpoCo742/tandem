@@ -38,6 +38,24 @@ export interface SessionMeta {
   lastSeq: number;
 }
 
+export interface McpToolInfo {
+  name: string;
+  description: string;
+  readOnly: boolean;
+}
+
+export interface McpServerView {
+  id: string;
+  name: string;
+  transport: string;
+  summary: string;
+  tools: McpToolInfo[];
+  status: string;
+  lastError: string | null;
+  testedAt: string | null;
+  createdAt: string;
+}
+
 export interface CredentialView {
   id: string;
   provider: string;

@@ -1,5 +1,6 @@
 import { dataModelMarkdown, type DataModelContent, type ToolResult } from "@tandem/shared";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
+import { callMcpTool } from "../mcp.js";
 
 // Offline provider for local development and tests. It reads the rendered prompt,
 // produces plausible canvas operations through the same tool bindings the real
@@ -184,6 +185,36 @@ export const fakeProvider: ProviderAdapter = {
         await emit("Compiled the design document: overview, architecture, data model, sources, decision log, and open questions. Export it from the top bar.");
       }
       return { text, toolCallsCount: toolCalls, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+    }
+
+    // 0c. Outbound action: "publish/create/upload ... to confluence/jira/github" uses the speaker's own MCP tool.
+    const outbound = batch.find((m) => /\b(publish|upload|push|create|open|file)\b/i.test(m.text) && /\b(confluence|jira|github|page|stor(y|ies)|epics?|tickets?|issues?|repo|wiki)\b/i.test(m.text));
+    if (outbound) {
+      const wantsTicket = /\b(jira|stor(y|ies)|epics?|tickets?|issues?)\b/i.test(outbound.text);
+      const pick = req.mcpServers.flatMap((s) => s.tools.map((t) => ({ server: s, tool: t }))).find(({ tool }) => (wantsTicket ? /story|issue|ticket|epic/i.test(tool.name) : /publish|page|create_page|upload/i.test(tool.name)));
+      if (!pick) {
+        await emit(`${outbound.speaker}, I can do that once you register a tool for it: credentials → External tools. I have no external tool registered for you.`);
+        return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      }
+      const doc = artifacts.find((a) => a.type === "design_doc") ?? artifacts.find((a) => a.type === "mermaid");
+      const args = wantsTicket
+        ? { project: outbound.text.match(/\b([A-Z]{2,6})\b(?!.*\b[A-Z]{2,6}\b)/)?.[1] ?? "ORD", summary: `Implement ${doc?.title ?? "the design"}`, description: `From Tandem session ${req.sessionId}` }
+        : { space: outbound.text.match(/\b(?:space|under|to)\s+([A-Z]{2,8})\b/)?.[1] ?? "ARCH", title: doc?.title ?? "Design document", body: `Exported from Tandem session ${req.sessionId} (${doc?.id ?? "no document yet"}).` };
+      await emit(`Asking ${outbound.speaker} to approve ${pick.server.name}.${pick.tool.name}… `);
+      const { callId, decision } = await req.external.ask(pick.server, pick.tool.name, args, pick.tool.readOnly);
+      if (decision !== "approved") {
+        await emit("That was not approved, so nothing was sent.");
+        return { text, toolCallsCount: 0, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
+      }
+      try {
+        const r = await callMcpTool(pick.server.config, pick.tool.name, args);
+        req.external.done(callId, r.ok, r.text);
+        await emit(r.ok ? `Done: ${r.text}` : `The tool reported an error: ${r.text}`);
+      } catch (e) {
+        req.external.done(callId, false, (e as Error).message);
+        await emit(`The tool failed: ${(e as Error).message}`);
+      }
+      return { text, toolCallsCount: 1, usage: { premiumRequests: 0 }, modelUsed: "fake-architect-1" };
     }
 
     // 0b. Data model request: derive entities from tables and events mentioned so far.

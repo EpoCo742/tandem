@@ -11,6 +11,7 @@ import { config } from "../config.js";
 import { findCredentialForUser, listCredentials } from "../credentials.js";
 import { contentHash, createCommit, requestChange, resolveProposal, revertTo } from "../governance.js";
 import { maybeCompact } from "../context/compact.js";
+import { resolveExternalCall } from "../external.js";
 import { mintCollabToken } from "../crypto.js";
 import { exportMarkdown } from "../export.js";
 
@@ -355,6 +356,16 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     appendEvent(id, { type: "brief.updated", actorKind: "system", actorUserId: null, payload: { brief: `Forked from "${src.title}" (session ${src.id}) at commit ${state.headCommitId ?? "none"} on ${ts}. The canvas and agreed decisions were carried over; superseded decisions and resolved decision points were not.`, throughSeq: 0 } });
     createCommit(id, user.id, null, `Forked from ${src.title}`);
     return { id, title };
+  });
+
+  app.post<{ Params: { id: string; callId: string }; Body: { decision: "approved" | "denied"; reason?: string } }>("/api/v1/sessions/:id/external-calls/:callId/resolve", async (req, reply) => {
+    const user = requireUser(req, reply);
+    participantOr403(req.params.id, user.id);
+    try {
+      return resolveExternalCall(req.params.id, req.params.callId, user.id, req.body.decision === "approved" ? "approved" : "denied", req.body.reason);
+    } catch (e) {
+      return reply.code(400).send({ error: (e as Error).message });
+    }
   });
 
   // Refresh the brief by hand: folds everything but the last few messages. Costs one provider request.

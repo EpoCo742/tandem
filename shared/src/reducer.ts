@@ -160,8 +160,27 @@ export interface SessionState {
   briefUpdatedAt: string | null;
   forkedFrom: { sessionId: string; commitId: string | null; title: string } | null;
   uploads: Record<string, UploadInfo>;
+  externalCalls: Record<string, ExternalCall>;
   lastSeq: number;
   eventsById: Record<string, AnyLedgerEvent>;
+}
+
+export interface ExternalCall {
+  id: string;
+  ownerUserId: string;
+  onBehalfOf: string;
+  serverName: string;
+  toolName: string;
+  args: unknown;
+  readOnly: boolean;
+  summary: string;
+  status: "pending" | "approved" | "denied" | "completed" | "failed";
+  decidedBy: string | null;
+  reason: string | null;
+  result: string | null;
+  turnId: string | null;
+  eventId: string;
+  createdAt: string;
 }
 
 export interface UploadInfo {
@@ -196,6 +215,7 @@ export function emptyState(sessionId: string): SessionState {
     briefUpdatedAt: null,
     forkedFrom: null,
     uploads: {},
+    externalCalls: {},
     lastSeq: 0,
     eventsById: {},
   };
@@ -483,6 +503,27 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       const p = ev.payload as Payloads["source.ingested"];
       const u = s.uploads[p.uploadId];
       if (u) s.uploads = { ...s.uploads, [p.uploadId]: { ...u, artifactId: p.artifactId } };
+      return s;
+    }
+    case "external.call_proposed": {
+      const p = ev.payload as Payloads["external.call_proposed"];
+      s.externalCalls = { ...s.externalCalls, [p.callId]: { id: p.callId, ownerUserId: p.ownerUserId, onBehalfOf: p.onBehalfOf, serverName: p.serverName, toolName: p.toolName, args: p.args, readOnly: p.readOnly, summary: p.summary, status: "pending", decidedBy: null, reason: null, result: null, turnId: ev.turnId, eventId: ev.id, createdAt: ev.createdAt } };
+      return s;
+    }
+    case "external.call_resolved": {
+      const p = ev.payload as Payloads["external.call_resolved"];
+      const c = s.externalCalls[p.callId];
+      if (c) s.externalCalls = { ...s.externalCalls, [p.callId]: { ...c, status: p.decision, decidedBy: ev.actorUserId, reason: p.reason ?? null } };
+      return s;
+    }
+    case "external.call_completed": {
+      const p = ev.payload as Payloads["external.call_completed"];
+      const c = s.externalCalls[p.callId];
+      if (c) {
+        s.externalCalls = { ...s.externalCalls, [p.callId]: { ...c, status: p.ok ? "completed" : "failed", result: p.summary } };
+        const owner = s.participants[c.ownerUserId]?.name ?? "someone";
+        s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${owner}'s ${c.serverName} tool ${c.toolName} ${p.ok ? "ran" : "failed"}: ${p.summary}`, turnId: ev.turnId, createdAt: ev.createdAt }];
+      }
       return s;
     }
     case "brief.updated": {

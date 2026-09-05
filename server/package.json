@@ -17,6 +17,7 @@
     "@fastify/websocket": "^11.3.0",
     "@github/copilot-sdk": "^1.0.11",
     "@hocuspocus/server": "^4.6.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@tandem/shared": "workspace:*",
     "async-mutex": "^0.5.0",
     "better-sqlite3": "^13.0.3",
