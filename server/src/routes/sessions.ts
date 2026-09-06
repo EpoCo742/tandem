@@ -24,7 +24,10 @@ import { requestReview, signOff, withdrawReview } from "../review.js";
 import { publishDocument, revokePublication } from "../publish.js";
 import { importFromLibrary } from "../importer.js";
 import { demoSessionId, demoViewer, isDemoSession } from "../demo.js";
-import { impactLines, impactOf, contractsOf, nextAssumptionLabel, nextQuestionLabel, parseNotation, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts, contentText, participantName } from "@tandem/shared";
+import { impactLines, impactOf, contractsOf, nextAssumptionLabel, nextQuestionLabel, parseNotation, compareDesign, comparisonMarkdown, reduceUpTo, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts, contentText, participantName } from "@tandem/shared";
+
+export const NARRATE_INSTRUCTION =
+  "Narrate the changes. The attached card compares two versions of the design document. Replace its \"Major changes\" section with a section titled \"What matters\": a short narrative for a reader who knows the earlier version, saying what changed, why it matters and who is affected, drawn only from the comparison below it. Keep every section after it exactly as it is. Update that card with update_artifact, same title. Change nothing else on the canvas.";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -633,6 +636,68 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     });
     brokerFor(req.params.id).onDirective(directive);
     return { resolved: true, optionId: winner };
+  });
+
+  // Two versions of the design side by side: the document text plus the session state each version
+  // was written in. Computed, no AI turn; the AI is asked to say what matters only when requested.
+  function compareDoc(sessionId: string, artifactId: string, fromNo: number, toNo: number) {
+    const state = getState(sessionId);
+    const a = state.artifacts[artifactId];
+    if (!a || a.deleted || a.type !== "design_doc") return { error: "no such design document" };
+    const vFrom = a.versions.find((v) => v.versionNo === fromNo);
+    const vTo = a.versions.find((v) => v.versionNo === toNo);
+    if (!vFrom || !vTo) return { error: `versions ${fromNo} and ${toNo} must both exist (the document has v1 to v${a.current.versionNo})` };
+    const events = listEvents(sessionId);
+    const seqOf = (eventId: string) => events.find((e) => e.id === eventId)?.seq ?? Number.MAX_SAFE_INTEGER;
+    const before = reduceUpTo(sessionId, events, seqOf(vFrom.eventId));
+    const after = reduceUpTo(sessionId, events, seqOf(vTo.eventId));
+    const md = (v: typeof vFrom) => (v.content as { markdown?: string }).markdown ?? "";
+    const comparison = compareDesign(before, after, md(vFrom), md(vTo), { from: { versionNo: vFrom.versionNo, at: vFrom.createdAt }, to: { versionNo: vTo.versionNo, at: vTo.createdAt } });
+    return { artifact: a, vFrom, vTo, comparison, markdown: comparisonMarkdown(comparison, a.title) };
+  }
+
+  app.get<{ Params: { id: string; artifactId: string }; Querystring: { from?: string; to?: string } }>("/api/v1/sessions/:id/artifacts/:artifactId/compare", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    participantOr403(req.params.id, user.id);
+    const state = getState(req.params.id);
+    const a = state.artifacts[req.params.artifactId];
+    if (!a || a.deleted || a.type !== "design_doc") return reply.code(404).send({ error: "no such design document" });
+    const toNo = Number(req.query.to) || a.current.versionNo;
+    const pub = state.publications[a.id];
+    const lastPub = pub?.status === "live" ? pub.versions[pub.versions.length - 1]?.docVersionNo : undefined;
+    const fromNo = Number(req.query.from) || (lastPub && lastPub < toNo ? lastPub : Math.max(1, toNo - 1));
+    const r = compareDoc(req.params.id, a.id, fromNo, toNo);
+    if ("error" in r) return reply.code(400).send({ error: r.error });
+    return { comparison: r.comparison, markdown: r.markdown, title: `Changes: ${a.title} v${fromNo} → v${toNo}` };
+  });
+
+  app.post<{ Params: { id: string; artifactId: string }; Body: { from: number; to?: number; narrate?: boolean } }>("/api/v1/sessions/:id/artifacts/:artifactId/compare", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot add cards" });
+    const state = getState(req.params.id);
+    const a = state.artifacts[req.params.artifactId];
+    if (!a || a.deleted || a.type !== "design_doc") return reply.code(404).send({ error: "no such design document" });
+    const toNo = Number(req.body?.to) || a.current.versionNo;
+    const fromNo = Number(req.body?.from);
+    if (!fromNo) return reply.code(400).send({ error: "from is needed" });
+    const r = compareDoc(req.params.id, a.id, fromNo, toNo);
+    if ("error" in r) return reply.code(400).send({ error: r.error });
+    const title = `Changes: ${a.title} v${fromNo} → v${toNo}`;
+    const existing = Object.values(state.artifacts).find((x) => x.type === "markdown" && !x.deleted && x.title === title);
+    const out = requestChange({ sessionId: req.params.id, turnId: null, actorKind: "user", actorUserId: user.id, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "markdown", title, content: { markdown: r.markdown, sections: [{ id: "body", derivedFrom: [r.vFrom.eventId, r.vTo.eventId] }] }, summary: `What changed between v${fromNo} and v${toNo} of ${a.title}`, rationale: "Comparison of two versions of the design document", baseVersionNo: existing?.current.versionNo ?? null, causedBy: [], force: true });
+    if (out.status !== "applied") return reply.code(409).send({ error: `could not save the comparison: ${out.status}` });
+    let eventId: string | undefined;
+    if (req.body?.narrate) {
+      if (!me.consentedAt) return reply.code(403).send({ error: "consent required before addressing the AI" });
+      const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: user.id, payload: { text: NARRATE_INSTRUCTION, mode: "directive", attachments: [out.artifactId], intent: "compare" } });
+      brokerFor(req.params.id).onDirective(ev);
+      brokerFor(req.params.id).sendNow();
+      eventId = ev.id;
+    }
+    return { artifactId: out.artifactId, versionNo: out.versionNo, title, narrated: Boolean(req.body?.narrate), ...(eventId ? { eventId } : {}) };
   });
 
   // Compile the canvas into a design document. Runs as a normal AI turn funded by the requester

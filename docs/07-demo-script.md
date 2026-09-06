@@ -12,7 +12,7 @@ It is a fixture, `server/fixtures/demo-session.json`, captured from this script.
 
 ```
 cd server && rm -rf data-demo && PORT=3013 APP_URL=http://127.0.0.1:3013 DATA_DIR=./data-demo TANDEM_PROVIDER=fake TANDEM_DEV_AUTH=1 TANDEM_DEMO=0 npx tsx src/index.ts
-node server/scripts/demo.mjs --url http://127.0.0.1:3013 --order setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,questions,contract,sequence,deployment,flow
+node server/scripts/demo.mjs --url http://127.0.0.1:3013 --order setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,questions,contract,sequence,deployment,flow,compare
 node server/scripts/export-demo-fixture.mjs --db server/data-demo/tandem.db --session <id printed by demo.mjs>
 ```
 
@@ -477,6 +477,19 @@ Fake architect: an **Alternatives** card with A. Keep the current design, B. Dir
 On the majority: the architecture model is set from B (every view follows), the card shows "chosen: B" with A and C folded under "not chosen", a system message names the voters, and the Decisions tab shows the new decision with all three candidates as options considered. No AI turn was spent.
 
 Point at: the comparison table on the card; the decision record's options; the export's chosen and not-chosen sections.
+
+## Stage 12k: comparing versions of the design
+
+Feature: any two versions of the design document can be compared, and the comparison is computed, not generated: the document text by section, plus the state of the session when each version was written (decisions added or superseded, model components and relationships, constraints, contracts, assumptions and questions, other cards), with a ranked "Major changes" list on top. Saving it puts a **Changes: … v1 → v3** Markdown card on the canvas with no AI turn. One AI turn, on request, replaces "Major changes" with a "What matters" narrative for someone who knows the earlier version.
+
+| Who | Does |
+|---|---|
+| Alice | **Compile design doc** again after the canvas has moved, so the document has a v2 (or v3). |
+| Alice | **read** on the Design document card, then **compare with** in the sidebar and pick v1. The page shows the changes instead of the document. |
+| Alice | **save as card**: the changes card lands on the canvas. Or **save + AI narrative**: the same card, then the AI writes "What matters" at the top. |
+| Anyone | On a published document, the publish panel offers **changes since v1** whenever the canvas version is newer than the public page. |
+
+Fake architect: writes a "What matters" paragraph from the ranked list. A real model gets the card attached to a single instruction and a rule to touch nothing else.
 
 ## Stage 12c: people who are not in the room
 

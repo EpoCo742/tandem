@@ -91,7 +91,7 @@ export type Payloads = {
   "participant.joined": { role: Role; name: string; color: string; avatarUrl?: string };
   "participant.left": Record<string, never>;
   "participant.consented": { providers: string[] };
-  "message.posted": { text: string; mode: MessageMode; attachments: string[]; replyTo?: string; fromNoteEventId?: string; intent?: "compile"; mentions?: string[]; anchor?: MessageAnchor };
+  "message.posted": { text: string; mode: MessageMode; attachments: string[]; replyTo?: string; fromNoteEventId?: string; intent?: "compile" | "compare"; mentions?: string[]; anchor?: MessageAnchor };
   "thread.resolved": { rootEventId: string; resolved: boolean }; // a thread anchored to a card is closed (or reopened) by a person
   "review.requested": { artifactId: string; reviewers: string[]; versionNo: number; note?: string }; // the design document goes into review; these people have to sign
   "review.signed": { artifactId: string; versionNo: number; commitId: string | null }; // the actor signs off the document as it stands

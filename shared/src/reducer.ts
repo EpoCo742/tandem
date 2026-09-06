@@ -33,7 +33,7 @@ export interface ChatMessage {
   seq: number;
   kind: "user" | "ai" | "clarification" | "system";
   mode?: "directive" | "note" | "promoted";
-  intent?: "compile";
+  intent?: "compile" | "compare";
   userId: string | null;
   onBehalfOf?: string;
   payerUserId?: string;

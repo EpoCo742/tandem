@@ -2,6 +2,7 @@ import { useState } from "react";
 import { participantName, type Artifact } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
+import { navigate } from "../App";
 
 // Publishing gives the design document a public page with every version kept. The owner
 // publishes; approvals publish a new version on their own once the document is out there.
@@ -51,6 +52,11 @@ export function PublishPanel({ artifact: a, sessionId }: { artifact: Artifact; s
             <span className="chip status-approved" title={`Version ${last.publicationVersionNo} of the public page is document v${last.docVersionNo}${last.approved ? `, approved as ${last.approved.decisionLabel}` : ", not signed off"}`}>published · v{last.docVersionNo}{last.approved ? " · approved" : ""}</span>
             <a className="mono" href={url} target="_blank" rel="noreferrer" style={{ userSelect: "all" }}>{url.replace(/^https?:\/\//, "")}</a>
             <button className="icon" onClick={copy} title="Copy the public link">{copied ? "copied" : "copy"}</button>
+            {a.current.versionNo > last.docVersionNo && (
+              <button className="icon" onClick={() => navigate(`/s/${sessionId}/doc/${a.id}?compare=${last.docVersionNo}`)} title={`What changed between the published v${last.docVersionNo} and this v${a.current.versionNo}: text, decisions, model, constraints, contracts`}>
+                changes since v{last.docVersionNo}
+              </button>
+            )}
             {behind && <span className="muted" style={{ fontSize: 12 }}>v{a.current.versionNo} is newer than the page</span>}
           </>
         ) : pub?.status === "revoked" ? (

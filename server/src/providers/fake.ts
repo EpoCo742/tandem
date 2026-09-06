@@ -224,6 +224,28 @@ export const fakeProvider: ProviderAdapter = {
     }
 
     // 0. Compile request: assemble a design document from everything in the prompt.
+    const narrate = batch.find((m) => /^Narrate the changes/i.test(m.text));
+    if (narrate) {
+      const card = [...artifacts].reverse().find((a) => a.type === "markdown" && /^Changes: /.test(a.title));
+      if (!card) {
+        await emit("I do not see a Changes card to narrate.");
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const cur = (await call("read_artifact", { artifactId: card.id })) as { content?: { markdown?: string; sections?: unknown[] }; versionNo?: number };
+      const md = cur.content?.markdown ?? "";
+      const m = md.match(/## Major changes\n\n([\s\S]*?)\n\n## /);
+      const bullets = (m?.[1] ?? "").split("\n").filter((l) => l.startsWith("- ")).map((l) => l.slice(2).replace(/\.$/, ""));
+      const versions = card.title.match(/v(\d+) → v(\d+)/);
+      const lead = versions ? `Between v${versions[1]} and v${versions[2]}` : "Between these versions";
+      const narrative = bullets.length === 0
+        ? `${lead} nothing of substance changed; the document was touched but the design stands.`
+        : `${lead} the design moved in ${bullets.length} notable way${bullets.length === 1 ? "" : "s"}. The one to read first: ${bullets[0]!.charAt(0).toLowerCase()}${bullets[0]!.slice(1)}. ${bullets.length > 1 ? `Also worth knowing: ${bullets.slice(1, 4).map((b) => b.charAt(0).toLowerCase() + b.slice(1)).join("; ")}.` : ""} Anyone who reviewed the earlier version should check the sections below for the details.`;
+      const next = m ? md.replace(/## Major changes\n\n[\s\S]*?\n\n## /, `## What matters\n\n${narrative}\n\n## `) : md.replace(/\n\n## /, `\n\n## What matters\n\n${narrative}\n\n## `);
+      const r = (await call("update_artifact", { artifactId: card.id, baseVersionNo: cur.versionNo ?? card.versionNo, content: { ...(cur.content ?? {}), markdown: next, sections: cur.content?.sections ?? [{ id: "body", derivedFrom: [narrate.eventId] }] }, rationale: "Narrated what matters in the comparison", summary: "What matters between the two versions" })) as { status: string };
+      await emit(r.status === "applied" ? `Wrote "What matters" at the top of ${card.title}: ${bullets.length} change${bullets.length === 1 ? "" : "s"} weighed.` : `Could not update the changes card: ${r.status}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
     const compile = batch.find((m) => /^Compile the design document/i.test(m.text));
     if (compile) {
       const doc = buildDesignDoc(req.context.prompt, artifacts, decisions, compile.eventId);

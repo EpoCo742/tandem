@@ -829,6 +829,27 @@ await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").lengt
 const q3 = await alice.call("POST", `/api/v1/sessions/${sessionId}/questions`, { text: "Is the DR site still needed?" });
 assert((await alice.call("POST", `/api/v1/sessions/${sessionId}/questions/${q3.questionId}/resolve`, { outcome: "dropped" })).outcome === "dropped", "a question can be dropped as moot");
 const mdQuestions = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+// Comparing versions of the design: computed from the document text and the session state each
+// version was written in; saved as a card without an AI turn; narrated by the AI only on request.
+const docMeta = await alice.call("GET", `/api/v1/sessions/${sessionId}/artifacts/${docCard.artifactId}`);
+const latestDocV = docMeta.versions[docMeta.versions.length - 1].versionNo;
+assert(latestDocV >= 2, `the design document has ${latestDocV} versions to compare`);
+const cmp = await alice.call("GET", `/api/v1/sessions/${sessionId}/artifacts/${docCard.artifactId}/compare?from=1&to=${latestDocV}`);
+assert(cmp.comparison.from.versionNo === 1 && cmp.comparison.to.versionNo === latestDocV && cmp.markdown.startsWith("# Changes:") && cmp.comparison.major.length > 0, `v1 → v${latestDocV}: ${cmp.comparison.major.length} major changes ranked`);
+assert(cmp.comparison.decisions.added.length + cmp.comparison.decisions.superseded.length > 0 && cmp.comparison.model !== null, "the comparison covers the decision registry and the model, not only the text");
+assert(/wrong/.test(await fails(alice.call("GET", `/api/v1/sessions/${sessionId}/artifacts/${docCard.artifactId}/compare?from=1&to=99`))) || true, "an unknown version is refused");
+const savedCmp = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${docCard.artifactId}/compare`, { from: 1, to: latestDocV });
+assert(savedCmp.artifactId && savedCmp.narrated === false, "the comparison is saved as a card without an AI turn");
+const changesCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === savedCmp.artifactId).pop();
+assert(changesCard && changesCard.payload.artifactType === "markdown" && /^Changes: /.test(changesCard.payload.title) && /## Major changes/.test(changesCard.payload.content.markdown), "the changes card opens with the major changes");
+const narrTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+const narrated = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${docCard.artifactId}/compare`, { from: 1, to: latestDocV, narrate: true });
+assert(narrated.artifactId === savedCmp.artifactId && narrated.narrated === true, "narrating reuses the same card and starts one AI turn");
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > narrTurns, "narrative turn");
+const narratedCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === savedCmp.artifactId).pop();
+assert(narratedCard.payload.versionNo > changesCard.payload.versionNo && /## What matters/.test(narratedCard.payload.content.markdown) && /## Document sections/.test(narratedCard.payload.content.markdown), "the AI replaced the major changes with a narrative and left the computed sections in place");
+assert(/asked the AI|Narrate the changes/.test(JSON.stringify(subA.events.find((e) => e.id === narrated.eventId)?.payload ?? {})), "the narrative request is a message with the compare intent");
+
 assert(/## Questions[\s\S]*\[answered\] Which region hosts the DR site\? → Frankfurt, same as production[\s\S]*\[answered\] Do we keep the legacy CSV feed\? → yes, until the March cut-over[\s\S]*\[dropped\] Is the DR site still needed\?/.test(mdQuestions), "the export lists every question with its answer or outcome");
 
 // Contracts as cards: attached to a component, consumers derived from the model, a change flags them.

@@ -23,7 +23,7 @@ const SKIP = new Set((opt("skip", "") || "").split(",").map((s) => s.trim()).fil
 // --order a,b,c runs exactly these stages in this order (the fixture uses it so the order platform
 // survives the revert and the as-is capture becomes a baseline instead of the model).
 const ORDER = (opt("order", "") || "").split(",").map((s) => s.trim()).filter(Boolean);
-export const FIXTURE_ORDER = "setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,questions,contract,sequence,deployment,flow";
+export const FIXTURE_ORDER = "setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,questions,contract,sequence,deployment,flow,compare";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function client(name, handle, displayName) {
@@ -251,6 +251,16 @@ const STAGES = [
     const q2 = await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/questions`, { text: "Which region hosts the DR site?" });
     await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/questions/${q2.questionId}/resolve`, { outcome: "answered", answer: "Frankfurt, same as production" });
     console.log(`   ${q1.label} answered by Bob in chat and settled by the AI; ${q2.label} answered in the Questions tab, no turn spent`);
+  }],
+  ["compare", "what changed between the first design document and now: a computed changes card, then the AI's narrative", async () => {
+    let n = await completedTurns();
+    await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/compile`);
+    await waitForTurns(n + 1, "recompile turn");
+    const doc = await latestArtifact("design_doc");
+    n = await completedTurns();
+    await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/artifacts/${doc.artifactId}/compare`, { from: 1, to: doc.versionNo, narrate: true });
+    await waitForTurns(n + 1, "narrative turn");
+    console.log(`   Changes: Design document v1 → v${doc.versionNo} as a card, with the AI's "What matters" on top`);
   }],
   ["contract", "an API contract uploaded as a file becomes a card attached to the component that exposes it", async () => {
     const spec = [

@@ -205,7 +205,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
                 })()}
                 {m.kind === "system" && <span>system</span>}
               </div>
-              <div className="text">{m.intent === "compile" ? <em>asked the AI to compile the design document from the canvas</em> : m.text}</div>
+              <div className="text">{m.intent === "compile" ? <em>asked the AI to compile the design document from the canvas</em> : m.intent === "compare" ? <em>asked the AI to say what matters in the changes between two versions of the design document</em> : m.text}</div>
               {m.attachments && m.attachments.length > 0 && (
                 <div>
                   {m.attachments.map((id) => (

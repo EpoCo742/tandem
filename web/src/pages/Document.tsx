@@ -5,6 +5,7 @@ import { api } from "../api";
 import { navigate } from "../App";
 import { TopBar } from "../components/TopBar";
 import { mdComponents, withoutComments } from "./Published";
+import { useStore } from "../state/store";
 
 interface DocResponse {
   sessionId: string;
@@ -23,11 +24,39 @@ export function Document({ sessionId, artifactId }: { sessionId: string; artifac
   const [err, setErr] = useState<string | null>(null);
   const [v, setV] = useState<number | undefined>(undefined);
   const [toc, setToc] = useState<{ id: string; text: string; level: number }[]>([]);
+  const [compareWith, setCompareWith] = useState<number | null>(() => Number(new URLSearchParams(window.location.search).get("compare")) || null);
+  const [cmp, setCmp] = useState<{ markdown: string; title: string; major: number } | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const me = useStore((s) => s.me);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api<DocResponse>("GET", `/api/v1/sessions/${sessionId}/artifacts/${artifactId}${v ? `?v=${v}` : ""}`).then(setDoc).catch((e) => setErr((e as Error).message));
   }, [sessionId, artifactId, v]);
+
+  // A comparison replaces the body: this version against the chosen earlier (or later) one.
+  useEffect(() => {
+    if (!doc || !compareWith || compareWith === doc.artifact.versionNo) {
+      setCmp(null);
+      return;
+    }
+    const [from, to] = compareWith < doc.artifact.versionNo ? [compareWith, doc.artifact.versionNo] : [doc.artifact.versionNo, compareWith];
+    api<{ comparison: { major: string[] }; markdown: string; title: string }>("GET", `/api/v1/sessions/${sessionId}/artifacts/${artifactId}/compare?from=${from}&to=${to}`)
+      .then((r) => setCmp({ markdown: r.markdown, title: r.title, major: r.comparison.major.length }))
+      .catch((e) => setErr((e as Error).message));
+  }, [doc, compareWith, sessionId, artifactId]);
+
+  async function saveComparison(narrate: boolean) {
+    if (!doc || !compareWith) return;
+    const [from, to] = compareWith < doc.artifact.versionNo ? [compareWith, doc.artifact.versionNo] : [doc.artifact.versionNo, compareWith];
+    setSaving("saving…");
+    try {
+      const r = await api<{ artifactId: string; narrated: boolean }>("POST", `/api/v1/sessions/${sessionId}/artifacts/${artifactId}/compare`, { from, to, narrate });
+      setSaving(r.narrated ? "Saved as a card; the AI is writing what matters. Open the session to watch it land." : "Saved as a card on the canvas.");
+    } catch (e) {
+      setSaving((e as Error).message);
+    }
+  }
 
   useEffect(() => {
     if (!doc) return;
@@ -42,6 +71,7 @@ export function Document({ sessionId, artifactId }: { sessionId: string; artifac
   const isLatest = doc.artifact.versionNo === latest.versionNo;
   const r = doc.review;
   const approvedHere = r?.status === "approved" && r.approvedVersionNo === doc.artifact.versionNo;
+  const canSave = !doc.demo && me?.user;
   return (
     <>
       <TopBar>
@@ -62,7 +92,25 @@ export function Document({ sessionId, artifactId }: { sessionId: string; artifac
             <br />by {doc.artifact.authorName}, {new Date(doc.artifact.createdAt).toLocaleDateString()}
             {!isLatest && <><br /><a href="#" onClick={(e) => { e.preventDefault(); setV(undefined); }}>latest is v{latest.versionNo}</a></>}
           </div>
-          {toc.length > 0 && (
+          {doc.versions.length > 1 && (
+            <div style={{ marginBottom: 14 }}>
+              <div className="mono" style={{ marginBottom: 6 }}>compare with</div>
+              <select value={compareWith ?? ""} onChange={(e) => { setCompareWith(Number(e.target.value) || null); setSaving(null); }} style={{ width: "100%" }} title="Show what changed between this version and another: the text, the decisions, the model, the constraints, the contracts">
+                <option value="">nothing</option>
+                {[...doc.versions].reverse().filter((x) => x.versionNo !== doc.artifact.versionNo).map((x) => (
+                  <option key={x.versionNo} value={x.versionNo}>v{x.versionNo} · {new Date(x.createdAt).toLocaleDateString()}{r?.status === "approved" && r.approvedVersionNo === x.versionNo ? " · approved" : ""}</option>
+                ))}
+              </select>
+              {cmp && canSave && (
+                <div className="stack" style={{ gap: 4, marginTop: 8 }}>
+                  <button className="icon" onClick={() => saveComparison(false)} title="Put the comparison on the canvas as a Markdown card; no AI turn">save as card</button>
+                  <button className="icon" onClick={() => saveComparison(true)} title="Save the card and spend one AI turn on a 'What matters' narrative at the top of it">save + AI narrative</button>
+                  {saving && <div className="muted" style={{ fontSize: 12 }}>{saving}</div>}
+                </div>
+              )}
+            </div>
+          )}
+          {toc.length > 0 && !cmp && (
             <nav className="pub-toc">
               <div className="mono" style={{ marginBottom: 4 }}>contents</div>
               {toc.map((h) => <a key={h.id} href={`#${h.id}`} className={h.level === 3 ? "sub" : ""}>{h.text}</a>)}
@@ -77,11 +125,17 @@ export function Document({ sessionId, artifactId }: { sessionId: string; artifac
         <div className="page published">
           <div className="pub-head">
             <div className="mono">{doc.sessionTitle}</div>
-            <h1 style={{ fontSize: 30, marginTop: 4 }}>{doc.artifact.title}</h1>
+            <h1 style={{ fontSize: 30, marginTop: 4 }}>{cmp ? cmp.title : doc.artifact.title}</h1>
           </div>
-          <div className="md pub-body" ref={bodyRef}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{withoutComments(doc.artifact.markdown)}</ReactMarkdown>
-          </div>
+          {cmp ? (
+            <div className="md pub-body">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{cmp.markdown.replace(/^# .*\n/, "")}</ReactMarkdown>
+            </div>
+          ) : (
+            <div className="md pub-body" ref={bodyRef}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{withoutComments(doc.artifact.markdown)}</ReactMarkdown>
+            </div>
+          )}
           <div className="pub-foot mono">
             {doc.demo ? "From the built-in demo session. Open it to see how the document was assembled." : "The document as it stands in the session; the session may have moved on since this version."}
           </div>
