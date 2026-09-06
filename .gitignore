@@ -25,3 +25,8 @@ data/
 !.env.example
 data-smoke/
 data-test/
+
+smoke-server.log
+demo-server.log
+demo-run.log
+server/data-demo/
