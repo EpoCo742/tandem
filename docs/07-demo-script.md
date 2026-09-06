@@ -56,6 +56,21 @@ Feature: rename, archive, delete; who sees what.
 
 Point at: a session is visible only to the people in it (creator plus everyone who accepted an invite); there is no browse-all list. Archive is reversible and keeps everything; delete is not.
 
+## Stage 1d: templates (no script, or `--template integration`)
+
+Feature: a **kind of design** chosen at creation (new service, integration between systems, data migration, platform change). It seeds the Constraints card with that kind's defaults, set by the creator, and gives the session a checklist of what a whole design of that kind needs. The checklist is computed from the ledger, so it is always right; the AI sees it every turn and steers toward the gaps.
+
+| Who | Does |
+|---|---|
+| Alice | Home: kind of design **Integration between systems**, create. The canvas opens with a Constraints card (C-01 idempotent calls, C-02 backward-compatible contracts, both "set by Alice"); the top bar shows **Integration between systems · 1/10**. |
+| Alice | Clicks it: the **Checklist** tab lists the ten items with hints (as-is baseline, a model with an external system, a sequence diagram, contract, failure handling, decisions, document, sign-off). |
+| Alice | "Service C calls Service D." The view item ticks; the model item stays open "none of kind external". |
+| Alice | "What's missing?" |
+
+Fake architect: answers from the checklist: "Integration between systems design, 3 of 10 done. Done: …. Missing: Sequence diagram (ask for a sequence diagram of the main exchange); …". A real model gets the same section in its prompt with a rule to produce the named artifact when a directive touches it and to name the most important gap when the conversation goes quiet.
+
+Point at: the seeded constraints are ordinary constraints (amend or drop them like any other); a fork keeps the template; blank sessions have no checklist and nothing changes for them.
+
 ## Stage 1b: as-is from code
 
 Feature: with a read-only repository tool registered (a GitHub MCP server, or the demo server's `repo_tree` / `repo_file`), "draw the current architecture of repository X" reads the repository's manifests, never its source, and records the result as the model's **as-is** baseline. When the model is empty it becomes the model; from then on the model is the target state and an **As-is vs to-be** view shows added (green), removed (dashed red), changed (amber) and unchanged (grey) components.

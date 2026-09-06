@@ -8,3 +8,4 @@ export * from "./threads.js";
 export * from "./scan.js";
 export * from "./colors.js";
 export * from "./library.js";
+export * from "./templates.js";

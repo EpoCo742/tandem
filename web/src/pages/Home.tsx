@@ -4,8 +4,9 @@ import { navigate } from "../App";
 import { TopBar } from "../components/TopBar";
 import { useStore } from "../state/store";
 import { SessionMenu } from "../components/SessionMenu";
+import { TEMPLATES, TEMPLATE_IDS, type TemplateId } from "@tandem/shared";
 
-interface SessionRow { id: string; title: string; status: "active" | "archived"; role: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string; updatedAt: string }
+interface SessionRow { id: string; title: string; status: "active" | "archived"; template: string | null; role: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string; updatedAt: string }
 interface DigestSession {
   sessionId: string;
   title: string;
@@ -30,6 +31,7 @@ export function Home() {
   const [provider, setProvider] = useState("");
   const [payerMode, setPayerMode] = useState<"sponsor" | "speaker">("sponsor");
   const [model, setModel] = useState("");
+  const [template, setTemplate] = useState<TemplateId | "">("");
   const [err, setErr] = useState<string | null>(null);
 
   function reload() {
@@ -54,7 +56,7 @@ export function Home() {
   async function create() {
     setErr(null);
     try {
-      const { id } = await api<{ id: string }>("POST", "/api/v1/sessions", { title: title || "Untitled session", provider, payerMode, pinnedModel: model || undefined, policy: "hybrid" });
+      const { id } = await api<{ id: string }>("POST", "/api/v1/sessions", { title: title || "Untitled session", provider, payerMode, pinnedModel: model || undefined, policy: "hybrid", ...(template ? { template } : {}) });
       navigate(`/s/${id}`);
     } catch (e) {
       setErr((e as Error).message);
@@ -68,6 +70,16 @@ export function Home() {
         <h2 style={{ fontSize: 26, marginBottom: 12 }}>New session</h2>
         <div className="card stack">
           <input placeholder="Title, e.g. Order platform v1" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <label>
+            <div className="mono">kind of design</div>
+            <select value={template} onChange={(e) => setTemplate(e.target.value as TemplateId | "")}>
+              <option value="">blank (no checklist)</option>
+              {TEMPLATE_IDS.map((id) => <option key={id} value={id}>{TEMPLATES[id].name}</option>)}
+            </select>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              {template ? `${TEMPLATES[template].summary} Starts with ${TEMPLATES[template].seedConstraints.length} default constraints and a ${TEMPLATES[template].checklist.length}-item checklist the AI works toward.` : "A template seeds the constraints card and gives the session a checklist of what a whole design of that kind needs."}
+            </div>
+          </label>
           <div className="row">
             <label style={{ flex: 1 }}>
               <div className="mono">provider</div>
@@ -132,7 +144,7 @@ function SessionListRow({ s, onChange }: { s: SessionRow; onChange: () => void }
     <div className={`card row session-row${s.status === "archived" ? " archived" : ""}`} onClick={() => navigate(`/s/${s.id}`)}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600 }}>{s.title}{s.status === "archived" && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}</div>
-        <div className="mono">{s.provider} · {s.pinnedModel} · {s.payerMode} · {s.policy} · you are {s.role}</div>
+        <div className="mono">{s.provider} · {s.pinnedModel} · {s.payerMode} · {s.policy}{s.template && TEMPLATES[s.template as TemplateId] ? ` · ${TEMPLATES[s.template as TemplateId].name}` : ""} · you are {s.role}</div>
       </div>
       <span className="mono" title={`created ${new Date(s.createdAt).toLocaleString()}`}>{new Date(s.updatedAt).toLocaleString()}</span>
       <SessionMenu sessionId={s.id} title={s.title} status={s.status} isOwner={s.role === "owner"} onChange={onChange} onDeleted={onChange} />

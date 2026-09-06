@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, pendingProposals, contentText, describeAnchor, describeTarget, targetOf, AI_COLOR, type Proposal } from "@tandem/shared";
+import { participantName, pendingProposals, contentText, describeAnchor, describeTarget, targetOf, completeness, AI_COLOR, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
 import { promotionStates } from "../threadState";
 
-type Tab = "side" | "proposals" | "decisions" | "history" | "sources" | "brief";
+type Tab = "side" | "proposals" | "decisions" | "history" | "sources" | "brief" | "checklist";
 
 export function SidePane({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
@@ -51,10 +51,12 @@ export function SidePane({ sessionId }: { sessionId: string }) {
         <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>History</button>
         <button className={tab === "sources" ? "active" : ""} onClick={() => setTab("sources")}>Sources</button>
         <button className={tab === "brief" ? "active" : ""} onClick={() => setTab("brief")}>Brief</button>
+        {state.template && <button className={tab === "checklist" ? "active" : ""} onClick={() => setTab("checklist")}>Checklist</button>}
       </div>
       {tab === "side" && <SideChannel sessionId={sessionId} />}
       {tab === "proposals" && <Proposals sessionId={sessionId} proposals={pending} />}
       {tab === "decisions" && <Decisions />}
+      {tab === "checklist" && <Checklist />}
       {tab === "history" && <History sessionId={sessionId} />}
       {tab === "sources" && <Sources sessionId={sessionId} />}
       {tab === "brief" && <Brief sessionId={sessionId} />}
@@ -189,6 +191,32 @@ function diffPreview(a: string, b: string): string {
   for (const l of al) if (!bset.has(l)) out.push("- " + l);
   for (const l of bl) if (!aset.has(l)) out.push("+ " + l);
   return out.length ? out.join("\n") : "(no textual change)";
+}
+
+// What a whole design of this kind still lacks, evaluated from the ledger; the AI sees the same list.
+function Checklist() {
+  const state = useStore((s) => s.state);
+  const c = completeness(state);
+  if (!c) return <div className="pane-body muted">This session has no template.</div>;
+  return (
+    <div className="pane-body">
+      <div className="row" style={{ justifyContent: "space-between", marginBottom: 6 }}>
+        <span><b>{c.template.name}</b></span>
+        <span className="mono">{c.done} of {c.total}</span>
+      </div>
+      <div className="gauge" title={`${c.done} of ${c.total} items done`}><div className="gauge-fill" style={{ width: `${Math.round((100 * c.done) / Math.max(1, c.total))}%` }} /></div>
+      <p className="muted" style={{ fontSize: 12, margin: "8px 0 10px" }}>{c.template.guidance}</p>
+      {c.items.map((i) => (
+        <div key={i.id} className={"check " + (i.done ? "done" : "todo")}>
+          <span className="mark">{i.done ? "✓" : "○"}</span>
+          <div>
+            <div>{i.title}{i.done && i.detail ? <span className="mono" style={{ marginLeft: 6 }}>{i.detail}</span> : null}</div>
+            {!i.done && <div className="muted" style={{ fontSize: 12 }}>{i.hint}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Decisions() {

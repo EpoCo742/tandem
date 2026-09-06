@@ -44,7 +44,7 @@ strong{font-weight:600}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
 </style>
 <div class="page">
-<nav class="toc"><div class="k">Contents</div><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-1c-managing-sessions-no-script">Stage 1c: managing sessions (no script)</a><a href="#stage-1b-as-is-from-code">Stage 1b: as-is from code</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-2b-the-model-is-the-truth">Stage 2b: the model is the truth</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-5b-threads-on-cards">Stage 5b: threads on cards</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-12a-usage-no-script">Stage 12a: usage (no script)</a><a href="#stage-12b-decisions-as-records">Stage 12b: decisions as records</a><a href="#stage-12d-constraints">Stage 12d: constraints</a><a href="#stage-12f-review-and-sign-off">Stage 12f: review and sign-off</a><a href="#stage-12g-publishing">Stage 12g: publishing</a><a href="#stage-12h-the-library">Stage 12h: the library</a><a href="#stage-12e-alternatives-side-by-side">Stage 12e: alternatives side by side</a><a href="#stage-12c-people-who-are-not-in-the-room">Stage 12c: people who are not in the room</a><a href="#stage-13-external-tools-mcp">Stage 13: external tools (MCP)</a><a href="#stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</a><a href="#stage-14-theme-and-canvas-grid-no-script">Stage 14: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
+<nav class="toc"><div class="k">Contents</div><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-1c-managing-sessions-no-script">Stage 1c: managing sessions (no script)</a><a href="#stage-1d-templates-no-script-or-template-integration">Stage 1d: templates (no script, or --template integration)</a><a href="#stage-1b-as-is-from-code">Stage 1b: as-is from code</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-2b-the-model-is-the-truth">Stage 2b: the model is the truth</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-5b-threads-on-cards">Stage 5b: threads on cards</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-12a-usage-no-script">Stage 12a: usage (no script)</a><a href="#stage-12b-decisions-as-records">Stage 12b: decisions as records</a><a href="#stage-12d-constraints">Stage 12d: constraints</a><a href="#stage-12f-review-and-sign-off">Stage 12f: review and sign-off</a><a href="#stage-12g-publishing">Stage 12g: publishing</a><a href="#stage-12h-the-library">Stage 12h: the library</a><a href="#stage-12e-alternatives-side-by-side">Stage 12e: alternatives side by side</a><a href="#stage-12c-people-who-are-not-in-the-room">Stage 12c: people who are not in the room</a><a href="#stage-13-external-tools-mcp">Stage 13: external tools (MCP)</a><a href="#stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</a><a href="#stage-14-theme-and-canvas-grid-no-script">Stage 14: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
 <article>
 <div class="eyebrow"><span>Tandem design package · 07 · Demo script</span><span>2026-09-03</span></div>
 <h1>Tandem POC: Demo Script</h1>
@@ -128,6 +128,36 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tbody>
 </table></div>
 <p>Point at: a session is visible only to the people in it (creator plus everyone who accepted an invite); there is no browse-all list. Archive is reversible and keeps everything; delete is not.</p>
+<h2 id="stage-1d-templates-no-script-or-template-integration">Stage 1d: templates (no script, or <code>--template integration</code>)</h2>
+<p>Feature: a <strong>kind of design</strong> chosen at creation (new service, integration between systems, data migration, platform change). It seeds the Constraints card with that kind's defaults, set by the creator, and gives the session a checklist of what a whole design of that kind needs. The checklist is computed from the ledger, so it is always right; the AI sees it every turn and steers toward the gaps.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice</td>
+<td>Home: kind of design <strong>Integration between systems</strong>, create. The canvas opens with a Constraints card (C-01 idempotent calls, C-02 backward-compatible contracts, both "set by Alice"); the top bar shows <strong>Integration between systems · 1/10</strong>.</td>
+</tr>
+<tr>
+<td>Alice</td>
+<td>Clicks it: the <strong>Checklist</strong> tab lists the ten items with hints (as-is baseline, a model with an external system, a sequence diagram, contract, failure handling, decisions, document, sign-off).</td>
+</tr>
+<tr>
+<td>Alice</td>
+<td>"Service C calls Service D." The view item ticks; the model item stays open "none of kind external".</td>
+</tr>
+<tr>
+<td>Alice</td>
+<td>"What's missing?"</td>
+</tr>
+</tbody>
+</table></div>
+<p>Fake architect: answers from the checklist: "Integration between systems design, 3 of 10 done. Done: …. Missing: Sequence diagram (ask for a sequence diagram of the main exchange); …". A real model gets the same section in its prompt with a rule to produce the named artifact when a directive touches it and to name the most important gap when the conversation goes quiet.</p>
+<p>Point at: the seeded constraints are ordinary constraints (amend or drop them like any other); a fork keeps the template; blank sessions have no checklist and nothing changes for them.</p>
 <h2 id="stage-1b-as-is-from-code">Stage 1b: as-is from code</h2>
 <p>Feature: with a read-only repository tool registered (a GitHub MCP server, or the demo server's <code>repo_tree</code> / <code>repo_file</code>), "draw the current architecture of repository X" reads the repository's manifests, never its source, and records the result as the model's <strong>as-is</strong> baseline. When the model is empty it becomes the model; from then on the model is the target state and an <strong>As-is vs to-be</strong> view shows added (green), removed (dashed red), changed (amber) and unchanged (grey) components.</p>
 <div class="table-wrap"><table>

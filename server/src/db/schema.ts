@@ -45,6 +45,7 @@ export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   status: text("status").notNull().default("active"),
+  template: text("template"), // session template id, or null for a blank session
   policy: text("policy").notNull().default("hybrid"),
   payerMode: text("payer_mode").notNull().default("sponsor"),
   pinnedModel: text("pinned_model").notNull(),

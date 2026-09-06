@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { randomBytes } from "node:crypto";
-import { allAdrs, pickColor, threadRootOf, type ArchModelContent, type ArtifactType, type DecisionPointContent, type ImportedFrom, type MessageAnchor, type Policy, type Role } from "@tandem/shared";
+import { allAdrs, completeness, isTemplateId, pickColor, threadRootOf, TEMPLATES, type ArchModelContent, type ConstraintsContent, type ArtifactType, type DecisionPointContent, type ImportedFrom, type MessageAnchor, type Policy, type Role } from "@tandem/shared";
 import { db, now, schema, sqlite } from "../db/index.js";
 import { requireUser } from "../auth.js";
 import { appendEvent, getState, listEvents, sessionExists } from "../ledger.js";
@@ -72,7 +72,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       .where(eq(schema.participants.userId, user.id))
       .orderBy(desc(schema.sessions.updatedAt))
       .all();
-    return rows.map(({ s, role }) => ({ id: s.id, title: s.title, status: s.status, role, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt, updatedAt: s.updatedAt }));
+    return rows.map(({ s, role }) => ({ id: s.id, title: s.title, status: s.status, template: s.template, role, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt, updatedAt: s.updatedAt }));
   });
 
   // Publish the design document (owner only): a public page with a frozen copy per version.
@@ -92,6 +92,15 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const r = revokePublication(req.params.id, req.params.artifactId, user.id);
     if (!r.ok) return reply.code(r.status).send({ error: r.error });
     return r;
+  });
+
+  // The design checklist of a templated session, evaluated from the ledger (null without a template).
+  app.get<{ Params: { id: string } }>("/api/v1/sessions/:id/checklist", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    participantOr403(req.params.id, user.id);
+    const c = completeness(getState(req.params.id));
+    return c ? { template: { id: c.template.id, name: c.template.name }, items: c.items, done: c.done, total: c.total } : { template: null, items: [], done: 0, total: 0 };
   });
 
   // Copy a library entry (decision, component, constraint) into this session: no AI turn, same
@@ -153,9 +162,11 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.post<{ Body: { title: string; policy?: Policy; payerMode?: "sponsor" | "speaker"; pinnedModel?: string; provider?: string; sponsorCredentialId?: string } }>("/api/v1/sessions", async (req, reply) => {
+  app.post<{ Body: { title: string; policy?: Policy; payerMode?: "sponsor" | "speaker"; pinnedModel?: string; provider?: string; sponsorCredentialId?: string; template?: string } }>("/api/v1/sessions", async (req, reply) => {
     const user = requireUser(req, reply);
     const provider = req.body.provider ?? config.defaultProvider;
+    if (req.body.template && !isTemplateId(req.body.template)) return reply.code(400).send({ error: `unknown template ${req.body.template}` });
+    const template = req.body.template && isTemplateId(req.body.template) ? TEMPLATES[req.body.template] : null;
     const creds = listCredentials(user.id).filter((c) => c.provider === provider && c.status === "active");
     const sponsor = req.body.sponsorCredentialId ? creds.find((c) => c.id === req.body.sponsorCredentialId) : creds[0];
     if ((req.body.payerMode ?? "sponsor") === "sponsor" && !sponsor) {
@@ -165,12 +176,21 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const id = ulid();
     const ts = now();
     db.insert(schema.sessions)
-      .values({ id, title: req.body.title || "Untitled session", policy: req.body.policy ?? "hybrid", payerMode: req.body.payerMode ?? "sponsor", pinnedModel, provider, sponsorCredentialId: sponsor?.id ?? null, createdBy: user.id, createdAt: ts, updatedAt: ts })
+      .values({ id, title: req.body.title || "Untitled session", template: template?.id ?? null, policy: req.body.policy ?? "hybrid", payerMode: req.body.payerMode ?? "sponsor", pinnedModel, provider, sponsorCredentialId: sponsor?.id ?? null, createdBy: user.id, createdAt: ts, updatedAt: ts })
       .run();
     db.insert(schema.participants).values({ sessionId: id, userId: user.id, role: "owner", credentialId: sponsor?.id ?? null, color: pickColor(0), joinedAt: ts }).run();
-    appendEvent(id, { type: "session.created", actorKind: "system", actorUserId: user.id, payload: { title: req.body.title, policy: req.body.policy ?? "hybrid", payerMode: req.body.payerMode ?? "sponsor", pinnedModel } });
+    appendEvent(id, { type: "session.created", actorKind: "system", actorUserId: user.id, payload: { title: req.body.title, policy: req.body.policy ?? "hybrid", payerMode: req.body.payerMode ?? "sponsor", pinnedModel, ...(template ? { template: template.id } : {}) } });
     appendEvent(id, { type: "participant.joined", actorKind: "user", actorUserId: user.id, payload: { role: "owner", name: user.displayName || user.handle, color: pickColor(0), avatarUrl: user.avatarUrl ?? undefined } });
-    return { id };
+    // A template starts the constraints card with its defaults, set by the creator, who can amend or drop them.
+    if (template && template.seedConstraints.length) {
+      const content: ConstraintsContent = {
+        constraints: template.seedConstraints.map((k, i) => ({ id: `C-${String(i + 1).padStart(2, "0")}`, statement: k.statement, kind: k.kind, category: k.category, ...(k.value ? { value: k.value } : {}), setBy: user.id, source: `template:${template.id}`, derivedFrom: [] })),
+        sections: [{ id: "constraints", derivedFrom: [] }],
+      };
+      const r = requestChange({ sessionId: id, turnId: null, actorKind: "user", actorUserId: user.id, op: "create", artifactId: null, artifactType: "constraints", title: "Constraints", content, summary: `${content.constraints.length} constraints from the ${template.name} template`, rationale: `Defaults of the ${template.name} template`, baseVersionNo: null, causedBy: [], provenance: [{ sectionId: "constraints", derivedFrom: [] }] });
+      if (r.status === "applied") createCommit(id, user.id, null, `${template.name} template: ${content.constraints.length} default constraints`);
+    }
+    return { id, template: template?.id ?? null };
   });
 
   app.get<{ Params: { id: string } }>("/api/v1/sessions/:id", async (req, reply) => {
@@ -186,6 +206,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       pinnedModel: s.pinnedModel,
       provider: s.provider,
       status: s.status,
+      template: s.template,
       createdBy: s.createdBy,
       forkedFrom: s.forkedFromSessionId ? { sessionId: s.forkedFromSessionId, commitId: s.forkedAtCommitId } : null,
       me: { role: me.role, consented: Boolean(me.consentedAt), hasCredential: Boolean(findCredentialForUser(user.id, s.provider)) },
@@ -521,9 +542,9 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const bumped = src.title.match(/^(.*)\bv(\d+)\s*$/i);
     const title = req.body?.title?.trim() || (bumped ? `${bumped[1]}v${Number(bumped[2]) + 1}` : `${src.title} v2`);
     db.insert(schema.sessions)
-      .values({ id, title, policy: src.policy, payerMode: src.payerMode, pinnedModel: src.pinnedModel, provider: src.provider, sponsorCredentialId: src.payerMode === "sponsor" ? (findCredentialForUser(user.id, src.provider)?.id ?? src.sponsorCredentialId) : null, forkedFromSessionId: src.id, forkedAtCommitId: state.headCommitId, createdBy: user.id, createdAt: ts, updatedAt: ts })
+      .values({ id, title, template: src.template, policy: src.policy, payerMode: src.payerMode, pinnedModel: src.pinnedModel, provider: src.provider, sponsorCredentialId: src.payerMode === "sponsor" ? (findCredentialForUser(user.id, src.provider)?.id ?? src.sponsorCredentialId) : null, forkedFromSessionId: src.id, forkedAtCommitId: state.headCommitId, createdBy: user.id, createdAt: ts, updatedAt: ts })
       .run();
-    appendEvent(id, { type: "session.created", actorKind: "system", actorUserId: user.id, payload: { title, policy: src.policy as Policy, payerMode: src.payerMode as "sponsor" | "speaker", pinnedModel: src.pinnedModel, forkedFrom: { sessionId: src.id, commitId: state.headCommitId, title: src.title } } });
+    appendEvent(id, { type: "session.created", actorKind: "system", actorUserId: user.id, payload: { title, policy: src.policy as Policy, payerMode: src.payerMode as "sponsor" | "speaker", pinnedModel: src.pinnedModel, ...(src.template ? { template: src.template } : {}), forkedFrom: { sessionId: src.id, commitId: state.headCommitId, title: src.title } } });
     const parts = db.select().from(schema.participants).where(eq(schema.participants.sessionId, src.id)).all();
     for (const p of parts) {
       const role = p.userId === user.id ? "owner" : p.role === "owner" ? "editor" : p.role;

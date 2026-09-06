@@ -4,7 +4,7 @@ Plan of record from 2026-09-05. Everything built so far is listed in `05-poc-pla
 
 ## Where the product stands
 
-Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger. Publishing shipped the same day: a design document gets a public page at a stable address with a frozen, numbered copy per version and the signatures on each; approval publishes on its own while the page is live; the owner can unpublish and restore. C1, the organisation library, shipped with it (see below); B4 notifications is next, then C2.
+Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger. Publishing shipped the same day: a design document gets a public page at a stable address with a frozen, numbered copy per version and the signatures on each; approval publishes on its own while the page is live; the owner can unpublish and restore. C1, the organisation library, and C2, templates, shipped with it (see below); B4 notifications is what remains of the plan.
 
 The POC does the moment of collaboration well: two to five people in one AI conversation, turns batched and attributed, a governed canvas with proposals and decision points, versions and forks, a compiled design document, per-person AI credentials and per-person external tools with gated writes, a running brief for long sessions, and an export with provenance.
 
@@ -130,6 +130,8 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 **Effort.** Three days.
 
+**Status (2026-09-05): shipped.** Four templates in `shared/src/templates.ts` (new service, integration between systems, data migration, platform change), each with default constraints seeded on the Constraints card at creation (set by the creator, `source: template:<id>`) and a checklist evaluated from the ledger: model size and kinds, named cards by title, constraints by category, agreed decisions, as-is, alternatives chosen, document compiled and signed off. The prompt carries the checklist with the template's guidance and a rule to steer, not invent; the side pane has a Checklist tab and the top bar a gauge; `GET /sessions/:id/checklist` serves it for digests. Forks keep the template. Not done: editing templates in the product (they are code), and per-organisation templates.
+
 ---
 
 ## Carried over from the earlier backlog
@@ -157,7 +159,7 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 | 8 | A5 As-is from code | 4 | A1 |
 | 9 | B4 Notifications | 2 | B1 |
 | 10 | C1 Organisation library (shipped, with publishing) | 5 | A1, A2 |
-| 11 | C2 Templates | 3 | A3 |
+| 11 | C2 Templates (shipped) | 3 | A3 |
 
 Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices. Each item adds its stage to `07-demo-script.md` and its assertions to the smoke test before it is called done.
 

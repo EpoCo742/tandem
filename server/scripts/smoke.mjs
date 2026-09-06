@@ -744,6 +744,34 @@ const docHit = (await alice.call("GET", "/api/v1/library?kind=document")).hits[0
 assert(/not copied/.test(await fails(alice.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: docHit.importRef }))), "published documents are read, not copied");
 assert(/403/.test(await fails(dave.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: kafkaDecision.importRef }))), "someone outside the target session cannot copy into it");
 
+// Templates: a kind of design seeds the constraints card and carries a checklist the AI works toward.
+assert(/unknown template/.test(await fails(alice.call("POST", "/api/v1/sessions", { title: "x", provider: "fake", payerMode: "sponsor", template: "nope" }))), "an unknown template is refused");
+const tpl = await alice.call("POST", "/api/v1/sessions", { title: "Orders integration", provider: "fake", payerMode: "sponsor", template: "integration" });
+assert(tpl.template === "integration", "a session can be created from a template");
+assert((await alice.call("GET", `/api/v1/sessions/${tpl.id}`)).template === "integration", "the session meta carries the template");
+const tplEvents = await alice.call("GET", `/api/v1/sessions/${tpl.id}/events`);
+const seeded = tplEvents.find((e) => e.type === "artifact.applied" && e.payload.artifactType === "constraints");
+assert(seeded && seeded.payload.content.constraints.length === 2 && seeded.payload.content.constraints[0].id === "C-01" && seeded.payload.content.constraints[0].setBy === aliceId && seeded.payload.content.constraints[0].source === "template:integration", "the template seeded two default constraints, set by the creator");
+assert(tplEvents.some((e) => e.type === "session.created" && e.payload.template === "integration"), "the template is in the ledger");
+const check0 = await alice.call("GET", `/api/v1/sessions/${tpl.id}/checklist`);
+assert(check0.template.name === "Integration between systems" && check0.total === 10 && check0.done === 1 && check0.items.find((i) => i.id === "constraints").done, `the checklist starts with the seeded constraints ticked (${check0.done} of ${check0.total})`);
+assert((await alice.call("GET", `/api/v1/sessions/${sessionId}/checklist`)).template === null, "a blank session has no checklist");
+await alice.call("POST", `/api/v1/sessions/${tpl.id}/consent`);
+const subT = subscribe(alice, tpl.id);
+await subT.ready;
+await alice.call("POST", `/api/v1/sessions/${tpl.id}/messages`, { text: "Service C calls Service D." });
+await waitFor(() => subT.events.some((e) => e.type === "turn.completed"), "templated session first turn");
+const check1 = await alice.call("GET", `/api/v1/sessions/${tpl.id}/checklist`);
+assert(check1.items.find((i) => i.id === "view").done && check1.done > check0.done, "the checklist ticks the view once the AI drew it");
+assert(!check1.items.find((i) => i.id === "model").done && /none of kind external/.test(check1.items.find((i) => i.id === "model").detail), "the model item stays open until an external system is modelled");
+await alice.call("POST", `/api/v1/sessions/${tpl.id}/messages`, { text: "What's missing?" });
+await waitFor(() => subT.events.filter((e) => e.type === "turn.completed").length >= 2, "checklist turn");
+const gapReply = subT.events.filter((e) => e.type === "ai.message").pop().payload.text;
+assert(/Integration between systems design, \d+ of 10 done/.test(gapReply) && /Missing: .*Sequence diagram/.test(gapReply), "the AI answers what is missing from the checklist");
+const tplFork = await alice.call("POST", `/api/v1/sessions/${tpl.id}/fork`, {});
+assert((await alice.call("GET", `/api/v1/sessions/${tplFork.id}`)).template === "integration", "a fork keeps the template");
+subT.ws.close();
+
 // Export.
 const md = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(typeof md === "string" && md.includes("## Decision log") && md.includes("<!-- artifact"), "markdown export carries provenance comments");

@@ -34,6 +34,7 @@ export interface SessionMeta {
   pinnedModel: string;
   provider: string;
   status: "active" | "archived";
+  template: string | null;
   createdBy: string;
   me: { role: string; consented: boolean; hasCredential: boolean };
   collabToken: string;

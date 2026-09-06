@@ -11,6 +11,7 @@ import { SidePane } from "../components/SidePane";
 import { ExportPreview } from "../components/ExportPreview";
 import { ThreadPanel } from "../components/ThreadPanel";
 import { SessionMenu } from "../components/SessionMenu";
+import { completeness } from "@tandem/shared";
 
 export function Session({ sessionId }: { sessionId: string }) {
   const me = useStore((s) => s.me)!;
@@ -21,6 +22,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const presence = useStore((s) => s.presence);
   const connected = useStore((s) => s.connected);
   const gone = useStore((s) => s.gone);
+  const requestTab = useStore((s) => s.requestTab);
   const [err, setErr] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState<"editor" | "reviewer" | "viewer">("editor");
@@ -79,6 +81,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   if (!meta) return <div className="page muted">Loading session…</div>;
   const isOwner = meta.me.role === "owner";
   const archived = state.status === "archived";
+  const checklist = completeness(state);
 
   async function invite() {
     const r = await api<{ url: string }>("POST", `/api/v1/sessions/${sessionId}/invites`, { role: inviteRole });
@@ -96,6 +99,11 @@ export function Session({ sessionId }: { sessionId: string }) {
         <span style={{ fontWeight: 600 }}>{state.title || meta.title}</span>
         <SessionMenu sessionId={sessionId} title={state.title || meta.title} status={archived ? "archived" : "active"} isOwner={isOwner} onDeleted={() => navigate("/")} />
         {archived && <span className="chip" title="Read only until the owner reopens it">archived</span>}
+        {checklist && (
+          <button className="icon" onClick={() => requestTab("checklist")} title={`${checklist.template.name}: ${checklist.done} of ${checklist.total} checklist items done. Missing: ${checklist.items.filter((i) => !i.done).map((i) => i.title).join(", ") || "nothing"}`}>
+            {checklist.template.name} · {checklist.done}/{checklist.total}
+          </button>
+        )}
         <span className="mono">{meta.provider} · {meta.pinnedModel} · {meta.payerMode} · {state.policy}</span>
         <span className="mono" style={{ color: connected ? "var(--ok)" : "var(--warn)" }}>{connected ? "live" : "reconnecting"}</span>
         <div className="presence" title="present now">

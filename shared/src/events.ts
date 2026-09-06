@@ -80,7 +80,7 @@ export interface Option {
 // ---- payloads --------------------------------------------------------------
 
 export type Payloads = {
-  "session.created": { title: string; policy: Policy; payerMode: PayerMode; pinnedModel: string; forkedFrom?: { sessionId: string; commitId: string | null; title: string } };
+  "session.created": { title: string; policy: Policy; payerMode: PayerMode; pinnedModel: string; template?: string; forkedFrom?: { sessionId: string; commitId: string | null; title: string } };
   "session.renamed": { title: string; previous: string }; // the owner gave the session a new title
   "session.archived": { archived: boolean }; // the owner closed the session (read only) or reopened it
   "doc.published": { publicationId: string; artifactId: string; slug: string; docVersionNo: number; publicationVersionNo: number; approved: { decisionLabel: string; signers: string[] } | null; note?: string }; // a frozen copy of the design document went on its public page

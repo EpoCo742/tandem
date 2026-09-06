@@ -65,7 +65,7 @@ function buildDesignDoc(
   requestEventId: string,
 ) {
   const title = prompt.match(/^Title: (.+)$/m)?.[1] ?? "Untitled";
-  const participants = [...prompt.matchAll(/^- (.+?) \(id \S+, role (\w+)\)/gm)].map((m) => `${m[1]} (${m[2]})`);
+  const participants = [...prompt.matchAll(/^- (.+?) \(id \S+, role (\w+)\)/gm)].map((m) => `${m[1] ?? ""} (${m[2] ?? ""})`);
   const contents = extractContents(prompt);
   const allDecisions = [...prompt.matchAll(/^- (D-\d+) \[(\w+)\] \(id (\S+)\) (.+?)(?: — by (.+?))?(?: — supersedes (\S+))?$/gm)].map((m) => ({ label: m[1]!, status: m[2]!, statement: m[4]!, by: m[5] ?? "", supersedes: m[6] ?? "" }));
   const diagrams = artifacts.filter((a) => a.type === "mermaid" || a.type === "view");
@@ -439,6 +439,20 @@ export const fakeProvider: ProviderAdapter = {
       const r = (await call("set_as_is", { source, components: scan.components, relationships: scan.relationships, notes: scan.notes, derivedFrom: [asIsMsg.eventId], rationale: `As-is read from ${source} for ${asIsMsg.speaker}` })) as { status: string; components?: number; modelReplaced?: boolean };
       if (r.status === "as_is_set") await emit(`Captured the as-is: ${scan.components.map((c) => c.name).join(", ")}${r.modelReplaced ? ". The model now equals it; changes from here are the target state, and the As-is vs to-be view shows them." : ". The model keeps the target state; the As-is vs to-be view shows the difference."}`);
       else await emit(`Could not record the as-is: ${r.status}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0k. "What's missing?" answers from the design checklist the prompt carries for templated sessions.
+    const gap = batch.find((m) => /\b(what('s| is| are)? ?(still )?(missing|left|remaining|open)|how complete|checklist|what remains)\b/i.test(m.text));
+    if (gap) {
+      const section = req.context.prompt.match(/## Design checklist \(template: ([^;]+); (\d+) of (\d+) done\)[\s\S]*?(?=\n## )/);
+      if (!section) {
+        await emit("This session has no template, so there is no checklist; the canvas is whatever the group puts on it.");
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const missing = [...section[0].matchAll(/^- \[ \] ([^:\n]+): (.+)$/gm)].map((m) => `${m[1]} (${m[2]})`);
+      const done = [...section[0].matchAll(/^- \[x\] ([^(\n]+)/gm)].map((m) => (m[1] ?? "").trim());
+      await emit(`${section[1]} design, ${section[2]} of ${section[3]} done. Done: ${done.join("; ") || "nothing yet"}. Missing: ${missing.join("; ") || "nothing"}.`);
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 

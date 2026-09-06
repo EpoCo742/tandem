@@ -172,6 +172,7 @@ export interface SessionState {
   briefUpdatedAt: string | null;
   forkedFrom: { sessionId: string; commitId: string | null; title: string } | null;
   status: "active" | "archived"; // archived sessions are read only until the owner reopens them
+  template: string | null; // session template id (see templates.ts); drives the design checklist
   uploads: Record<string, UploadInfo>;
   externalCalls: Record<string, ExternalCall>;
   reviews: Record<string, ReviewState>; // by design document artifact id
@@ -246,6 +247,7 @@ export function emptyState(sessionId: string): SessionState {
     briefUpdatedAt: null,
     forkedFrom: null,
     status: "active",
+    template: null,
     uploads: {},
     externalCalls: {},
     reviews: {},
@@ -266,6 +268,7 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       s.payerMode = p.payerMode;
       s.pinnedModel = p.pinnedModel;
       s.forkedFrom = p.forkedFrom ?? null;
+      s.template = p.template ?? null;
       return s;
     }
     case "session.renamed": {

@@ -18,6 +18,7 @@ const opt = (name, dflt) => {
 };
 const BASE = opt("url", process.env.TANDEM_URL ?? "http://localhost:3000");
 const TITLE = opt("title", "Order platform v1");
+const TEMPLATE = opt("template", ""); // new_service | integration | data_migration | platform_change; blank keeps the script's numbering
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function client(name, handle, displayName) {
@@ -83,7 +84,7 @@ const STAGES = [
     await bob.call("POST", "/auth/dev", { handle: bob.handle, name: bob.displayName });
     const creds = await alice.call("GET", "/api/v1/credentials");
     if (!creds.credentials.some((c) => c.provider === "fake")) await alice.call("POST", "/api/v1/credentials", { provider: "fake", token: "offline", label: "offline architect" });
-    const s = await alice.call("POST", "/api/v1/sessions", { title: TITLE, provider: "fake", payerMode: "sponsor" });
+    const s = await alice.call("POST", "/api/v1/sessions", { title: TITLE, provider: "fake", payerMode: "sponsor", ...(TEMPLATE ? { template: TEMPLATE } : {}) });
     ctx.sessionId = s.id;
     const invite = await alice.call("POST", `/api/v1/sessions/${s.id}/invites`);
     await bob.call("POST", `/api/v1/invites/${invite.token}/accept`);
@@ -229,7 +230,7 @@ const STAGES = [
 if (args.includes("--list") || args.includes("-h") || args.includes("--help")) {
   console.log("Stages, in order:");
   STAGES.forEach(([name, what], i) => console.log(`  ${String(i + 1).padStart(2)}. ${name.padEnd(15)} ${what}`));
-  console.log("\nUsage: node server/scripts/demo.mjs --until <stage> [--url BASE] [--title TITLE]");
+  console.log("\nUsage: node server/scripts/demo.mjs --until <stage> [--url BASE] [--title TITLE] [--template new_service|integration|data_migration|platform_change]");
   process.exit(0);
 }
 

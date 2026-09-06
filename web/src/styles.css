@@ -115,6 +115,14 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .session-row.archived { opacity: .7; }
 .archived-banner { grid-column: 1 / -1; background: var(--panel-2); border-bottom: 1px solid var(--line); padding: 6px 14px; font-size: 13px; color: var(--ink-2); }
 
+/* design checklist */
+.gauge { height: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.gauge-fill { height: 100%; background: var(--ok); }
+.check { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.check .mark { font-family: var(--mono); width: 14px; flex: none; }
+.check.done .mark { color: var(--ok); }
+.check.todo .mark { color: var(--ink-3); }
+
 /* library and published pages */
 .library .hit { cursor: pointer; padding: 12px 14px; }
 .library .hit:hover { background: var(--panel-2); }

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { contentText, describeAnchor, liveArtifacts, modelToMermaid, participantName, threadRootOf, threads, type AnyLedgerEvent, type ArchModelContent, type MessageAnchor, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { checklistText, completeness, contentText, describeAnchor, liveArtifacts, modelToMermaid, participantName, threadRootOf, threads, type AnyLedgerEvent, type ArchModelContent, type MessageAnchor, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 import type { ContextAttachment, RenderedContext } from "../providers/types.js";
 import { db, schema } from "../db/index.js";
 import { SYSTEM_PROMPT } from "./system.js";
@@ -29,6 +29,12 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
     lines.push(`- ${d.label} [${d.status}] (id ${d.id}) ${d.statement}${by ? ` — by ${by}` : ""}${d.supersedes ? ` — supersedes ${state.decisions[d.supersedes]?.label ?? d.supersedes}` : ""}`);
   }
   lines.push("");
+
+  // A templated session carries its checklist so the model can steer toward what is missing.
+  const checklist = completeness(state);
+  if (checklist) {
+    lines.push(`## Design checklist (template: ${checklist.template.name}; ${checklist.done} of ${checklist.total} done)`, checklist.template.guidance, ...checklistText(checklist), "");
+  }
 
   lines.push("## Artifact index");
   const arts = liveArtifacts(state);
