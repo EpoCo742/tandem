@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
-import { participantName, contractsOf, type ArchModelContent, type ConstraintsContent, type ContractContent, type LibraryHit, type LibraryKind, type SessionState } from "@tandem/shared";
+import { participantName, contractsOf, contentText, type ArchModelContent, type ConstraintsContent, type ContractContent, type LibraryHit, type LibraryKind, type SessionState } from "@tandem/shared";
 import { db, now, schema, sqlite } from "./db/index.js";
 import { getState } from "./ledger.js";
 import { latestPublishedMarkdown, livePublications } from "./publish.js";
+import { isDemoSession } from "./demo.js";
 
 // The organisation library is a full-text index over every session's decisions, model
 // components, constraints and published documents. It is rebuilt per session from the ledger
@@ -29,6 +30,11 @@ interface Row { kind: LibraryKind; sessionId: string; refId: string; title: stri
 
 function rowsFor(sessionId: string, state: SessionState, sessionTitle: string): Row[] {
   const out: Row[] = [];
+  if (isDemoSession(sessionId)) {
+    const doc = Object.values(state.artifacts).find((a) => a.type === "design_doc" && !a.deleted);
+    if (doc) out.push({ kind: "document", sessionId, refId: doc.id, title: `${doc.title} (demo)`, body: contentText(doc.type, doc.current.content).slice(0, 60_000), people: "", sessionTitle, isPublic: 1, updatedAt: doc.current.createdAt, link: `/s/${sessionId}`, artifactId: doc.id });
+    return out;
+  }
   const pubs = livePublications(sessionId);
   const isPublic = pubs.length > 0 ? 1 : 0;
   const names = (ids: string[]) => ids.map((u) => participantName(state, u));

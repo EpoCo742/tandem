@@ -320,7 +320,7 @@ const fails = (p) => p.then(() => null, (e) => e.message);
 const dave = client("dave");
 await dave.call("POST", "/auth/dev", { handle: "dave", name: "Dave" });
 const daveBefore = await dave.call("GET", "/api/v1/library?q=Kafka");
-assert(daveBefore.hits.length === 0 && daveBefore.scope.sessions === 0, "a person outside the session finds nothing from it in the library before it publishes");
+assert(daveBefore.hits.every((h) => h.sessionId !== sessionId) && daveBefore.scope.sessions === 0, "a person outside the session finds nothing from it in the library before it publishes");
 const aliceHits = await alice.call("GET", "/api/v1/library?q=Kafka");
 assert(aliceHits.hits.some((h) => h.kind === "decision" && h.sessionTitle === "Order platform v1" && h.people.includes("Alice")), "alice finds her session's Kafka decisions in the library with attribution");
 assert(aliceHits.hits.some((h) => h.kind === "component" && /Kafka/.test(h.title) && h.artifactId), "components are in the library and link to the model card");
@@ -365,7 +365,7 @@ assert(pubLatest.version.no === 2 && pubLatest.version.approval === null && pubV
 const revoked = await alice.call("POST", `/api/v1/sessions/${sessionId}/publish/${docCard.artifactId}/revoke`);
 assert(revoked.revoked === true && (await fetch(`${BASE}/api/v1/public/${pub1.slug}`)).status === 410, "unpublishing takes the page down (410)");
 await waitFor(() => subA.events.some((e) => e.type === "doc.unpublished"), "unpublish event");
-assert((await dave.call("GET", "/api/v1/library?q=Kafka")).hits.length === 0, "an unpublished session leaves other people's library");
+assert((await dave.call("GET", "/api/v1/library?q=Kafka")).hits.every((h) => h.sessionId !== sessionId), "an unpublished session leaves other people's library");
 const pub3 = await alice.call("POST", `/api/v1/sessions/${sessionId}/publish/${docCard.artifactId}`, {});
 assert(pub3.slug === pub1.slug && pub3.publicationVersionNo === 3, "publishing again restores the same address as version 3");
 await alice.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/request`, { reviewers: [bobId] });
@@ -860,6 +860,23 @@ assert(flowDpEv.actorKind === "system" && flowDpEv.payload.content.violatesConst
 const flowState = (await alice.call("GET", `/api/v1/sessions/${sessionId}/events`)).filter((e) => e.type === "flow.violation").length;
 assert(flowState === 1, "one violation event for one new violation");
 subF.ws.close();
+
+// The built-in demo: everyone sees it as a viewer, nobody changes it, only its design document is in the library.
+const demoRow = (await dave.call("GET", "/api/v1/sessions")).find((s) => s.demo);
+assert(demoRow && demoRow.role === "viewer" && /^Demo:/.test(demoRow.title), "the demo session is listed for someone who is in no session, as a viewer");
+const demoMeta = await dave.call("GET", `/api/v1/sessions/${demoRow.id}`);
+assert(demoMeta.demo === true && demoMeta.me.role === "viewer" && demoMeta.lastSeq > 100, `the demo opens for anyone (${demoMeta.lastSeq} events)`);
+const demoEvents = await dave.call("GET", `/api/v1/sessions/${demoRow.id}/events`);
+const demoTypes = new Set(demoEvents.map((e) => e.type));
+assert(["proposal.created", "decision.recorded", "artifact.applied", "review.approved", "assumption.recorded", "flow.violation", "alternative.adopted", "thread.resolved"].every((t) => demoTypes.has(t)), "the demo ledger covers proposals, decisions, review, assumptions, alternatives, threads and a flow violation");
+assert(!demoTypes.has("doc.published"), "the demo was never published");
+for (const [method, path, body] of [["POST", `/api/v1/sessions/${demoRow.id}/messages`, { text: "hi" }], ["POST", `/api/v1/sessions/${demoRow.id}/fork`, {}], ["DELETE", `/api/v1/sessions/${demoRow.id}`, undefined], ["PATCH", `/api/v1/sessions/${demoRow.id}`, { title: "x" }], ["POST", `/api/v1/sessions/${demoRow.id}/archive`, { archived: true }]]) {
+  assert(/409/.test(await fails(alice.call(method, path, body))), `the demo refuses ${method} ${path.replace(demoRow.id, "<demo>")}`);
+}
+const demoLib = await dave.call("GET", "/api/v1/library?q=design+document&kind=document");
+assert(demoLib.hits.some((h) => h.sessionId === demoRow.id && h.kind === "document" && h.link === `/s/${demoRow.id}`), "the demo's design document is in everyone's library");
+assert((await dave.call("GET", `/api/v1/library?q=Kafka&kind=component`)).hits.every((h) => h.sessionId !== demoRow.id) && (await dave.call("GET", `/api/v1/library?q=Kafka&kind=decision`)).hits.every((h) => h.sessionId !== demoRow.id), "the demo's components and decisions stay out of the library");
+assert(!(await dave.call("GET", "/api/v1/digest")).sessions.some((s) => s.sessionId === demoRow.id), "the demo is not in the digest");
 
 // Thumbnails: a client stores a small SVG of the canvas; the session list carries it.
 const thumbOk = await alice.call("PUT", `/api/v1/sessions/${sessionId}/thumbnail`, { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"><rect x="0" y="0" width="40" height="30" fill="#3FB4C3"/></svg>' });

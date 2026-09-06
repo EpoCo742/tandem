@@ -8,6 +8,7 @@ import type { SourceContent } from "@tandem/shared";
 import { config } from "./config.js";
 import { db, now, schema } from "./db/index.js";
 import { requireUser } from "./auth.js";
+import { isDemoSession } from "./demo.js";
 import { appendEvent, getState } from "./ledger.js";
 import { createCommit, contentHash } from "./governance.js";
 
@@ -117,7 +118,7 @@ export async function registerUploadRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string; uploadId: string } }>("/api/v1/sessions/:id/files/:uploadId", async (req, reply) => {
     const user = requireUser(req, reply);
     const me = db.select().from(schema.participants).where(and(eq(schema.participants.sessionId, req.params.id), eq(schema.participants.userId, user.id))).get();
-    if (!me) return reply.code(403).send({ error: "not a participant" });
+    if (!me && !isDemoSession(req.params.id)) return reply.code(403).send({ error: "not a participant" });
     const row = db.select().from(schema.uploads).where(and(eq(schema.uploads.id, req.params.uploadId), eq(schema.uploads.sessionId, req.params.id))).get();
     if (!row || !fs.existsSync(row.path)) return reply.code(404).send({ error: "not found" });
     reply.header("Content-Type", row.mime);

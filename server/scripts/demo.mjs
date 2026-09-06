@@ -19,6 +19,7 @@ const opt = (name, dflt) => {
 const BASE = opt("url", process.env.TANDEM_URL ?? "http://localhost:3000");
 const TITLE = opt("title", "Order platform v1");
 const TEMPLATE = opt("template", ""); // new_service | integration | data_migration | platform_change; blank keeps the script's numbering
+const SKIP = new Set((opt("skip", "") || "").split(",").map((s) => s.trim()).filter(Boolean)); // stages to leave out, e.g. --skip publish,fork
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function client(name, handle, displayName) {
@@ -214,6 +215,57 @@ const STAGES = [
     const r = await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/decision-points/${d.decisionPointArtifactId}/vote`, { optionId: pick.id });
     console.log(`   Both vote ${pick.id.toUpperCase()} -> adopted without an AI turn; the model is set from "${pick.title}", ${r.decisionLabel} recorded with all three as options considered`);
   }],
+  ["constraints", "a stated limit becomes a constraint the AI designs against; an exception is proposed to whoever set it", async () => {
+    let n = await completedTurns();
+    await say(alice, "No customer data must leave the EU.");
+    await waitForTurns(n + 1, "constraint turn");
+    n = await completedTurns();
+    await say(bob, "Exception to C-01: anonymised analytics exports may leave the EU.");
+    await waitForTurns(n + 1, "exception turn");
+    const pending = (await events()).filter((e) => e.type === "proposal.created").map((e) => e.payload).filter((p) => /constraint/i.test(p.title));
+    const open = pending[pending.length - 1];
+    if (open) {
+      await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/proposals/${open.proposalId}/resolve`, { decision: "approve", comment: "Anonymised exports are fine." }).catch(() => undefined);
+      console.log("   The exception was proposed to Alice, who set C-01; she approves it -> C-02 (exception to C-01)");
+    }
+  }],
+  ["assumptions", "something believed but not decided is recorded for its owner; a later message settles it", async () => {
+    let n = await completedTurns();
+    await say(bob, "We assume the payment gateway is idempotent.");
+    await waitForTurns(n + 1, "assumption turn");
+    n = await completedTurns();
+    await say(alice, "Actually the payment gateway is not idempotent; duplicates came through in staging.");
+    await waitForTurns(n + 1, "contradiction turn");
+    await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/assumptions`, { statement: "Order volume stays under 10k per day", revisitAt: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) });
+    console.log("   A-01 recorded for Bob, refuted by Alice's message; A-02 added by hand with a revisit date");
+  }],
+  ["contract", "an API contract as a card attached to the component that exposes it", async () => {
+    const n = await completedTurns();
+    await say(alice, "Contract for Service B: openapi 3.0.0, title Orders API, POST /orders creates an order, GET /orders/{id} reads one.");
+    await waitForTurns(n + 1, "contract turn");
+    console.log("   An OpenAPI contract card attached to Service B; its consumers are read from the model");
+  }],
+  ["sequence", "a sequence view generated from the model's relationships", async () => {
+    const n = await completedTurns();
+    await say(bob, "Draw a sequence diagram for Service A.");
+    await waitForTurns(n + 1, "sequence turn");
+    console.log("   A sequence view from Service A that redraws when the model changes");
+  }],
+  ["deployment", "where things run: nodes and placements per environment; a deployment view", async () => {
+    let n = await completedTurns();
+    await say(alice, "Service B runs on the EU cluster in the EU (production).");
+    await waitForTurns(n + 1, "deployment turn");
+    n = await completedTurns();
+    await say(alice, "Postgres runs on RDS Postgres in the EU (production).");
+    await waitForTurns(n + 1, "second placement turn");
+    console.log("   An EU cluster and an RDS node in production; the Deployment view draws them");
+  }],
+  ["flow", "a classified flow into another region breaks C-01 on the server side: a system line and a decision point, no AI turn", async () => {
+    const n = await completedTurns();
+    await say(alice, "Service A sends customer PII to Analytics in the US.");
+    await waitForTurns(n + 1, "flow turn");
+    console.log("   The flow check (not the AI) raised a decision point naming C-01; the model is blocked until people vote. Left open on purpose: an open question to end on");
+  }],
   ["fork", "a v2 session starts from the current canvas; participants re-consent", async () => {
     const fork = await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/fork`, {});
     ctx.forkId = fork.id;
@@ -230,7 +282,7 @@ const STAGES = [
 if (args.includes("--list") || args.includes("-h") || args.includes("--help")) {
   console.log("Stages, in order:");
   STAGES.forEach(([name, what], i) => console.log(`  ${String(i + 1).padStart(2)}. ${name.padEnd(15)} ${what}`));
-  console.log("\nUsage: node server/scripts/demo.mjs --until <stage> [--url BASE] [--title TITLE] [--template new_service|integration|data_migration|platform_change]");
+  console.log("\nUsage: node server/scripts/demo.mjs --until <stage> [--skip a,b] [--url BASE] [--title TITLE] [--template new_service|integration|data_migration|platform_change]");
   process.exit(0);
 }
 
@@ -249,6 +301,10 @@ if (!health?.ok || !health.devAuth) {
 
 for (let i = 0; i <= stop; i++) {
   const [name, what, run] = STAGES[i];
+  if (SKIP.has(name)) {
+    console.log(`\n${i + 1}. ${name}: skipped`);
+    continue;
+  }
   console.log(`\n${i + 1}. ${name}: ${what}`);
   await run();
 }

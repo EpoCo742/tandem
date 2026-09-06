@@ -16,6 +16,7 @@ import { registerLibraryRoutes } from "./routes/library.js";
 import { publishedDocument } from "./publish.js";
 import { registerNotificationRoutes } from "./routes/notifications.js";
 import { startNotifier } from "./notify.js";
+import { ensureDemoSession } from "./demo.js";
 import { rehydrateDeadlines } from "./async.js";
 import { registerLedgerSocket } from "./ws.js";
 import { registerCollabSocket, hocuspocus } from "./collab.js";
@@ -40,6 +41,7 @@ async function main() {
   await registerLibraryRoutes(app);
   await registerNotificationRoutes(app);
   startNotifier();
+  ensureDemoSession((m) => app.log.info(m));
   await registerUploadRoutes(app);
   await registerLedgerSocket(app);
   await registerCollabSocket(app);

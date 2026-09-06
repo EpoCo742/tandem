@@ -4,6 +4,20 @@ The lines Alice and Bob say, in order, and what the offline "fake" architect doe
 
 This file tracks the features as they land. Last updated 2026-09-05 (constraints the AI designs against).
 
+## The built-in demo
+
+Every install carries a finished session, **Demo: Order platform v1**, on the home page under "See it working". Anyone signed in can open it as a viewer and **Replay from the start** to step through the whole timeline: two people and the AI, every kind of card, proposals, votes, threads, constraints and an exception, alternatives, review and sign-off, contracts, assumptions, deployment and a data-flow violation left open as the closing question. It cannot be changed, published, forked, renamed, archived or deleted, it is not in the digest, and only its design document is in the library.
+
+It is a fixture, `server/fixtures/demo-session.json`, captured from this script. To refresh it after the product changes:
+
+```
+cd server && rm -rf data-demo && PORT=3013 APP_URL=http://127.0.0.1:3013 DATA_DIR=./data-demo TANDEM_PROVIDER=fake TANDEM_DEV_AUTH=1 TANDEM_DEMO=0 npx tsx src/index.ts
+node server/scripts/demo.mjs --url http://127.0.0.1:3013 --skip publish,fork,export
+node server/scripts/export-demo-fixture.mjs --db server/data-demo/tandem.db --session <id printed by demo.mjs>
+```
+
+The server loads a new fixture version at the next start and replaces the old demo session. `TANDEM_DEMO=0` leaves the demo out.
+
 ## Two ways to run it
 
 **By hand.** Alice in a normal browser window, Bob in a private window (or via `bob.mjs` below). Type the quoted lines exactly; the fake architect keys off specific words (see the trigger table at the end).

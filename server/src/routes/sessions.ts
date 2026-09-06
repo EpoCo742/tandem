@@ -23,6 +23,7 @@ import { adoptAlternative, openAlternativesDecision } from "../alternatives.js";
 import { requestReview, signOff, withdrawReview } from "../review.js";
 import { publishDocument, revokePublication } from "../publish.js";
 import { importFromLibrary } from "../importer.js";
+import { demoSessionId, demoViewer, isDemoSession } from "../demo.js";
 import { impactLines, impactOf, contractsOf, nextAssumptionLabel, parseNotation, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts } from "@tandem/shared";
 
 export const COMPILE_INSTRUCTION =
@@ -30,8 +31,9 @@ export const COMPILE_INSTRUCTION =
 
 function participantOr403(sessionId: string, userId: string) {
   const p = db.select().from(schema.participants).where(and(eq(schema.participants.sessionId, sessionId), eq(schema.participants.userId, userId))).get();
-  if (!p) throw Object.assign(new Error("not a participant"), { statusCode: 403 });
-  return p;
+  if (p) return p;
+  if (isDemoSession(sessionId)) return demoViewer(sessionId, userId); // everyone reads the demo
+  throw Object.assign(new Error("not a participant"), { statusCode: 403 });
 }
 
 function ownerOr403(sessionId: string, userId: string) {
@@ -59,7 +61,10 @@ export async function registerSessionRoutes(app: FastifyInstance) {
   app.addHook("preHandler", async (req, reply) => {
     if (req.method === "GET" || req.method === "HEAD") return;
     const m = SESSION_PATH.exec(req.url);
-    if (!m || ARCHIVE_EXEMPT.has(m[2]!) || (req.method === "DELETE" && m[2] === "")) return;
+    if (!m) return;
+    // The demo is read only for everyone: no messages, cards, votes, publish, fork, rename, delete. Reading position is fine.
+    if (isDemoSession(m[1]!) && m[2] !== "/seen") return reply.code(409).send({ error: "This is the built-in demo session. It is read only; replay it to see how it was built, or start a session of your own." });
+    if (ARCHIVE_EXEMPT.has(m[2]!) || (req.method === "DELETE" && m[2] === "")) return;
     const s = db.select({ status: schema.sessions.status }).from(schema.sessions).where(eq(schema.sessions.id, m[1]!)).get();
     if (s?.status === "archived") return reply.code(409).send({ error: "This session is archived and read only. The owner can reopen it from the session menu." });
   });
@@ -73,7 +78,13 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       .where(eq(schema.participants.userId, user.id))
       .orderBy(desc(schema.sessions.updatedAt))
       .all();
-    return rows.map(({ s, role }) => ({ id: s.id, title: s.title, status: s.status, template: s.template, thumbnail: s.thumbnail, role, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt, updatedAt: s.updatedAt }));
+    const mine = rows.map(({ s, role }) => ({ id: s.id, title: s.title, status: s.status, template: s.template, thumbnail: s.thumbnail, demo: s.demo > 0, role, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt, updatedAt: s.updatedAt }));
+    const demoId = demoSessionId();
+    if (demoId && !mine.some((s) => s.id === demoId)) {
+      const d = db.select().from(schema.sessions).where(eq(schema.sessions.id, demoId)).get();
+      if (d) mine.push({ id: d.id, title: d.title, status: d.status, template: d.template, thumbnail: d.thumbnail, demo: true, role: "viewer", policy: d.policy, payerMode: d.payerMode, pinnedModel: d.pinnedModel, provider: d.provider, createdAt: d.createdAt, updatedAt: d.updatedAt });
+    }
+    return mine;
   });
 
   // Publish the design document (owner only): a public page with a frozen copy per version.
@@ -303,6 +314,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       provider: s.provider,
       status: s.status,
       template: s.template,
+      demo: s.demo > 0,
       createdBy: s.createdBy,
       forkedFrom: s.forkedFromSessionId ? { sessionId: s.forkedFromSessionId, commitId: s.forkedAtCommitId } : null,
       me: { role: me.role, consented: Boolean(me.consentedAt), hasCredential: Boolean(findCredentialForUser(user.id, s.provider)), lastSeenSeq: me.lastSeenSeq },

@@ -47,6 +47,7 @@ export const sessions = sqliteTable("sessions", {
   status: text("status").notNull().default("active"),
   template: text("template"), // session template id, or null for a blank session
   thumbnail: text("thumbnail"), // small SVG of the canvas shape, drawn by a client, for lists
+  demo: integer("demo").notNull().default(0), // > 0: the built-in demo session (the fixture version); read only for everyone
   policy: text("policy").notNull().default("hybrid"),
   payerMode: text("payer_mode").notNull().default("sponsor"),
   pinnedModel: text("pinned_model").notNull(),

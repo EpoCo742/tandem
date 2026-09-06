@@ -6,7 +6,7 @@ import { useStore } from "../state/store";
 import { SessionMenu } from "../components/SessionMenu";
 import { TEMPLATES, TEMPLATE_IDS, type TemplateId } from "@tandem/shared";
 
-interface SessionRow { id: string; title: string; status: "active" | "archived"; template: string | null; thumbnail: string | null; role: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string; updatedAt: string }
+interface SessionRow { id: string; title: string; status: "active" | "archived"; template: string | null; thumbnail: string | null; demo: boolean; role: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string; updatedAt: string }
 interface DigestSession {
   sessionId: string;
   title: string;
@@ -39,8 +39,9 @@ export function Home() {
     api<SessionRow[]>("GET", "/api/v1/sessions").then(setSessions);
     api<{ sessions: DigestSession[] }>("GET", "/api/v1/digest").then((r) => setDigest(r.sessions)).catch(() => undefined);
   }
-  const active = sessions.filter((s) => s.status !== "archived");
-  const archived = sessions.filter((s) => s.status === "archived");
+  const demo = sessions.find((s) => s.demo);
+  const active = sessions.filter((s) => s.status !== "archived" && !s.demo);
+  const archived = sessions.filter((s) => s.status === "archived" && !s.demo);
 
   useEffect(() => {
     reload();
@@ -124,6 +125,20 @@ export function Home() {
         </div>
 
         <Digest sessions={digest} />
+        {demo && (
+          <>
+            <h2 style={{ fontSize: 22, margin: "22px 0 10px" }}>See it working</h2>
+            <div className="card row demo-row">
+              <div className="thumb" aria-hidden="true">{demo.thumbnail ? <img src={`data:image/svg+xml;utf8,${encodeURIComponent(demo.thumbnail)}`} alt="" /> : <span className="mono">demo</span>}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>{demo.title}<span className="chip" style={{ marginLeft: 8, color: "var(--accent)" }}>demo</span></div>
+                <div className="muted" style={{ fontSize: 12.5 }}>A complete session, read only: two people and the AI building an order platform through every kind of card, proposals, votes, threads, constraints, alternatives, review, contracts, assumptions, deployment and a data-flow violation. Replay walks the whole timeline.</div>
+              </div>
+              <button onClick={() => navigate(`/s/${demo.id}`)}>Open</button>
+              <button className="primary" onClick={() => navigate(`/s/${demo.id}?replay=1`)} title="Open the demo at its first event and step through it">Replay from the start</button>
+            </div>
+          </>
+        )}
         <h2 style={{ fontSize: 22, margin: "22px 0 10px" }}>Your sessions</h2>
         <p className="muted" style={{ marginTop: 0 }}>Sessions you created or were invited to. Nobody else can see them.</p>
         {active.length === 0 && <p className="muted">None yet.</p>}

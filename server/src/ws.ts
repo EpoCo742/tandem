@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import type { ClientMessage, WireMessage } from "@tandem/shared";
 import { userFromRequest } from "./auth.js";
 import { bus } from "./bus.js";
+import { isDemoSession } from "./demo.js";
 import { listEvents } from "./ledger.js";
 import { db, schema } from "./db/index.js";
 import { brokerFor } from "./turn/broker.js";
@@ -32,7 +33,7 @@ export async function registerLedgerSocket(app: FastifyInstance) {
       }
       if (msg.t === "subscribe") {
         const p = db.select().from(schema.participants).where(and(eq(schema.participants.sessionId, msg.sessionId), eq(schema.participants.userId, user.id))).get();
-        if (!p) return send({ t: "error", message: "not a participant" });
+        if (!p && !isDemoSession(msg.sessionId)) return send({ t: "error", message: "not a participant" });
         unsubscribers.get(msg.sessionId)?.();
         const replay = listEvents(msg.sessionId, msg.fromSeq);
         for (const event of replay) send({ t: "event", event });

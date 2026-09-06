@@ -298,6 +298,10 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 
 ---
 
+## Built-in demo (added 2026-09-05)
+
+A complete session shipped as a fixture and loaded at start on every install: read only for everyone, replayable from the first event, never published, forked or deleted, out of the digest, and present in the library only through its design document. Captured from `demo.mjs` with the publish and fork stages skipped; refreshed by re-running the seeder and `export-demo-fixture.mjs` (see `07-demo-script.md`). `TANDEM_DEMO=0` disables it.
+
 ## Carried over from the earlier backlog
 
 - **Constraint check after hand edits.** Direct edits of the model or of free Mermaid cards are not checked against the constraints; only the AI's own changes are. The cheap version tells the AI on its next turn that the model changed by hand so it re-checks; the user's concern is that this spends tokens on every turn after a manual edit. Park until there is evidence of hand edits breaking constraints.

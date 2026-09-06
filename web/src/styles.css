@@ -215,7 +215,9 @@ tr.row-changed td { animation: row-glow 2.6s ease-out; }
 /* session layout */
 .session { display: grid; grid-template-columns: 380px 1fr 330px; grid-template-rows: 46px 1fr; height: 100vh; }
 .session .topbar { grid-column: 1 / -1; }
-.session.archived, .session.replaying { grid-template-rows: 46px auto 1fr; }
+.session.archived, .session.replaying, .session.demo { grid-template-rows: 46px auto 1fr; }
+.session.demo .composer, .session.demo .pane-foot .consent, .session.demo .art-foot button, .session.demo .art-foot select, .session.demo .review button, .session.demo .publish button, .session.demo .assumptions button, .session.demo .assumptions input { display: none; }
+.demo-row { border-left: 3px solid var(--accent); }
 .replay-bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 6px 14px; background: var(--panel-2); border-bottom: 2px solid var(--accent); }
 .replay-bar input[type="range"] { width: auto; padding: 0; accent-color: var(--accent); }
 .session.replaying .art-foot button, .session.replaying .art-foot select, .session.replaying .art-head button.icon, .session.replaying .review button, .session.replaying .publish button { display: none; }
