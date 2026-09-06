@@ -11,6 +11,7 @@ import { SidePane } from "../components/SidePane";
 import { ExportPreview } from "../components/ExportPreview";
 import { ThreadPanel } from "../components/ThreadPanel";
 import { SessionMenu } from "../components/SessionMenu";
+import { ReplayBar } from "../components/ReplayBar";
 import { completeness } from "@tandem/shared";
 
 export function Session({ sessionId }: { sessionId: string }) {
@@ -23,6 +24,8 @@ export function Session({ sessionId }: { sessionId: string }) {
   const connected = useStore((s) => s.connected);
   const gone = useStore((s) => s.gone);
   const requestTab = useStore((s) => s.requestTab);
+  const replay = useStore((s) => s.replay);
+  const setReplay = useStore((s) => s.setReplay);
   const [err, setErr] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState<"editor" | "reviewer" | "viewer">("editor");
@@ -94,7 +97,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className={`session${archived ? " archived" : ""}`}>
+    <div className={`session${archived ? " archived" : ""}${replay ? " replaying" : ""}`}>
       <TopBar>
         <span style={{ fontWeight: 600 }}>{state.title || meta.title}</span>
         <SessionMenu sessionId={sessionId} title={state.title || meta.title} status={archived ? "archived" : "active"} isOwner={isOwner} onDeleted={() => navigate("/")} />
@@ -104,6 +107,7 @@ export function Session({ sessionId }: { sessionId: string }) {
             {checklist.template.name} · {checklist.done}/{checklist.total}
           </button>
         )}
+        <button className={"icon" + (replay ? " primary" : "")} onClick={() => setReplay(replay ? null : Math.max(1, state.lastSeq - 1))} title="Scrub through the session's history: every card, decision and message as it was at that moment">{replay ? "replaying" : "replay"}</button>
         <span className="mono">{meta.provider} · {meta.pinnedModel} · {meta.payerMode} · {state.policy}</span>
         <span className="mono" style={{ color: connected ? "var(--ok)" : "var(--warn)" }}>{connected ? "live" : "reconnecting"}</span>
         <div className="presence" title="present now">
@@ -123,7 +127,8 @@ export function Session({ sessionId }: { sessionId: string }) {
         <button title="Start a new session from the current canvas and agreed decisions; this one stays intact" onClick={() => api<{ id: string }>("POST", `/api/v1/sessions/${sessionId}/fork`, {}).then((r) => navigate(`/s/${r.id}`)).catch((e) => setErr((e as Error).message))}>Fork as v2</button>
         <button onClick={() => setExporting(true)} title="Preview the Markdown export, then copy or download it">Export .md</button>
       </TopBar>
-      {archived && (
+      <ReplayBar />
+      {archived && !replay && (
         <div className="archived-banner">
           This session is archived: everything stays readable and exportable, nothing can change.{isOwner ? " Reopen it from the session menu next to the title." : " The owner can reopen it."}
         </div>

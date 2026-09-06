@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { emptyState, reduce, type AnyLedgerEvent, type EphemeralEvent, type MessageAnchor, type SessionState, type TurnStatus } from "@tandem/shared";
+import { emptyState, reduce, reduceUpTo, type AnyLedgerEvent, type EphemeralEvent, type MessageAnchor, type SessionState, type TurnStatus } from "@tandem/shared";
 import type { Me, SessionMeta } from "../api";
 
 export interface PresenceUser {
@@ -31,6 +31,8 @@ interface Store {
   connected: boolean;
   setConnected: (c: boolean) => void;
   gone: boolean; // the session was deleted while this tab had it open
+  replay: { seq: number; live: SessionState } | null; // when set, `state` is the session folded to `seq` and `live` keeps receiving events
+  setReplay: (seq: number | null) => void;
   seenAtOpen: number; // how far I had read when this tab opened the session; cards changed after that carry a mark
   acknowledged: Record<string, true>; // cards I have touched since opening, so their mark is gone
   acknowledge: (artifactId: string) => void;
@@ -53,8 +55,22 @@ export const useStore = create<Store>((set, get) => ({
   acknowledged: {},
   acknowledge: (artifactId) => { if (!get().acknowledged[artifactId]) set({ acknowledged: { ...get().acknowledged, [artifactId]: true } }); },
   state: emptyState(""),
-  reset: (sessionId) => set({ state: emptyState(sessionId), gone: false, streaming: null, toolProgress: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
+  reset: (sessionId) => set({ state: emptyState(sessionId), gone: false, replay: null, streaming: null, toolProgress: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
+  replay: null,
+  setReplay: (seq) => {
+    const cur = get();
+    const live = cur.replay?.live ?? cur.state;
+    if (seq === null) { set({ replay: null, state: live }); return; }
+    const clamped = Math.max(1, Math.min(live.lastSeq, seq));
+    set({ replay: { seq: clamped, live }, state: reduceUpTo(live.id, Object.values(live.eventsById), clamped), highlight: [] });
+  },
   applyEvent: (ev) => {
+    const replaying = get().replay;
+    if (replaying) {
+      // The past does not move; the present keeps up in the background.
+      set({ replay: { ...replaying, live: reduce(replaying.live, ev) } });
+      return;
+    }
     const next = reduce(get().state, ev);
     const patch: Partial<Store> = { state: next };
     if (ev.type === "ai.message" || ev.type === "turn.failed" || ev.type === "turn.completed") {

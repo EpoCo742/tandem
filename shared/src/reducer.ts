@@ -704,6 +704,11 @@ export function reduceAll(sessionId: string, events: AnyLedgerEvent[]): SessionS
   return s;
 }
 
+/** The session as it was after event `seq`: a fold of the ledger up to that point (replay, diffs between moments). */
+export function reduceUpTo(sessionId: string, events: AnyLedgerEvent[], seq: number): SessionState {
+  return reduceAll(sessionId, [...events].filter((e) => e.seq <= seq).sort((a, b) => a.seq - b.seq));
+}
+
 export function participantName(s: SessionState, userId: string | null | undefined): string {
   if (!userId) return "AI";
   return s.participants[userId]?.name ?? userId;

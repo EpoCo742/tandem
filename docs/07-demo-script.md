@@ -418,6 +418,12 @@ Uploaded source cards start folded to one line (▾ opens them, double-click too
 
 Double-click a card's title to rename it; the rename is a new version under the same governance as an edit. A resized card shows ↺ in its header to go back to automatic size; images and diagrams scale with a resized card.
 
+## Stage 6b: replay (no script)
+
+Feature: **replay** in the top bar opens a slider over the whole ledger. Drag it (or use ← →) and the canvas, the decision registry, the constraints and the lane show what they were after that event; commits and decisions are marks on the slider. Read only until **back to now** (or Esc); events that arrive meanwhile are kept and shown when you return. On the Architecture model card, **compare with** an earlier version draws the difference (added, removed, changed) the way the as-is view does.
+
+Point at: the reducer is pure and the ledger complete, so this is a fold, not a new store; scrub back to before the decision point and forward to see the vote land.
+
 ## Stage 14a: change glow (no script)
 
 Feature: a card lights up for a moment when its version changes, and the rows that changed on the model or constraints tables glow a little longer. A card changed since you last looked at the session carries a **new** chip and an accent edge until you touch it.

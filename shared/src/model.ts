@@ -62,19 +62,27 @@ export interface ModelDiff {
   removedRels: ModelRelationship[];
 }
 
+/** The structural part of a model that a diff compares: an as-is snapshot or an earlier version both fit. */
+export type ModelShape = Pick<ArchModelContent, "components" | "relationships" | "boundaries">;
+
+/** `after` against `before`, by component id. */
+export function diffModels(before: ModelShape, after: ModelShape): ModelDiff {
+  const was = new Map(before.components.map((c) => [c.id, c]));
+  const now = new Map(after.components.map((c) => [c.id, c]));
+  const differs = (a: ModelComponent, b: ModelComponent) => a.name !== b.name || a.kind !== b.kind || (a.technology ?? "") !== (b.technology ?? "") || (a.boundary ?? "") !== (b.boundary ?? "");
+  const added = after.components.filter((c) => !was.has(c.id));
+  const removed = before.components.filter((c) => !now.has(c.id));
+  const changed = after.components.filter((c) => was.has(c.id) && differs(was.get(c.id)!, c)).map((c) => ({ before: was.get(c.id)!, after: c }));
+  const same = after.components.filter((c) => was.has(c.id) && !differs(was.get(c.id)!, c));
+  const wasRel = new Set(before.relationships.map((r) => r.id));
+  const nowRel = new Set(after.relationships.map((r) => r.id));
+  return { added, removed, changed, same, addedRels: after.relationships.filter((r) => !wasRel.has(r.id)), removedRels: before.relationships.filter((r) => !nowRel.has(r.id)) };
+}
+
 /** To-be (the model) against as-is (the snapshot), by component id. */
 export function modelDiff(model: ArchModelContent): ModelDiff | null {
   if (!model.asIs) return null;
-  const was = new Map(model.asIs.components.map((c) => [c.id, c]));
-  const now = new Map(model.components.map((c) => [c.id, c]));
-  const differs = (a: ModelComponent, b: ModelComponent) => a.name !== b.name || a.kind !== b.kind || (a.technology ?? "") !== (b.technology ?? "") || (a.boundary ?? "") !== (b.boundary ?? "");
-  const added = model.components.filter((c) => !was.has(c.id));
-  const removed = model.asIs.components.filter((c) => !now.has(c.id));
-  const changed = model.components.filter((c) => was.has(c.id) && differs(was.get(c.id)!, c)).map((c) => ({ before: was.get(c.id)!, after: c }));
-  const same = model.components.filter((c) => was.has(c.id) && !differs(was.get(c.id)!, c));
-  const wasRel = new Set(model.asIs.relationships.map((r) => r.id));
-  const nowRel = new Set(model.relationships.map((r) => r.id));
-  return { added, removed, changed, same, addedRels: model.relationships.filter((r) => !wasRel.has(r.id)), removedRels: model.asIs.relationships.filter((r) => !nowRel.has(r.id)) };
+  return diffModels(model.asIs, model);
 }
 
 export interface ViewContent {
@@ -204,15 +212,21 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
 // As-is and to-be on one drawing: added components and edges stand out, removed ones are dashed,
 // changed ones are marked, and what stayed the same is muted.
 function diffToMermaid(model: ArchModelContent): string {
-  const d = modelDiff(model);
-  if (!d) return modelToMermaid({ ...model, asIs: undefined }, { kind: "container" }) + "\n  %% no as-is baseline captured yet";
+  if (!model.asIs) return modelToMermaid({ ...model, asIs: undefined }, { kind: "container" }) + "\n  %% no as-is baseline captured yet";
+  return compareMermaid(model.asIs, model);
+}
+
+/** A diagram of `after` against `before`: added, removed, changed and unchanged, like the as-is view but between any two moments. */
+export function compareMermaid(before: ModelShape, after: ModelShape): string {
+  const d = diffModels(before, after);
+  const model = after;
   const lines = ["flowchart LR", "  classDef added stroke:#2e9e5b,stroke-width:3px", "  classDef removed stroke:#c0392b,stroke-dasharray:5 5,color:#c0392b", "  classDef changed stroke:#d4890a,stroke-width:3px", "  classDef same stroke:#8a949e,color:#8a949e"];
   const all = new Map<string, { c: ModelComponent; status: "added" | "removed" | "changed" | "same" }>();
   for (const c of d.added) all.set(c.id, { c, status: "added" });
   for (const c of d.removed) all.set(c.id, { c, status: "removed" });
   for (const x of d.changed) all.set(x.after.id, { c: x.after, status: "changed" });
   for (const c of d.same) all.set(c.id, { c, status: "same" });
-  const boundaries = [...model.boundaries, ...model.asIs!.boundaries.filter((b) => !model.boundaries.some((x) => x.id === b.id))];
+  const boundaries = [...model.boundaries, ...before.boundaries.filter((b) => !model.boundaries.some((x) => x.id === b.id))];
   const byBoundary = new Map<string | undefined, { c: ModelComponent; status: string }[]>();
   for (const e of all.values()) byBoundary.set(e.c.boundary, [...(byBoundary.get(e.c.boundary) ?? []), e]);
   for (const [bid, list] of byBoundary) {

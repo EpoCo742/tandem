@@ -5,7 +5,7 @@ const ChangedRowsContext = createContext<Set<string>>(EMPTY_SET);
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, modelDiff, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
+import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -358,6 +358,36 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
       {content.relationships.length > 0 && (
         <div className="mono" style={{ lineHeight: 1.6 }}>
           {content.relationships.map((r) => <div key={r.id}>{name(r.from)} <span className="muted">{r.kind.replace("_", " ")}</span> {name(r.to)}{r.label ? <span className="muted"> ({r.label})</span> : null}</div>)}
+        </div>
+      )}
+      <CompareVersions artifactId={artifactId} current={content} />
+    </div>
+  );
+}
+
+// "Compare with v3": the model at an earlier version against the model now, drawn like the as-is view.
+function CompareVersions({ artifactId, current }: { artifactId: string; current: ArchModelContent }) {
+  const state = useStore((s) => s.state);
+  const [against, setAgainst] = useState<number | null>(null);
+  const a = state.artifacts[artifactId];
+  if (!a || a.versions.length < 2) return null;
+  const older = against ? a.versions.find((v) => v.versionNo === against) : undefined;
+  const before = older?.content as ArchModelContent | undefined;
+  const d = before ? diffModels(before, current) : null;
+  return (
+    <div className="compare">
+      <div className="row" style={{ gap: 6 }}>
+        <span className="mono">compare with</span>
+        <select value={against ?? ""} onChange={(e) => setAgainst(e.target.value ? Number(e.target.value) : null)} style={{ width: "auto", padding: "0 4px", fontSize: 10.5 }}>
+          <option value="">choose an earlier version</option>
+          {a.versions.filter((v) => v.versionNo !== a.current.versionNo).map((v) => <option key={v.versionId} value={v.versionNo}>v{v.versionNo} · {participantName(state, v.authorUserId)} · {new Date(v.createdAt).toLocaleString()}</option>)}
+        </select>
+        {against && <button className="icon" onClick={() => setAgainst(null)}>close</button>}
+      </div>
+      {before && d && (
+        <div style={{ marginTop: 6 }}>
+          <div className="mono" style={{ fontSize: 11, marginBottom: 4 }}><span style={{ color: "var(--ok)" }}>+{d.added.length} added</span> · <span style={{ color: "var(--warn)" }}>−{d.removed.length} removed</span> · <span style={{ color: "var(--accent)" }}>~{d.changed.length} changed</span> · {d.same.length} unchanged since v{against}</div>
+          <Mermaid source={compareMermaid(before, current)} />
         </div>
       )}
     </div>

@@ -15,6 +15,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const highlight = useStore((s) => s.highlight);
   const setMeta = useStore((s) => s.setMeta);
   const [text, setText] = useState("");
+  const replay = useStore((s) => s.replay);
   const [err, setErr] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [staged, setStaged] = useState<File | null>(null);
@@ -175,7 +176,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
               </div>
             )}
             <div className="actions">
-              <button className="primary" onClick={send} disabled={(!text.trim() && !staged) || uploading}>{uploading ? "Uploading…" : staged && !text.trim() ? "Upload" : "Send to AI"}</button>
+              <button className="primary" onClick={send} disabled={(!text.trim() && !staged) || uploading || Boolean(replay)} title={replay ? "Leave replay to send" : undefined}>{uploading ? "Uploading…" : staged && !text.trim() ? "Upload" : "Send to AI"}</button>
               <button onClick={() => api("POST", `/api/v1/sessions/${sessionId}/turns/send-now`)} disabled={turn.state !== "collecting"} title="Close the batch window now">Send now</button>
               <button className="danger" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/turns/current/interrupt`)} disabled={turn.state !== "generating"}>Stop</button>
               <input ref={fileRef} type="file" style={{ display: "none" }} accept="image/*,.md,.markdown,.txt,.mmd,.json,.yaml,.yml,.csv" onChange={(e) => setStaged(e.target.files?.[0] ?? null)} />

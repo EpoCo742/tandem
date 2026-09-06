@@ -162,6 +162,8 @@ Added 2026-09-05. Phase D deepens the model so more of governance becomes determ
 
 **Effort.** Three days. Depends on nothing new; A5 for the diff view.
 
+**Status (2026-09-05): shipped.** `reduceUpTo` in shared; the client folds its own copy of the ledger (it already holds every event) so replay needs no server call; slider with commit and decision marks, keyboard stepping, read-only mode (composer and card actions hidden), live events buffered and restored on "back to now". `diffModels` and `compareMermaid` generalise the as-is diff; the model card's "compare with" picker draws any earlier version against now. Checkpointing was not needed at POC sizes.
+
 ### D4. Impact analysis
 
 **What.** Click a component and get a deterministic report: decisions that name it, constraints it is subject to (after D1, the flows it takes part in), views and alternatives it appears in, documents and threads that mention it, and what would dangle if it were removed. "What breaks if we drop Kafka" without a turn.
