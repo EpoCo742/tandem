@@ -94,8 +94,12 @@ button.icon { padding: 3px 7px; font-family: var(--mono); font-size: 11px; lette
 
 /* top bar */
 .topbar { display: flex; align-items: center; gap: 14px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line); height: 46px; }
-.topbar .brand { font-family: var(--display); font-weight: 800; font-size: 18px; }
-.topbar .brand span { background: linear-gradient(90deg, var(--accent), var(--link)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 800; font-size: 18px; letter-spacing: -.01em; color: var(--ink); }
+.brand-name { white-space: nowrap; }
+.brand-large { display: flex; align-items: center; gap: 14px; }
+.brand-large .brand-name { font-family: var(--display); font-weight: 800; font-size: 34px; letter-spacing: -.02em; line-height: 1.05; }
+.brand-large .brand-line { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+.pub-foot svg { display: inline-block !important; vertical-align: -3px; margin-right: 4px; }
 .topbar .grow { flex: 1; }
 .topbar .who { display: flex; align-items: center; gap: 8px; }
 .avatar { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10px; color: #fff; }

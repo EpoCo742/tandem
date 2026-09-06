@@ -32,7 +32,7 @@ export async function registerNotificationRoutes(app: FastifyInstance) {
     const user = requireUser(req, reply);
     const rule = listRules(user.id).find((r) => r.id === req.params.id);
     if (!rule) return reply.code(404).send({ error: "no such rule" });
-    return sendThrough(rule, `Tandem test: notifications through ${rule.serverName} / ${rule.toolName} work. You will hear about: ${rule.events.join(", ")}.`);
+    return sendThrough(rule, `Session Zero test: notifications through ${rule.serverName} / ${rule.toolName} work. You will hear about: ${rule.events.join(", ")}.`);
   });
 
   app.delete<{ Params: { id: string } }>("/api/v1/notifications/:id", async (req, reply) => {

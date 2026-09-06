@@ -1,6 +1,6 @@
-# Tandem
+# Session Zero
 
-Working name for a shared AI session product: two to five software architects share one AI conversation and one versioned artifact canvas, each funding their turns with their own AI credentials, and compile the result into a design document.
+Collaborative architecture with AI. (The code, package names and environment variables still say "Tandem", the earlier working name.) A shared AI session product: two to five software architects share one AI conversation and one versioned artifact canvas, each funding their turns with their own AI credentials, and compile the result into a design document.
 
 This repository holds the research, the design package, and the proof-of-concept.
 

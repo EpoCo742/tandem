@@ -7,6 +7,7 @@ import { navigate } from "../App";
 import { TopBar } from "../components/TopBar";
 import { Mermaid } from "../components/Mermaid";
 import { MermaidLegend } from "../components/MermaidLegend";
+import { BrandMark, PRODUCT_NAME } from "../components/Brand";
 import { useStore } from "../state/store";
 
 // Diagrams enlarge on click; the enlarged copy renders the same source at full width.
@@ -69,7 +70,7 @@ export function Published({ slug: pageSlug }: { slug: string }) {
 
   useEffect(() => {
     if (!doc) return;
-    document.title = `${doc.title} · Tandem`;
+    document.title = `${doc.title} · ${PRODUCT_NAME}`;
     const hs = bodyRef.current?.querySelectorAll("h2, h3") ?? [];
     setToc([...hs].map((h) => ({ id: h.id, text: h.textContent ?? "", level: h.tagName === "H2" ? 2 : 3 })).filter((h) => h.id));
   }, [doc]);
@@ -137,7 +138,7 @@ export function Published({ slug: pageSlug }: { slug: string }) {
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{withoutComments(doc.version.markdown)}</ReactMarkdown>
           </div>
           <div className="pub-foot mono">
-            Published from Tandem. Each version is a frozen copy; the session it came from may have moved on.
+            <BrandMark size={14} /> Published from {PRODUCT_NAME}. Each version is a frozen copy; the session it came from may have moved on.
             {me?.user && <> · <a href="/library" onClick={(e) => { e.preventDefault(); navigate("/library"); }}>library</a></>}
           </div>
         </div>

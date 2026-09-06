@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, type Me } from "../api";
 import { useStore } from "../state/store";
+import { Brand } from "../components/Brand";
 
 export function Login() {
   const me = useStore((s) => s.me)!;
@@ -20,8 +21,8 @@ export function Login() {
 
   return (
     <div className="page" style={{ maxWidth: 520 }}>
-      <h1 style={{ fontSize: 40, marginBottom: 8 }}>Tandem</h1>
-      <p className="muted" style={{ marginTop: 0 }}>Shared AI sessions for people who design systems together.</p>
+      <Brand large />
+      <p className="muted" style={{ margin: "14px 0 18px" }}>The design session before the build: two to five people and one AI on a shared canvas, every decision on record.</p>
       <div className="card stack">
         {me.githubConfigured && (
           <a href="/auth/github"><button className="primary">Sign in with GitHub</button></a>

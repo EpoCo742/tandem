@@ -45,7 +45,7 @@ function fenceLang(name: string, mime: string): string {
 export function exportMarkdown(s: SessionState): string {
   const out: string[] = [];
   out.push(`# ${s.title}`, "");
-  out.push(`<!-- tandem session ${s.id}; exported ${new Date().toISOString()}; head commit ${s.headCommitId ?? "none"} -->`, "");
+  out.push(`<!-- session zero: session ${s.id}; exported ${new Date().toISOString()}; head commit ${s.headCommitId ?? "none"} -->`, "");
   out.push("## Participants", "");
   for (const p of Object.values(s.participants)) out.push(`- ${p.name} (${p.role})`);
   out.push("");

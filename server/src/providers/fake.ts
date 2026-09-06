@@ -278,8 +278,8 @@ export const fakeProvider: ProviderAdapter = {
       }
       const doc = artifacts.find((a) => a.type === "design_doc") ?? artifacts.find((a) => a.type === "mermaid");
       const args = wantsTicket
-        ? { project: outbound.text.match(/\b([A-Z]{2,6})\b(?!.*\b[A-Z]{2,6}\b)/)?.[1] ?? "ORD", summary: `Implement ${doc?.title ?? "the design"}`, description: `From Tandem session ${req.sessionId}` }
-        : { space: outbound.text.match(/\b(?:space|under|to)\s+([A-Z]{2,8})\b/)?.[1] ?? "ARCH", title: doc?.title ?? "Design document", body: `Exported from Tandem session ${req.sessionId} (${doc?.id ?? "no document yet"}).` };
+        ? { project: outbound.text.match(/\b([A-Z]{2,6})\b(?!.*\b[A-Z]{2,6}\b)/)?.[1] ?? "ORD", summary: `Implement ${doc?.title ?? "the design"}`, description: `From Session Zero session ${req.sessionId}` }
+        : { space: outbound.text.match(/\b(?:space|under|to)\s+([A-Z]{2,8})\b/)?.[1] ?? "ARCH", title: doc?.title ?? "Design document", body: `Exported from Session Zero session ${req.sessionId} (${doc?.id ?? "no document yet"}).` };
       await emit(`Asking ${outbound.speaker} to approve ${pick.server.name}.${pick.tool.name}… `);
       const { callId, decision } = await req.external.ask(pick.server, pick.tool.name, args, pick.tool.readOnly);
       if (decision !== "approved") {
