@@ -156,6 +156,8 @@ Added 2026-09-05. Phase D deepens the model so more of governance becomes determ
 
 **Effort.** Four days. Depends on A1, D1.
 
+**Status (2026-09-05): shipped.** `deployment` on the model (environments, nodes nested by parent with region, trust and technology, placements per environment); `upsert_deployment` tool and prompt rule; view kind `deployment` with an environment; `nodeOf` and `nodeAttr` let the flow checks use placement before the boundary; placements listed on the model card, in the prompt and the export; new-service and platform-change templates ask for the view; the offline provider records "X runs on Y in the EU (production)". Not done: reading compose or Kubernetes manifests into nodes during as-is capture.
+
 ### D3. Session replay
 
 **What.** A time slider over the session. Drag it and the canvas, the decision registry and the constraints show what they were at that moment, with the lane scrolled to the messages of the time. The reducer is pure and the ledger is complete, so this is a fold up to a sequence number, not a new store. The same fold gives "model diff between any two commits", not only as-is against to-be.

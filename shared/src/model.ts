@@ -8,7 +8,7 @@ import type { DataClass, Trust } from "./flows.js";
 
 export type ComponentKind = "service" | "database" | "queue" | "external" | "ui" | "person" | "storage" | "function" | "other";
 export type RelationshipKind = "calls" | "publishes" | "subscribes" | "reads" | "writes" | "uses" | "depends_on";
-export type ViewKind = "context" | "container" | "component" | "diff" | "sequence";
+export type ViewKind = "context" | "container" | "component" | "diff" | "sequence" | "deployment";
 
 export interface ModelComponent {
   id: string; // stable slug, e.g. "service-a"
@@ -55,6 +55,24 @@ function boundaryStyle(model: Pick<ArchModelContent, "boundaries">, b: ModelBoun
   return `  style b_${mermaidId(b.id)} fill:${c}1a,stroke:${c},stroke-width:1.5px`;
 }
 
+/** Where things run: a node is a region, zone, cluster, machine or managed service, nested by parent. */
+export interface DeploymentNode {
+  id: string;
+  name: string;
+  kind: "region" | "zone" | "cluster" | "vm" | "managed" | "device" | "other";
+  parent?: string; // DeploymentNode.id
+  region?: string; // EU, US, ... inherited by children when unset
+  trust?: Trust; // public (internet-facing), internal, restricted
+  technology?: string; // "AKS", "EC2 m5.large", "RDS Postgres"
+}
+
+/** A second layer under the model: environments, nodes, and which node each component runs on per environment. */
+export interface Deployment {
+  environments: string[]; // "production", "staging", ...
+  nodes: DeploymentNode[];
+  placements: Record<string, Record<string, string>>; // environment -> component id -> node id
+}
+
 /** The architecture as it exists, captured from code or a manifest; the model itself is the target state. */
 export interface AsIsSnapshot {
   source: string; // "repo:owner/name@ref", "upload:docker-compose.yml"
@@ -66,6 +84,7 @@ export interface AsIsSnapshot {
 }
 
 export interface ArchModelContent {
+  deployment?: Deployment;
   components: ModelComponent[];
   relationships: ModelRelationship[];
   boundaries: ModelBoundary[];
@@ -109,6 +128,7 @@ export interface ViewContent {
   kind: ViewKind;
   focus?: string; // component id for a component view, or the starting component of a sequence view
   depth?: number; // sequence view: how many hops to follow from the start (default 3)
+  environment?: string; // deployment view: which environment to draw (default the first)
   note?: string; // caption shown under the diagram
   sections: Section[];
 }
@@ -168,7 +188,7 @@ function shape(c: ModelComponent): string {
  * - container: every component, grouped by boundary.
  * - component: the focus component and its direct neighbours.
  */
-export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, "kind" | "focus"> & { depth?: number }, opts: { violating?: ReadonlySet<string> } = {}): string {
+export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, "kind" | "focus"> & { depth?: number; environment?: string }, opts: { violating?: ReadonlySet<string> } = {}): string {
   const lines: string[] = ["flowchart LR"];
   const comps = new Map(model.components.map((c) => [c.id, c]));
   if (model.components.length === 0) return "flowchart LR\n  empty[\"No components yet\"]";
@@ -201,6 +221,7 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
 
   if (view.kind === "diff") return diffToMermaid(model);
   if (view.kind === "sequence") return sequenceMermaid(model, view.focus, view.depth);
+  if (view.kind === "deployment") return deploymentMermaid(model, view.environment, opts);
 
   let include = new Set(model.components.map((c) => c.id));
   if (view.kind === "component" && view.focus && comps.has(view.focus)) {
@@ -270,6 +291,92 @@ export function compareMermaid(before: ModelShape, after: ModelShape): string {
   return lines.join("\n");
 }
 
+/** The node a component runs on in an environment (the first environment that places it when none is given). */
+export function nodeOf(model: Pick<ArchModelContent, "deployment">, componentId: string, environment?: string): DeploymentNode | undefined {
+  const d = model.deployment;
+  if (!d) return undefined;
+  const envs = environment ? [environment] : d.environments;
+  for (const env of envs) {
+    const nodeId = d.placements[env]?.[componentId];
+    if (nodeId) return d.nodes.find((n) => n.id === nodeId);
+  }
+  return undefined;
+}
+
+/** A node's region or trust, walking up its parents. */
+export function nodeAttr<K extends "region" | "trust">(d: Deployment, node: DeploymentNode | undefined, key: K): DeploymentNode[K] | undefined {
+  let cur = node;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur.id)) {
+    if (cur[key]) return cur[key];
+    seen.add(cur.id);
+    cur = cur.parent ? d.nodes.find((n) => n.id === cur!.parent) : undefined;
+  }
+  return undefined;
+}
+
+export function upsertDeployment(model: ArchModelContent, input: { environment?: string; nodes?: Partial<DeploymentNode>[]; placements?: { componentId: string; nodeId: string }[] }): { model: ArchModelContent; unknown: string[] } {
+  const d: Deployment = model.deployment ? { environments: [...model.deployment.environments], nodes: [...model.deployment.nodes], placements: { ...model.deployment.placements } } : { environments: [], nodes: [], placements: {} };
+  const unknown: string[] = [];
+  for (const raw of input.nodes ?? []) {
+    if (!raw.id) continue;
+    const i = d.nodes.findIndex((n) => n.id === raw.id);
+    const base: DeploymentNode = i >= 0 ? d.nodes[i]! : { id: raw.id, name: raw.name ?? raw.id.replace(/[-_]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()), kind: raw.kind ?? "other" };
+    const next: DeploymentNode = { ...base, ...(raw.name ? { name: raw.name } : {}), ...(raw.kind ? { kind: raw.kind } : {}), ...(raw.parent ? { parent: raw.parent } : {}), ...(raw.region ? { region: raw.region } : {}), ...(raw.trust ? { trust: raw.trust } : {}), ...(raw.technology ? { technology: raw.technology } : {}) };
+    if (i >= 0) d.nodes[i] = next;
+    else d.nodes.push(next);
+  }
+  const env = input.environment ?? d.environments[0] ?? "production";
+  if (!d.environments.includes(env)) d.environments.push(env);
+  if (input.placements?.length) {
+    const table = { ...(d.placements[env] ?? {}) };
+    for (const p of input.placements) {
+      if (!model.components.some((c) => c.id === p.componentId)) unknown.push(p.componentId);
+      else if (!d.nodes.some((n) => n.id === p.nodeId)) unknown.push(p.nodeId);
+      else table[p.componentId] = p.nodeId;
+    }
+    d.placements[env] = table;
+  } else if (!d.placements[env]) d.placements[env] = {};
+  return { model: { ...model, deployment: d }, unknown: [...new Set(unknown)] };
+}
+
+/** The deployment view: nodes nested by parent, components inside the node they run on, relationships between them. */
+export function deploymentMermaid(model: ArchModelContent, environment?: string, opts: { violating?: ReadonlySet<string> } = {}): string {
+  const d = model.deployment;
+  if (!d || d.nodes.length === 0) return "flowchart TB\n  empty[\"No deployment recorded yet: say where things run\"]";
+  const env = environment && d.environments.includes(environment) ? environment : d.environments[0]!;
+  const placed = d.placements[env] ?? {};
+  const lines = [`flowchart TB`, `  %% environment: ${env}`];
+  const children = (parent: string | undefined) => d.nodes.filter((n) => (n.parent ?? undefined) === parent);
+  const compsOn = (nodeId: string) => model.components.filter((c) => placed[c.id] === nodeId);
+  const emitNode = (n: DeploymentNode, indent: string) => {
+    const attrs = [n.kind, n.technology, n.region ? `region ${n.region}` : "", n.trust === "public" ? "public" : ""].filter(Boolean).join(", ");
+    lines.push(`${indent}subgraph d_${mermaidId(n.id)}["${quote(n.name)}${attrs ? `\n${quote(attrs)}` : ""}"]`);
+    for (const c of compsOn(n.id)) lines.push(`${indent}  ${mermaidId(c.id)}${shape(c)}`);
+    for (const k of children(n.id)) emitNode(k, indent + "  ");
+    if (compsOn(n.id).length === 0 && children(n.id).length === 0) lines.push(`${indent}  d_${mermaidId(n.id)}_empty[" "]:::ghost`);
+    lines.push(`${indent}end`);
+    if (n.trust === "public") lines.push(`${indent}style d_${mermaidId(n.id)} stroke:#c0392b,stroke-dasharray:4 3`);
+  };
+  for (const root of children(undefined)) emitNode(root, "  ");
+  const unplaced = model.components.filter((c) => !placed[c.id]);
+  if (unplaced.length) {
+    lines.push(`  subgraph d_unplaced["not placed in ${quote(env)}"]`);
+    for (const c of unplaced) lines.push(`    ${mermaidId(c.id)}${shape(c)}`);
+    lines.push("  end", "  style d_unplaced stroke:#8a949e,stroke-dasharray:2 4");
+  }
+  let edge = 0;
+  const bad: number[] = [];
+  for (const r of model.relationships) {
+    lines.push(`  ${mermaidId(r.from)} -->|"${quote(r.label ?? VERB[r.kind])}"| ${mermaidId(r.to)}`);
+    if (opts.violating?.has(r.id)) bad.push(edge);
+    edge += 1;
+  }
+  for (const i of bad) lines.push(`  linkStyle ${i} stroke:#c0392b,stroke-width:3px`);
+  lines.push("  classDef ghost fill:transparent,stroke:transparent,color:transparent");
+  return lines.join("\n");
+}
+
 /** The relationships reachable from a start component by following outgoing edges, breadth first, in the order a request would take. */
 export function pathFrom(model: Pick<ArchModelContent, "components" | "relationships">, start: string, depth = 3): ModelRelationship[] {
   const out: ModelRelationship[] = [];
@@ -328,6 +435,15 @@ export function modelToText(model: ArchModelContent): string {
   out.push("Relationships:");
   for (const r of model.relationships) out.push(`- ${r.from} ${VERB[r.kind]} ${r.to}${r.label ? ` (${r.label})` : ""}${r.dataClasses?.length ? ` [carries: ${r.dataClasses.join(", ")}]` : ""}`);
   if (!model.relationships.length) out.push("- (none)");
+  if (model.deployment?.nodes.length) {
+    out.push("Deployment:");
+    for (const env of model.deployment.environments) {
+      const placed = model.deployment.placements[env] ?? {};
+      const byNode = new Map<string, string[]>();
+      for (const [cid, nid] of Object.entries(placed)) byNode.set(nid, [...(byNode.get(nid) ?? []), model.components.find((c) => c.id === cid)?.name ?? cid]);
+      out.push(`- ${env}: ${model.deployment.nodes.map((n) => `${n.name} (${n.kind}${n.region ? `, ${n.region}` : ""}${n.trust ? `, ${n.trust}` : ""}${n.parent ? `, in ${model.deployment!.nodes.find((x) => x.id === n.parent)?.name ?? n.parent}` : ""}): ${(byNode.get(n.id) ?? []).join(", ") || "-"}`).join("; ")}`);
+    }
+  }
   if (model.boundaries.length) {
     out.push("Boundaries:");
     for (const b of model.boundaries) out.push(`- ${b.id}: ${b.name}${b.kind ? ` (${b.kind})` : ""}${b.region ? `, region ${b.region}` : ""}${b.trust ? `, trust ${b.trust}` : ""}`);

@@ -11,6 +11,16 @@ function modelMarkdown(m: ArchModelContent): string[] {
   out.push("| Component | Kind | Technology | Boundary | Description |", "|---|---|---|---|---|");
   const bname = (id?: string) => (id ? m.boundaries.find((b) => b.id === id)?.name ?? id : "");
   for (const c of m.components) out.push(`| ${c.name} | ${c.kind} | ${c.technology ?? ""} | ${bname(c.boundary)} | ${c.description ?? ""} |`);
+  if (m.deployment?.nodes.length) {
+    out.push("", "Deployment:", "");
+    for (const env of m.deployment.environments) {
+      const placed = m.deployment.placements[env] ?? {};
+      for (const n of m.deployment.nodes) {
+        const on = Object.entries(placed).filter(([, nid]) => nid === n.id).map(([cid]) => m.components.find((c) => c.id === cid)?.name ?? cid);
+        out.push(`- ${env}: **${n.name}** (${[n.kind, n.technology, n.region ? `region ${n.region}` : "", n.trust ? `${n.trust} trust` : "", n.parent ? `in ${m.deployment.nodes.find((x) => x.id === n.parent)?.name ?? n.parent}` : ""].filter(Boolean).join(", ")}): ${on.join(", ") || "nothing placed"}`);
+      }
+    }
+  }
   if (m.relationships.length) {
     out.push("", "Relationships:", "");
     const name = (id: string) => m.components.find((c) => c.id === id)?.name ?? id;

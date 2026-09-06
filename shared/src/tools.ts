@@ -56,7 +56,8 @@ export const dataModelContentSchema = z.object({
 });
 
 export const viewContentSchema = z.object({
-  kind: z.enum(["context", "container", "component", "sequence"]),
+  kind: z.enum(["context", "container", "component", "sequence", "deployment"]),
+  environment: z.string().optional().describe("Deployment view: which environment to draw (default the first)"),
   focus: z.string().optional().describe("Component id: the subject of a component view, or the starting component of a sequence view"),
   depth: z.number().int().min(1).max(6).optional().describe("Sequence view: hops to follow from the start (default 3)"),
   note: z.string().optional().describe("Caption under the diagram"),
@@ -302,6 +303,17 @@ export const pinArtifactInput = z.object({
   pinned: z.boolean(),
 });
 
+export const upsertDeploymentInput = z.object({
+  environment: z.string().optional().describe("production, staging, ...; default production"),
+  nodes: z
+    .array(z.object({ id: z.string(), name: z.string().optional(), kind: z.enum(["region", "zone", "cluster", "vm", "managed", "device", "other"]).optional(), parent: z.string().optional().describe("Node id this one sits in (a cluster in a region)"), region: z.string().optional().describe("EU, US, UK, ...; children inherit it"), trust: z.enum(["public", "internal", "restricted"]).optional(), technology: z.string().optional().describe("AKS, EC2, RDS Postgres, ...") }))
+    .optional()
+    .describe("Nodes to add or update"),
+  placements: z.array(z.object({ componentId: z.string(), nodeId: z.string() })).optional().describe("Which node each component runs on in this environment"),
+  derivedFrom: z.array(z.string()),
+  rationale: z.string(),
+});
+
 export const librarySearchInput = z.object({
   query: z.string().describe("A few words: a technology, a concern, a component name. Empty returns the most recent entries"),
   kind: z.enum(["decision", "component", "constraint", "document"]).optional(),
@@ -328,6 +340,7 @@ export const toolSchemas = {
   set_as_is: setAsIsInput,
   library_search: librarySearchInput,
   upsert_contract: upsertContractInput,
+  upsert_deployment: upsertDeploymentInput,
   record_assumption: recordAssumptionInput,
   resolve_assumption: resolveAssumptionInput,
 } as const;
@@ -360,6 +373,8 @@ export const toolDescriptions: Record<ToolName, string> = {
     "Record the architecture as it exists today (read from a repository's manifests or a deployment file) as the model's as-is baseline. When the model is still empty it becomes the model too; otherwise the model stays the target state and the 'As-is vs to-be' view shows the difference. Read only manifests (package.json, docker-compose, go.mod, pom.xml, terraform, k8s), never whole source trees.",
   propose_alternatives:
     "Put two or three candidate architectures side by side on one card, each a complete model of its own with what speaks for and against it and which constraints it meets or puts at risk. The architecture model is not changed; people choose with the card's Decide button, the majority's pick becomes the model and the decision is recorded automatically.",
+  upsert_deployment:
+    "Record where components run: environments, nodes (regions, zones, clusters, machines, managed services, nested by parent) and the placement of each component per environment. Use when people say 'X runs on Y', 'the database is RDS in eu-west-1', 'the gateway is internet-facing'. Placement drives the residency and security checks; the deployment view draws it. Create a view of kind deployment the first time.",
   record_assumption:
     "Record something a participant believes true but has not decided ('we assume the gateway is idempotent', 'presumably the data is under 10 GB'). Owned by whoever said it, with a revisit date when they gave one. Contradicted later, it is settled with resolve_assumption; decided later, it becomes a decision.",
   resolve_assumption:

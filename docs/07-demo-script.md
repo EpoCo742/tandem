@@ -335,6 +335,19 @@ Feature: a **sequence** view kind. **sequence from** on the Architecture model c
 
 Point at: the arrows follow the relationship kinds (publish and write are asynchronous, subscribe and read are dashed replies) and carry the data classes; the integration template's checklist ticks "Sequence diagram" either way.
 
+## Stage 12j: deployment view
+
+Feature: a second layer under the model: environments, nodes (regions, zones, clusters, machines, managed services, nested by parent) and which node each component runs on per environment. A **deployment** view draws it; the Architecture model card lists placements. Where a component is placed wins over its boundary in the residency and security checks.
+
+| Who | Says |
+|---|---|
+| Alice | "Service B runs on the EU cluster in the EU (production)." |
+| Bob | "Analytics runs on the US warehouse in the US (production)." |
+
+Fake architect: records the node, the placement and, the first time, a Deployment view. A real model gets `upsert_deployment` with a rule to use it whenever people say where things run or what faces the internet. Public-trust nodes are drawn dashed red; violating flows stay red in this view too.
+
+Point at: the same PII flow from stage 12i is checked against the placement, not the boundary, once both exist; new-service and platform-change templates ask for a deployment view.
+
 ## Stage 12i: data-flow classification
 
 Feature: relationships carry what data they move (PII, payment, health, credentials, confidential, internal, public); boundaries carry a region (EU, US, ...) and a trust level (public, internal, restricted). Residency and security constraints are checked on the server on every model change, by hand or by the AI, with no AI turn. A new violation puts a system line in the lane and, under the hybrid policy, raises a decision point (keep, exception, amend) that blocks the model.

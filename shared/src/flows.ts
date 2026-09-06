@@ -1,5 +1,5 @@
 import type { Constraint, ConstraintsContent } from "./artifacts.js";
-import type { ArchModelContent, ModelBoundary, ModelComponent, ModelRelationship } from "./model.js";
+import { nodeAttr, nodeOf, type ArchModelContent, type ModelBoundary, type ModelComponent, type ModelRelationship } from "./model.js";
 import { liveArtifacts, type SessionState } from "./reducer.js";
 
 // Data-flow classification: relationships say what data they carry, boundaries say where they
@@ -54,12 +54,14 @@ function regionsNamed(k: Constraint): string[] {
 const classWord = (cs: DataClass[]) => cs.filter((c) => SENSITIVE.has(c)).map((c) => (c === "pii" ? "PII" : c)).join(", ");
 
 /** Every relationship that breaks a residency or security constraint, given the model's classification. */
-export function checkFlows(model: Pick<ArchModelContent, "components" | "relationships" | "boundaries">, constraints: Constraint[]): Violation[] {
+export function checkFlows(model: Pick<ArchModelContent, "components" | "relationships" | "boundaries"> & { deployment?: ArchModelContent["deployment"] }, constraints: Constraint[]): Violation[] {
   const out: Violation[] = [];
   const comp = (id: string): ModelComponent | undefined => model.components.find((c) => c.id === id);
   const boundaryOf = (c: ModelComponent | undefined): ModelBoundary | undefined => (c?.boundary ? model.boundaries.find((b) => b.id === c.boundary) : undefined);
-  const regionOf = (c: ModelComponent | undefined) => canonicalRegion(boundaryOf(c)?.region);
-  const trustOf = (c: ModelComponent | undefined): Trust | undefined => boundaryOf(c)?.trust;
+  // Placement wins over the boundary: where it actually runs is what a residency rule is about.
+  const placedAttr = <K extends "region" | "trust">(c: ModelComponent | undefined, key: K) => (c && model.deployment ? nodeAttr(model.deployment, nodeOf(model, c.id), key) : undefined);
+  const regionOf = (c: ModelComponent | undefined) => canonicalRegion(placedAttr(c, "region") ?? boundaryOf(c)?.region);
+  const trustOf = (c: ModelComponent | undefined): Trust | undefined => placedAttr(c, "trust") ?? boundaryOf(c)?.trust;
   const where = (c: ModelComponent | undefined) => (c ? `${c.name}${regionOf(c) ? ` (${regionOf(c)})` : c.kind === "external" ? " (external)" : ""}` : "?");
 
   for (const r of model.relationships as ModelRelationship[]) {

@@ -846,6 +846,17 @@ const flowState = (await alice.call("GET", `/api/v1/sessions/${sessionId}/events
 assert(flowState === 1, "one violation event for one new violation");
 subF.ws.close();
 
+// Deployment view: where things run, per environment; placement drives the residency check.
+const depTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Service B runs on the EU cluster in the EU (production)." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > depTurns, "deployment turn");
+const depModel = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "arch_model").pop().payload.content;
+assert(depModel.deployment && depModel.deployment.environments.includes("production") && depModel.deployment.nodes.some((n) => n.id === "eu-cluster" && n.kind === "cluster" && /eu/i.test(n.region)) && depModel.deployment.placements.production["service-b"] === "eu-cluster", "the AI recorded the EU cluster and placed Service B on it in production");
+const depView = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "view").map((e) => e.payload).find((p) => p.content.kind === "deployment");
+assert(depView && depView.content.environment === "production", "a deployment view was created for production");
+const mdDep = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/Deployment:[\s\S]*production: \*\*EU cluster\*\* \(cluster, region EU\): Service B/.test(mdDep) && /flowchart TB[\s\S]*subgraph d_n_eu_cluster/.test(mdDep), "the export lists the placement and renders the deployment view");
+
 // Export.
 const md = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(typeof md === "string" && md.includes("## Decision log") && md.includes("<!-- artifact"), "markdown export carries provenance comments");

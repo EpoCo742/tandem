@@ -309,7 +309,7 @@ function ModelView({ content }: { content: ViewContent }) {
   const focusName = content.focus ? model.components.find((c) => c.id === content.focus)?.name : undefined;
   return (
     <div>
-      <div className="mono" style={{ marginBottom: 6 }}>{content.kind === "diff" ? "as-is vs to-be" : `${content.kind} view`}{focusName ? ` ${content.kind === "sequence" ? "from" : "of"} ${focusName}` : ""} · {content.kind === "sequence" ? `${content.depth ?? 3} hops` : `${model.components.length} components`}</div>
+      <div className="mono" style={{ marginBottom: 6 }}>{content.kind === "diff" ? "as-is vs to-be" : `${content.kind} view`}{focusName ? ` ${content.kind === "sequence" ? "from" : "of"} ${focusName}` : ""}{content.kind === "deployment" ? ` · ${content.environment ?? model.deployment?.environments[0] ?? "production"}` : ""} · {content.kind === "sequence" ? `${content.depth ?? 3} hops` : content.kind === "deployment" ? `${model.deployment?.nodes.length ?? 0} nodes` : `${model.components.length} components`}</div>
       {content.kind === "diff" && !model.asIs && <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>No as-is baseline yet. Ask the AI to draw the current architecture of a repository, or attach its docker-compose.yml.</div>}
       <Mermaid source={modelToMermaid(model, content, { violating: new Set(violationsOf(state).map((v) => v.relationshipId)) })} />
       {content.kind === "diff" && model.asIs && (() => { const d = modelDiff(model)!; return <div className="mono" style={{ marginTop: 6, fontSize: 11 }}><span style={{ color: "var(--ok)" }}>+{d.added.length} added</span> · <span style={{ color: "var(--warn)" }}>−{d.removed.length} removed</span> · <span style={{ color: "var(--accent)" }}>~{d.changed.length} changed</span> · {d.same.length} unchanged · as-is from {model.asIs.source}</div>; })()}
@@ -378,6 +378,19 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
         </div>
       )}
       {content.boundaries.length > 0 && <BoundaryLegend artifactId={artifactId} content={content} />}
+      {content.deployment && content.deployment.nodes.length > 0 && (
+        <div className="mono" style={{ marginTop: 6, lineHeight: 1.6 }}>
+          {content.deployment.environments.map((env) => (
+            <div key={env}>
+              <span className="muted">{env}:</span>{" "}
+              {content.deployment!.nodes.map((n) => {
+                const on = Object.entries(content.deployment!.placements[env] ?? {}).filter(([, nid]) => nid === n.id).map(([cid]) => name(cid));
+                return <span key={n.id} style={{ marginRight: 10 }} title={[n.kind, n.technology, n.region ? `region ${n.region}` : "", n.trust ? `${n.trust} trust` : ""].filter(Boolean).join(", ")}><b>{n.name}</b>{n.region ? <span className="muted"> {n.region}</span> : null}{n.trust === "public" ? <span style={{ color: "var(--warn)" }}> public</span> : null}: {on.join(", ") || "—"}</span>;
+              })}
+            </div>
+          ))}
+        </div>
+      )}
       {content.relationships.length > 0 && <SequenceFrom content={content} />}
       <CompareVersions artifactId={artifactId} current={content} />
       {impactOf && <ImpactPanel componentId={impactOf} onClose={() => setImpactOf(null)} />}

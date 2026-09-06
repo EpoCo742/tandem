@@ -442,6 +442,33 @@ export const fakeProvider: ProviderAdapter = {
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
+    // 0q. Placement: "Service B runs on the EU cluster in the EU (production)" records a node, a
+    //     placement, and the first time a deployment view.
+    const runs = batch.map((m) => ({ m, x: m.text.match(/^(.+?) (?:runs|is deployed|is hosted|lives) (?:on|in) (?:the |an? )?(.+?)(?: in (?:the )?([A-Za-z][A-Za-z -]*?))?(?: \((\w+)\))?[.!]?$/i) })).find((x) => x.x);
+    if (runs) {
+      const [, compName, nodeName, region, envName] = runs.x!;
+      const modelArt = artifacts.find((a) => a.type === "arch_model");
+      const cur = modelArt ? ((await call("read_artifact", { artifactId: modelArt.id })) as { content?: ArchModelContent }).content : undefined;
+      const comp = cur?.components.find((c) => c.name.toLowerCase() === compName!.trim().toLowerCase());
+      if (!comp) {
+        await emit(`I do not know "${compName!.trim()}" in the model; add it first.`);
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const nodeId = slugId(nodeName!.trim());
+      const kind = /cluster|kubernetes|k8s|aks|eks|gke/i.test(nodeName!) ? "cluster" : /rds|managed|cloud sql|cosmos|dynamo|s3|blob|serverless|lambda|function/i.test(nodeName!) ? "managed" : /vm|machine|server|host|ec2|droplet/i.test(nodeName!) ? "vm" : "other";
+      const env = envName?.toLowerCase() ?? "production";
+      const r = (await call("upsert_deployment", { environment: env, nodes: [{ id: nodeId, name: nodeName!.trim(), kind, ...(region ? { region: region.trim() } : {}), ...(/\b(edge|internet|public)\b/i.test(nodeName!) ? { trust: "public" } : {}) }], placements: [{ componentId: comp.id, nodeId }], derivedFrom: [runs.m.eventId], rationale: `Placement stated by ${runs.m.speaker}` })) as { status: string };
+      if (r.status !== "model_updated") {
+        await emit(`Could not record the placement: ${r.status}.`);
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      if (!artifacts.some((a) => a.type === "view" && /deployment/i.test(a.title))) {
+        await call("create_artifact", { type: "view", title: "Deployment", content: { kind: "deployment", environment: env, sections: [{ id: "body", derivedFrom: [runs.m.eventId] }] }, rationale: "Deployment view of where things run", summary: `Deployment view (${env})` });
+      }
+      await emit(`Placed ${comp.name} on ${nodeName!.trim()}${region ? ` (${region.trim().toUpperCase()})` : ""} in ${env}; the Deployment view shows it. Placement now drives the residency and security checks for ${comp.name}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
     // 0p. Assumptions: "We assume X" records one for the speaker; "Actually X is not …" settles the
     //     open assumption that shares the most words with the message.
     const assume = batch.find((m) => /^(?:we |i )?(?:assume|presume|assuming|assumption:)\b/i.test(m.text));

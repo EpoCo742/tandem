@@ -1,5 +1,5 @@
 import { ulid } from "ulid";
-import { allAdrs, emptyModel, nextAssumptionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
+import { allAdrs, emptyModel, nextAssumptionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertDeployment, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { AlternativesContent, ConstraintsContent, ContractContent, DecisionPointContent, SessionState } from "@tandem/shared";
 import { contractsOf } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
@@ -75,6 +75,13 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       const { model, unknown } = upsertRelationships(currentModel(), input.relationships, input.derivedFrom);
       if (unknown.length === input.relationships.length * 2) return { status: "error", message: `Unknown component ids: ${unknown.join(", ")}. Call upsert_components first.` };
       return writeModel(model, input.rationale, `Model: ${model.components.length} components, ${model.relationships.length} relationships`, unknown);
+    }),
+
+    bind("upsert_deployment", async (input) => {
+      const { model, unknown } = upsertDeployment(currentModel(), input);
+      if (unknown.length && unknown.length === (input.placements?.length ?? 0)) return { status: "error", message: `Unknown ids: ${unknown.join(", ")}. Components must exist in the model and nodes must be declared in the same call or before.` };
+      const d = model.deployment!;
+      return writeModel(model, input.rationale, `Deployment: ${d.nodes.length} node${d.nodes.length === 1 ? "" : "s"}, ${d.environments.length} environment${d.environments.length === 1 ? "" : "s"}`, unknown);
     }),
 
     bind("upsert_constraints", async (input) => {
