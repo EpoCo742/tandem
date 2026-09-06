@@ -4,7 +4,7 @@ Plan of record from 2026-09-05. Everything built so far is listed in `05-poc-pla
 
 ## Where the product stands
 
-Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger. Publishing shipped the same day: a design document gets a public page at a stable address with a frozen, numbered copy per version and the signatures on each; approval publishes on its own while the page is live; the owner can unpublish and restore. C1, the organisation library, and C2, templates, shipped with it (see below); B4 notifications is what remains of the plan.
+Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger. Publishing shipped the same day: a design document gets a public page at a stable address with a frozen, numbered copy per version and the signatures on each; approval publishes on its own while the page is live; the owner can unpublish and restore. C1, the organisation library, and C2, templates, shipped with it (see below). Phases D (rigour) and E (presence) were added the same day as the next plan; B4 notifications is deferred to the end of it.
 
 The POC does the moment of collaboration well: two to five people in one AI conversation, turns batched and attributed, a governed canvas with proposals and decision points, versions and forks, a compiled design document, per-person AI credentials and per-person external tools with gated writes, a running brief for long sessions, and an export with provenance.
 
@@ -134,6 +134,138 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 ---
 
+## Phase D: rigour (the model can be checked, replayed and reused)
+
+Added 2026-09-05. Phase D deepens the model so more of governance becomes deterministic (fewer AI turns, fewer tokens) and the session's history becomes something people can walk through. Each item is a ledger event type and a reducer change first, then UI; each is demoable on the offline provider and adds a stage to `07-demo-script.md` and assertions to the smoke test.
+
+### D1. Data-flow classification
+
+**What.** Relationships carry the classes of data they move (PII, payment, health, credentials, public, internal). Boundaries carry a region and a trust level. Data residency and security constraints become checks the server runs, not judgements the AI makes: "PII crosses the EU boundary over a relationship marked public" is a violation the moment the model changes, by hand or by the AI, with no turn spent.
+
+**Design.** `dataClasses` on `ModelRelationship`, `region` and `trust` on `ModelBoundary`; a `checkConstraints(model, constraints)` in shared that maps the data residency, security and compliance categories to rules over flows and placement; `model.violations` derived in the reducer; the model card and the views show a violation chip per relationship; a hand edit that introduces a violation applies but raises a system message and, in hybrid policy, a decision point naming the constraint. This also settles the parked "constraint check after hand edits" for the categories that matter, without a token.
+
+**Effort.** Four days. Depends on A1, A3.
+
+### D2. Deployment view
+
+**What.** A second layer under the model: environments, regions, zones and nodes (a cluster, a VM, a managed service), with components placed on them. A generated deployment view (C4 level 4) per environment. Capacity, availability and residency constraints check against placement (a database outside the EU, a single node for a component with an availability constraint).
+
+**Design.** `deployment` on `ArchModelContent` (nodes with `kind`, `region`, `parent`; placements `componentId → nodeId` per environment), `upsert_deployment` tool, view kind `deployment` with an environment filter, D1's checker extended to placement. The as-is scanner reads compose and Kubernetes manifests into nodes when present.
+
+**Effort.** Four days. Depends on A1, D1.
+
+### D3. Session replay
+
+**What.** A time slider over the session. Drag it and the canvas, the decision registry and the constraints show what they were at that moment, with the lane scrolled to the messages of the time. The reducer is pure and the ledger is complete, so this is a fold up to a sequence number, not a new store. The same fold gives "model diff between any two commits", not only as-is against to-be.
+
+**Design.** `reduceUpTo(events, seq)` in shared with a memoised checkpoint every N events; a read-only canvas mode that renders a past state (no editing, no threads, a "back to now" button); a compare picker on the model card that shows the D-style diff view between two commits.
+
+**Effort.** Three days. Depends on nothing new; A5 for the diff view.
+
+### D4. Impact analysis
+
+**What.** Click a component and get a deterministic report: decisions that name it, constraints it is subject to (after D1, the flows it takes part in), views and alternatives it appears in, documents and threads that mention it, and what would dangle if it were removed. "What breaks if we drop Kafka" without a turn.
+
+**Design.** `impactOf(state, componentId)` in shared over the model, decisions, constraints, threads and the design document text; an Impact panel opened from the model table and from a node in a view; a `remove_from_model` pre-check that lists the impact in the tool result so the AI names it before removing.
+
+**Effort.** Two days. Depends on A1, A2; better after D1.
+
+### D5. Contracts as first-class cards
+
+**What.** An API or event contract (an OpenAPI or AsyncAPI fragment, or a plain schema) as a card attached to a relationship or a component. A change to the contract flags every consumer in the model; the library indexes contracts; the integration template's contract item points at this card type instead of a title match.
+
+**Design.** Artifact type `contract` with `format`, `body`, `attachedTo` (relationship or component id) and a `version`; a `consumers` derivation from the model; a "contract changed since v" chip on consuming components; `upsert_contract` tool; export and design-document sections.
+
+**Effort.** Three days. Depends on A1.
+
+### D6. Sequence diagrams from the model
+
+**What.** Choose a starting component and a path through the relationships, and get the sequence diagram deterministically. Stored as a view (kind `sequence`) so it regenerates when the model changes, like the other views.
+
+**Design.** `pathsFrom(model, start, depth)` and `sequenceMermaid(model, path)` in shared; a picker on the model card; the AI gets the same through a `create_view` kind instead of drawing free Mermaid; the integration template's sequence item accepts either.
+
+**Effort.** Two days. Depends on A1.
+
+### D7. Assumptions register
+
+**What.** Things believed true but not decided, each with an owner and a revisit date, separate from decisions. The AI records "we assume …" statements here, flags a later message that contradicts one, and offers to turn it into a decision or a decision point. Decisions gain an optional revisit date too, and the digest lists what is due.
+
+**Design.** `assumption.recorded`, `assumption.resolved` events; `state.assumptions`; `record_assumption` tool and a prompt rule; the Decisions tab gets an Assumptions section; the export and the design document get a section; the digest's waiting list gets "assumptions to revisit".
+
+**Effort.** Three days. Depends on A2, B1.
+
+### D8. Import from existing notation
+
+**What.** Paste Mermaid (flowchart), PlantUML (component) or Structurizr DSL and get a model, with what could not be mapped listed as notes. Export Structurizr DSL alongside Markdown so the model can leave.
+
+**Design.** Parsers in `shared/src/import/` (Mermaid flowchart first, since it is the most common paste; Structurizr second; PlantUML third), each returning `{ components, relationships, boundaries, notes }` like `scanRepo`; an Import button on the model card that previews before applying through the usual governance; `set_as_is` accepts the same input so a pasted diagram can be the baseline; a Structurizr DSL exporter next to the Markdown export.
+
+**Effort.** Four days. Depends on A1, A5.
+
+---
+
+## Phase E: presence (the session looks alive and reads well)
+
+Added 2026-09-05. Phase E is visual and experience work. Nothing here changes governance; most of it reads state the ledger already has. Items are small and can ship between Phase D items.
+
+### E1. Change glow
+
+**What.** When a card changes, the rows or nodes that changed light up for a few seconds, and cards changed since you last looked carry a mark until you open them. The digest already knows "since"; the canvas should show it.
+
+**Design.** Per-card diff of consecutive versions in the reducer (`changedRows` on the latest version for tables, node ids for views); a CSS transition keyed on version; the `participants.last_seen_seq` already tracked drives the "since you looked" mark.
+
+**Effort.** Two days.
+
+### E2. Live cursors and selection, with a visibility toggle
+
+**What.** Each person's cursor and selected card shown on the canvas in their colour. A toggle in the top bar with three states: see others and be seen (default), see others but hide me, hide everyone. The choice is per person and per session, remembered, and honoured on both sides: someone who hides themselves is not shown to anyone, and someone who hides others still broadcasts unless they also hide themselves.
+
+**Design.** Yjs awareness already carries presence; add cursor position and selection to it, plus a `visible` flag; the canvas renders cursors from awareness for participants whose flag is on; the toggle writes the flag and a local preference; a note in the presence strip says "3 present, 1 hidden".
+
+**Effort.** Two days.
+
+### E3. Coloured boundaries
+
+**What.** Trust zones, teams and systems get their own tint in every generated view, consistent across views and the deployment view; nodes show technology and decision count on hover; hovering a relationship highlights both ends.
+
+**Design.** A `color` on `ModelBoundary` chosen from the participant palette's neighbours, set on creation and editable on the model card; `modelToMermaid` emits `classDef` per boundary; hover behaviour on the rendered SVG through data attributes the renderer already leaves on nodes.
+
+**Effort.** One day. Depends on A1.
+
+### E4. Presentation mode
+
+**What.** Full-screen walkthrough of the canvas in an order you set: one card per screen, the AI lane and side pane hidden, the decision log as the closing screen, arrow keys to move. For presenting a design to people who were not in the session.
+
+**Design.** An ordered list of card ids stored in the Yjs layout document (so it is shared and not in the ledger); a `/s/:id/present` route reusing the card renderers at large size; a "present" button in the top bar; Escape returns.
+
+**Effort.** Two days.
+
+### E5. Published page polish
+
+**What.** A table of contents, a print stylesheet, diagram zoom, a link preview image, and the version picker moved into a sidebar. The page outsiders see should look finished.
+
+**Design.** Headings collected client-side into a sticky sidebar; `@media print` rules; click-to-enlarge on Mermaid SVGs; an `og:image` rendered server-side from the title and status (a small SVG-to-PNG step, or a static image if that costs too much); the `.md` link kept.
+
+**Effort.** One day.
+
+### E6. Session thumbnails
+
+**What.** A small preview of the canvas on the home page rows and on library hits, so a session is recognised by its shape, not its title.
+
+**Design.** The client renders a thumbnail from the layout document and card types (coloured rectangles, no content) and posts it to the server on leave; stored per session, served with the session list; regenerated when the layout changes.
+
+**Effort.** One day.
+
+### E7. Guided empty state per template
+
+**What.** A blank templated canvas suggests the first prompt and shows the checklist's first three items as the plan: "Start by describing the systems involved; then state the limits; then ask for the data model". Blank sessions get a lighter version: three example prompts.
+
+**Design.** A `starters` list per template in `templates.ts`; an empty-state panel on the canvas that disappears once the first card exists; clicking a starter puts it in the composer.
+
+**Effort.** Half a day. Depends on C2.
+
+---
+
 ## Carried over from the earlier backlog
 
 - **Constraint check after hand edits.** Direct edits of the model or of free Mermaid cards are not checked against the constraints; only the AI's own changes are. The cheap version tells the AI on its next turn that the model changed by hand so it re-checks; the user's concern is that this spends tokens on every turn after a manual edit. Park until there is evidence of hand edits breaking constraints.
@@ -160,7 +292,25 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 | 9 | B4 Notifications | 2 | B1 |
 | 10 | C1 Organisation library (shipped, with publishing) | 5 | A1, A2 |
 | 11 | C2 Templates (shipped) | 3 | A3 |
+| 12 | E1 Change glow | 2 | — |
+| 13 | D3 Session replay | 3 | A5 |
+| 14 | D4 Impact analysis | 2 | A1, A2 |
+| 15 | E2 Live cursors with visibility toggle | 2 | — |
+| 16 | D1 Data-flow classification | 4 | A1, A3 |
+| 17 | E3 Coloured boundaries | 1 | A1 |
+| 18 | D6 Sequence diagrams from the model | 2 | A1 |
+| 19 | E7 Guided empty state | 0.5 | C2 |
+| 20 | D5 Contracts as cards | 3 | A1 |
+| 21 | D7 Assumptions register | 3 | A2, B1 |
+| 22 | E4 Presentation mode | 2 | — |
+| 23 | E5 Published page polish | 1 | — |
+| 24 | D2 Deployment view | 4 | A1, D1 |
+| 25 | D8 Import from existing notation | 4 | A1, A5 |
+| 26 | E6 Session thumbnails | 1 | — |
+| 27 | B4 Notifications | 2 | B1 |
 
-Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices. Each item adds its stage to `07-demo-script.md` and its assertions to the smoke test before it is called done.
+Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices, for items 1 to 11; items 12 to 27 add about seven more. Each item adds its stage to `07-demo-script.md` and its assertions to the smoke test before it is called done.
+
+**Why this order for 12 to 27.** Start with two visible wins that need no new model work (change glow, replay), then impact analysis because it reuses the library index. Data-flow classification next, since deployment view and the hand-edit constraint check both build on it, with the small visual items (coloured boundaries, guided empty state) slotted between larger ones. Contracts and assumptions extend what the AI can record and the templates can check. Presentation mode and the published page polish come once there is more to show. Deployment view and import are the largest and least urgent. B4 notifications stays last at the user's request; it can move up when people outside the room start asking for it.
 
 **Shipped 2026-09-05:** A1, the architecture model (model, generated views, tools, decision links). A2, decisions as records (ADR fields on record_decision, the Decisions tab record, ADR-form export, ADR file download, `render_adr` tool and repository commit through a registered file tool under the outbound gate, data-model `ownedBy`). B1, asynchronous participation (deadlines with expiry, vote page, home-page digest with waiting items and since-you-looked, mentions). A3, constraints (constraints card with attribution and sources, two tools, prompt enforcement, decision points that name the violated constraint, export and design-document sections). B2, threads anchored to cards (notes with an anchor to a card or a model component, replies, resolve, promotion that carries the anchor and the rest of the thread as background, thread panel on every card and per component on the model table, export section). A4, alternatives side by side (propose_alternatives tool, alternatives card with per-candidate models, comparison against the constraints, Decide opens a vote, adoption sets the model and records the decision with every candidate considered, no AI turn). B3, review and sign-off (reviewer role on invites, design document status derived from review events, named sign-offs, approval recorded as a decision agreed by the signers, back to draft on any canvas change with a note, digest item for pending sign-offs, export status line). A5, as-is from code (repository manifests read through the person's read-only tool or an attachment, `scanRepo` heuristics in shared, `set_as_is` tool, as-is baseline on the model, diff view kind with added, removed, changed and unchanged, model card banner and row chips, export summary). Next: B4, notifications.
