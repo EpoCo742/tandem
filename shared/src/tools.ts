@@ -169,6 +169,23 @@ export const recordDecisionInput = z.object({
     .describe("ADR options considered, with the chosen one marked"),
   consequences: z.string().optional().describe("ADR consequences: what becomes easier or harder because of this decision"),
   importedFrom: importedFromInput.optional(),
+  revisitAt: z.string().optional().describe("ISO date (YYYY-MM-DD) by which the decision should be looked at again, when people say so"),
+});
+
+export const recordAssumptionInput = z.object({
+  statement: z.string().describe("What is believed true but not decided, e.g. 'the payment gateway is idempotent'"),
+  ownerUserId: z.string().describe("The participant who stated it; they revisit it"),
+  revisitAt: z.string().optional().describe("ISO date (YYYY-MM-DD) by which it should be checked, when stated"),
+  evidence: z.array(z.string()).describe("Ledger event ids of the messages that stated it"),
+  about: z.array(z.string()).optional().describe("Architecture model component ids it concerns"),
+});
+
+export const resolveAssumptionInput = z.object({
+  assumptionId: z.string(),
+  outcome: z.enum(["confirmed", "refuted", "decided"]),
+  decisionId: z.string().optional().describe("When outcome is decided: the decision that replaced it"),
+  note: z.string().optional().describe("One line on what settled it"),
+  evidence: z.array(z.string()).optional().describe("Ledger event ids of the messages that settled it"),
 });
 
 const constraintKind = z.enum(["must", "must_not", "target"]);
@@ -311,6 +328,8 @@ export const toolSchemas = {
   set_as_is: setAsIsInput,
   library_search: librarySearchInput,
   upsert_contract: upsertContractInput,
+  record_assumption: recordAssumptionInput,
+  resolve_assumption: resolveAssumptionInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -341,6 +360,10 @@ export const toolDescriptions: Record<ToolName, string> = {
     "Record the architecture as it exists today (read from a repository's manifests or a deployment file) as the model's as-is baseline. When the model is still empty it becomes the model too; otherwise the model stays the target state and the 'As-is vs to-be' view shows the difference. Read only manifests (package.json, docker-compose, go.mod, pom.xml, terraform, k8s), never whole source trees.",
   propose_alternatives:
     "Put two or three candidate architectures side by side on one card, each a complete model of its own with what speaks for and against it and which constraints it meets or puts at risk. The architecture model is not changed; people choose with the card's Decide button, the majority's pick becomes the model and the decision is recorded automatically.",
+  record_assumption:
+    "Record something a participant believes true but has not decided ('we assume the gateway is idempotent', 'presumably the data is under 10 GB'). Owned by whoever said it, with a revisit date when they gave one. Contradicted later, it is settled with resolve_assumption; decided later, it becomes a decision.",
+  resolve_assumption:
+    "Settle an open assumption: confirmed (it held), refuted (it did not; say what showed it), or decided (a decision replaced it; pass the decision id). Use when a message contradicts or confirms an assumption in the registry.",
   upsert_contract:
     "Record an API or event contract (OpenAPI, AsyncAPI, a schema, or Markdown) as a card attached to the relationship it governs or the component that exposes it. Updating the contract attached to the same thing makes a new version and flags every consumer in the model. Use when people describe endpoints, payloads, events or schemas.",
   library_search:
@@ -365,4 +388,6 @@ export type ToolResult =
   | { status: "as_is_set"; artifactId: string; versionNo: number; components: number; relationships: number; modelReplaced: boolean; diffViewArtifactId: string }
   | { status: "library_results"; hits: LibraryHit[]; searched: { sessions: number; publicSessions: number } }
   | { status: "contract_recorded"; artifactId: string; versionNo: number; consumers: string[] }
+  | { status: "assumption_recorded"; assumptionId: string; label: string }
+  | { status: "assumption_resolved"; assumptionId: string; label: string; outcome: string }
   | { status: "error"; message: string };

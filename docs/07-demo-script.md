@@ -306,6 +306,19 @@ Fake architect: a constraint belongs to whoever set it, whatever card it sits on
 
 Point at: the Constraints card's "set by" column and the message link; the export's constraints table with the exception against its constraint; the compiled design document's Constraints section.
 
+## Stage 2g: assumptions
+
+Feature: things believed true but not decided get their own register, separate from decisions. Each assumption has an owner (whoever said it), an optional date to look at it again, and a status: open, held, did not hold, or decided. The AI records "we assume …" statements, settles one when a later message confirms or contradicts it, and turns one into a decision when the group decides. Decisions can carry a revisit date too. The home page digest lists what is due.
+
+| Who | Says |
+|---|---|
+| Bob | "We assume the payment gateway is idempotent." |
+| Alice | "Actually the payment gateway is not idempotent; duplicates came through in staging." |
+
+Fake architect: records A-01 for Bob; the contradiction settles it as "did not hold" with a system line in the lane. The Decisions tab has an Assumptions section with "held" and "did not hold" buttons and a field to add one by hand with a revisit date. A real model gets `record_assumption` and `resolve_assumption` with a rule to use them.
+
+Point at: the digest entry "Your assumption A-02 is due a look" once its date passes; the Assumptions section of the export.
+
 ## Stage 2f: contracts as cards
 
 Feature: an API or event contract (OpenAPI, AsyncAPI, a JSON schema, GraphQL, proto or Markdown) is a **contract** card attached to the relationship it governs or the component that exposes it. The model says who provides and who consumes it; when the contract changes after the model last changed, every consumer row on the Architecture model card shows "contract changed" until the model moves again.

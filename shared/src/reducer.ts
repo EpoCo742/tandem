@@ -112,8 +112,26 @@ export interface Decision {
   options: { title: string; tradeoffs?: string; chosen?: boolean }[];
   consequences: string;
   importedFrom?: ImportedFrom;
+  revisitAt?: string;
   eventId: string;
   createdAt: string;
+}
+
+/** Something believed true but not decided: owned, dated, and settled one way or the other. */
+export interface Assumption {
+  id: string;
+  label: string; // A-01, A-02, …
+  statement: string;
+  ownerUserId: string;
+  revisitAt?: string;
+  evidence: string[];
+  about: string[];
+  status: "open" | "confirmed" | "refuted" | "decided";
+  decisionId?: string;
+  note?: string;
+  eventId: string;
+  createdAt: string;
+  resolvedAt?: string;
 }
 
 export interface Commit {
@@ -177,6 +195,7 @@ export interface SessionState {
   externalCalls: Record<string, ExternalCall>;
   reviews: Record<string, ReviewState>; // by design document artifact id
   publications: Record<string, PublicationState>; // by design document artifact id
+  assumptions: Record<string, Assumption>;
   lastSeq: number;
   eventsById: Record<string, AnyLedgerEvent>;
 }
@@ -252,6 +271,7 @@ export function emptyState(sessionId: string): SessionState {
     externalCalls: {},
     reviews: {},
     publications: {},
+    assumptions: {},
     lastSeq: 0,
     eventsById: {},
   };
@@ -293,6 +313,21 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "Approval";
       const title = s.artifacts[p.artifactId]?.title ?? "the design document";
       s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${who} published ${title} v${p.docVersionNo} as version ${p.publicationVersionNo} of its public page${p.approved ? ` (approved, ${p.approved.decisionLabel})` : " (not signed off)"}`, turnId: ev.turnId, createdAt: ev.createdAt }];
+      return s;
+    }
+    case "assumption.recorded": {
+      const p = ev.payload as Payloads["assumption.recorded"];
+      s.assumptions = { ...s.assumptions, [p.assumptionId]: { id: p.assumptionId, label: p.label, statement: p.statement, ownerUserId: p.ownerUserId, ...(p.revisitAt ? { revisitAt: p.revisitAt } : {}), evidence: p.evidence, about: p.about ?? [], status: "open", eventId: ev.id, createdAt: ev.createdAt } };
+      return s;
+    }
+    case "assumption.resolved": {
+      const p = ev.payload as Payloads["assumption.resolved"];
+      const cur = s.assumptions[p.assumptionId];
+      if (!cur) return s;
+      s.assumptions = { ...s.assumptions, [p.assumptionId]: { ...cur, status: p.outcome, ...(p.decisionId ? { decisionId: p.decisionId } : {}), ...(p.note ? { note: p.note } : {}), resolvedAt: ev.createdAt } };
+      const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "The AI";
+      const verb = p.outcome === "confirmed" ? "held" : p.outcome === "refuted" ? "did not hold" : "became a decision";
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${who} settled assumption ${cur.label} ("${cur.statement}"): it ${verb}${p.decisionId && s.decisions[p.decisionId] ? ` (${s.decisions[p.decisionId]!.label})` : ""}${p.note ? `. ${p.note}` : ""}`, turnId: ev.turnId, createdAt: ev.createdAt }];
       return s;
     }
     case "flow.violation": {
@@ -549,6 +584,7 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
         options: p.options ?? [],
         consequences: p.consequences ?? "",
         ...(p.importedFrom ? { importedFrom: p.importedFrom } : {}),
+        ...(p.revisitAt ? { revisitAt: p.revisitAt } : {}),
         eventId: ev.id,
         createdAt: ev.createdAt,
       };
@@ -714,6 +750,20 @@ export function reduceAll(sessionId: string, events: AnyLedgerEvent[]): SessionS
 /** The session as it was after event `seq`: a fold of the ledger up to that point (replay, diffs between moments). */
 export function reduceUpTo(sessionId: string, events: AnyLedgerEvent[], seq: number): SessionState {
   return reduceAll(sessionId, [...events].filter((e) => e.seq <= seq).sort((a, b) => a.seq - b.seq));
+}
+
+export function nextAssumptionLabel(s: SessionState): string {
+  const n = Object.values(s.assumptions).reduce((m, a) => Math.max(m, Number(a.label.replace(/^A-/, "")) || 0), 0) + 1;
+  return `A-${String(n).padStart(2, "0")}`;
+}
+
+/** Open assumptions and agreed decisions whose revisit date has passed (or is today). */
+export function dueForRevisit(s: SessionState, now = new Date()): { assumptions: Assumption[]; decisions: Decision[] } {
+  const cutoff = now.toISOString().slice(0, 10);
+  return {
+    assumptions: Object.values(s.assumptions).filter((a) => a.status === "open" && a.revisitAt && a.revisitAt.slice(0, 10) <= cutoff),
+    decisions: Object.values(s.decisions).filter((d) => d.status === "agreed" && d.revisitAt && d.revisitAt.slice(0, 10) <= cutoff),
+  };
 }
 
 export function participantName(s: SessionState, userId: string | null | undefined): string {

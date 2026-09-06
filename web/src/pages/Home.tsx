@@ -17,6 +17,7 @@ interface DigestSession {
     proposals: { id: string; title: string; op: string; proposer: string; autoApplyAt: string | null }[];
     externalCalls: { id: string; summary: string; onBehalfOf: string }[];
     signoffs: { artifactId: string; title: string; versionNo: number; requestedBy: string; signed: number; needed: number }[];
+    revisits: { kind: "assumption" | "decision"; id: string; label: string; statement: string; revisitAt: string }[];
   };
   since: { messages: number; aiReplies: number; decisions: string[]; artifacts: string[]; mentions: { eventId: string; from: string; text: string }[] };
   lastActivityAt: string;
@@ -155,7 +156,7 @@ function SessionListRow({ s, onChange }: { s: SessionRow; onChange: () => void }
 // What is waiting on you, then what changed while you were away. Built from each session's ledger
 // and how far you had read it; a link takes you straight to the thing, not to the whole canvas.
 function Digest({ sessions }: { sessions: DigestSession[] }) {
-  const waiting = sessions.filter((s) => s.waiting.decisionPoints.length + s.waiting.proposals.length + s.waiting.externalCalls.length + s.waiting.signoffs.length > 0);
+  const waiting = sessions.filter((s) => s.waiting.decisionPoints.length + s.waiting.proposals.length + s.waiting.externalCalls.length + s.waiting.signoffs.length + (s.waiting.revisits?.length ?? 0) > 0);
   const changed = sessions.filter((s) => s.since.messages + s.since.aiReplies + s.since.decisions.length + s.since.artifacts.length > 0);
   if (waiting.length === 0 && changed.length === 0) return null;
   const closes = (iso: string | null) => (iso ? ` · closes ${new Date(iso).toLocaleString()}` : "");
@@ -189,6 +190,12 @@ function Digest({ sessions }: { sessions: DigestSession[] }) {
                 <div key={r.artifactId} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
                   <span>Sign-off requested by {r.requestedBy}: <b>{r.title}</b> v{r.versionNo} <span className="mono">{r.signed} of {r.needed} signed</span></span>
                   <button onClick={() => navigate(`/s/${s.sessionId}`)} title="Read the document in the session, then sign off on its card">Review</button>
+                </div>
+              ))}
+              {(s.waiting.revisits ?? []).map((r) => (
+                <div key={r.id} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                  <span>{r.kind === "assumption" ? "Your assumption" : "Decision"} <b>{r.label}</b> is due a look ({r.revisitAt.slice(0, 10)}): {r.statement}</span>
+                  <button onClick={() => navigate(`/s/${s.sessionId}`)} title={r.kind === "assumption" ? "Confirm or refute it in the Decisions tab" : "Reopen the question in the session"}>Revisit</button>
                 </div>
               ))}
             </div>

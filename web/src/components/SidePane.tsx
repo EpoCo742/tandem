@@ -222,6 +222,71 @@ function Checklist() {
   );
 }
 
+// Believed, not decided: owned, dated, settled by hand or by the AI when something confirms or contradicts it.
+function Assumptions() {
+  const state = useStore((s) => s.state);
+  const meta = useStore((s) => s.meta);
+  const me = useStore((s) => s.me)!;
+  const [statement, setStatement] = useState("");
+  const [revisitAt, setRevisitAt] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const all = Object.values(state.assumptions).sort((a, b) => a.label.localeCompare(b.label));
+  const canAct = state.participants[me.user!.id]?.role !== "viewer";
+  const today = new Date().toISOString().slice(0, 10);
+  async function add() {
+    if (!meta || !statement.trim()) return;
+    setErr(null);
+    try {
+      await api("POST", `/api/v1/sessions/${meta.id}/assumptions`, { statement: statement.trim(), ...(revisitAt ? { revisitAt } : {}) });
+      setStatement("");
+      setRevisitAt("");
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  async function settle(id: string, outcome: "confirmed" | "refuted") {
+    if (!meta) return;
+    setErr(null);
+    try {
+      await api("POST", `/api/v1/sessions/${meta.id}/assumptions/${id}/resolve`, { outcome });
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  return (
+    <div className="assumptions">
+      <div className="mono" style={{ margin: "10px 0 4px" }}>assumptions · {all.filter((a) => a.status === "open").length} open</div>
+      {all.length === 0 && <div className="muted" style={{ fontSize: 12 }}>Things believed but not decided. Say "we assume …" and the AI records it here; or add one below.</div>}
+      {all.map((a) => {
+        const due = a.status === "open" && a.revisitAt && a.revisitAt.slice(0, 10) <= today;
+        return (
+          <div key={a.id} className={"decision assumption " + a.status} title={a.note ?? ""}>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="mono">{a.label} · {a.status}{a.revisitAt ? <span style={{ color: due ? "var(--warn)" : undefined }}> · revisit {a.revisitAt.slice(0, 10)}</span> : null}</span>
+              <span className="chip solid" style={{ background: state.participants[a.ownerUserId]?.color ?? AI_COLOR }}>{participantName(state, a.ownerUserId)}</span>
+            </div>
+            <div>{a.statement}{a.decisionId && state.decisions[a.decisionId] ? <span className="mono"> → {state.decisions[a.decisionId]!.label}</span> : null}</div>
+            {a.status === "open" && canAct && (
+              <div className="row" style={{ gap: 4, marginTop: 3 }}>
+                <button className="icon" onClick={() => settle(a.id, "confirmed")} title="It held">held</button>
+                <button className="icon" onClick={() => settle(a.id, "refuted")} title="It did not hold">did not hold</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {canAct && (
+        <div className="row" style={{ gap: 4, marginTop: 6 }}>
+          <input placeholder="We assume…" value={statement} onChange={(e) => setStatement(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void add(); }} style={{ flex: 1 }} />
+          <input type="date" value={revisitAt} onChange={(e) => setRevisitAt(e.target.value)} style={{ width: "auto" }} title="Revisit by" />
+          <button className="icon" disabled={!statement.trim()} onClick={add}>add</button>
+        </div>
+      )}
+      {err && <div className="err" style={{ fontSize: 12 }}>{err}</div>}
+    </div>
+  );
+}
+
 function Decisions() {
   const state = useStore((s) => s.state);
   const setHighlight = useStore((s) => s.setHighlight);
@@ -263,8 +328,10 @@ function Decisions() {
               {d.consequences && <div><span className="mono">consequences</span> {d.consequences}</div>}
             </details>
           )}
+          {d.revisitAt && <div className="mono" style={{ color: d.revisitAt.slice(0, 10) <= new Date().toISOString().slice(0, 10) ? "var(--warn)" : undefined }}>revisit by {d.revisitAt.slice(0, 10)}</div>}
         </div>
       ))}
+      <Assumptions />
     </div>
   );
 }

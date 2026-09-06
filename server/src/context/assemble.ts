@@ -30,6 +30,13 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
   }
   lines.push("");
 
+  const open = Object.values(state.assumptions).filter((a) => a.status === "open");
+  if (open.length) {
+    lines.push("## Assumptions (believed, not decided)");
+    for (const a of open) lines.push(`- ${a.label} (id ${a.id}) ${a.statement} — ${participantName(state, a.ownerUserId)}${a.revisitAt ? `, revisit by ${a.revisitAt.slice(0, 10)}` : ""}`);
+    lines.push("");
+  }
+
   // A templated session carries its checklist so the model can steer toward what is missing.
   const checklist = completeness(state);
   if (checklist) {

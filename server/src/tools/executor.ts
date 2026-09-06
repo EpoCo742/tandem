@@ -1,5 +1,5 @@
 import { ulid } from "ulid";
-import { allAdrs, emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
+import { allAdrs, emptyModel, nextAssumptionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { AlternativesContent, ConstraintsContent, ContractContent, DecisionPointContent, SessionState } from "@tandem/shared";
 import { contractsOf } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
@@ -243,7 +243,7 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
         actorUserId: scope.onBehalfOf,
         turnId: scope.turnId,
         causedBy: input.evidence.length ? input.evidence : scope.batchEventIds,
-        payload: { decisionId, label, statement: input.statement, status, supersedes: input.supersedes, agreedBy: input.agreedBy, evidence: input.evidence, about: input.about ?? [], context: input.context, options: input.options, consequences: input.consequences, ...(input.importedFrom ? { importedFrom: input.importedFrom } : {}) },
+        payload: { decisionId, label, statement: input.statement, status, supersedes: input.supersedes, agreedBy: input.agreedBy, evidence: input.evidence, about: input.about ?? [], context: input.context, options: input.options, consequences: input.consequences, ...(input.importedFrom ? { importedFrom: input.importedFrom } : {}), ...(input.revisitAt ? { revisitAt: input.revisitAt } : {}) },
       });
       return { status: "recorded", decisionId, label };
     }),
@@ -314,6 +314,25 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
     bind("library_search", async (input) => {
       const r = searchLibrary(scope.onBehalfOf, input.query, { kind: input.kind, limit: input.limit ?? 8, excludeSessionId: input.excludeThisSession ? scope.sessionId : undefined });
       return { status: "library_results", hits: r.hits, searched: r.scope };
+    }),
+
+    bind("record_assumption", async (input) => {
+      const state = getState(scope.sessionId);
+      if (!state.participants[input.ownerUserId]) return { status: "error", message: `No participant ${input.ownerUserId}` };
+      const assumptionId = ulid();
+      const label = nextAssumptionLabel(state);
+      appendEvent(scope.sessionId, { type: "assumption.recorded", actorKind: "ai", actorUserId: scope.onBehalfOf, turnId: scope.turnId, causedBy: input.evidence.length ? input.evidence : scope.batchEventIds, payload: { assumptionId, label, statement: input.statement.replace(/\.$/, ""), ownerUserId: input.ownerUserId, ...(input.revisitAt ? { revisitAt: input.revisitAt } : {}), evidence: input.evidence, about: input.about ?? [] } });
+      return { status: "assumption_recorded", assumptionId, label };
+    }),
+
+    bind("resolve_assumption", async (input) => {
+      const state = getState(scope.sessionId);
+      const a = state.assumptions[input.assumptionId];
+      if (!a) return { status: "error", message: `No assumption ${input.assumptionId}` };
+      if (a.status !== "open") return { status: "error", message: `${a.label} is already ${a.status}` };
+      if (input.outcome === "decided" && input.decisionId && !state.decisions[input.decisionId]) return { status: "error", message: `No decision ${input.decisionId}` };
+      appendEvent(scope.sessionId, { type: "assumption.resolved", actorKind: "ai", actorUserId: scope.onBehalfOf, turnId: scope.turnId, causedBy: input.evidence?.length ? input.evidence : scope.batchEventIds, payload: { assumptionId: a.id, outcome: input.outcome, ...(input.decisionId ? { decisionId: input.decisionId } : {}), ...(input.note ? { note: input.note } : {}) } });
+      return { status: "assumption_resolved", assumptionId: a.id, label: a.label, outcome: input.outcome };
     }),
 
     bind("upsert_contract", async (input) => {

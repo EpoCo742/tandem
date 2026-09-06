@@ -108,6 +108,12 @@ export function exportMarkdown(s: SessionState): string {
     out.push(`  <!-- decision ${d.id}; evidence ${d.evidence.join(",")} -->`);
   }
   out.push("");
+  const assumptions = Object.values(s.assumptions).sort((a, b) => a.label.localeCompare(b.label));
+  if (assumptions.length) {
+    out.push("## Assumptions", "", "Believed true when stated, not decided. Each has an owner and, where given, a date to look at it again.", "");
+    for (const a of assumptions) out.push(`- **${a.label}** [${a.status}] ${a.statement} — ${participantName(s, a.ownerUserId)}${a.revisitAt ? ` (revisit by ${a.revisitAt.slice(0, 10)})` : ""}${a.decisionId && s.decisions[a.decisionId] ? ` → ${s.decisions[a.decisionId]!.label}` : ""}${a.note ? `. ${a.note}` : ""}`);
+    out.push("");
+  }
   // The same decisions as architecture decision records, one section each (the files are available separately).
   if (decisions.length) {
     out.push("## Decision records", "");

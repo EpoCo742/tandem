@@ -149,7 +149,10 @@ export type Payloads = {
     options?: { title: string; tradeoffs?: string; chosen?: boolean }[]; // ADR: what was considered
     consequences?: string; // ADR: what follows from it
     importedFrom?: ImportedFrom; // copied in from another session through the library
+    revisitAt?: string; // ISO date by which the decision should be looked at again
   };
+  "assumption.recorded": { assumptionId: string; label: string; statement: string; ownerUserId: string; revisitAt?: string; evidence: string[]; about?: string[] }; // believed true, not decided; the owner revisits it
+  "assumption.resolved": { assumptionId: string; outcome: "confirmed" | "refuted" | "decided"; decisionId?: string; note?: string }; // settled: held, did not hold, or became a decision
   "decision.voted": { decisionPointArtifactId: string; optionId: string };
   "decision.deadline_set": { decisionPointArtifactId: string; at: string };
   "decision.expired": { decisionPointArtifactId: string }; // the deadline passed without a majority

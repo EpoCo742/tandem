@@ -442,6 +442,31 @@ export const fakeProvider: ProviderAdapter = {
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
+    // 0p. Assumptions: "We assume X" records one for the speaker; "Actually X is not …" settles the
+    //     open assumption that shares the most words with the message.
+    const assume = batch.find((m) => /^(?:we |i )?(?:assume|presume|assuming|assumption:)\b/i.test(m.text));
+    if (assume) {
+      const statement = assume.text.replace(/^(?:we |i )?(?:assume|presume|assuming|assumption:)\s*(?:that\s+)?/i, "").replace(/\s*\(?revisit(?: by| on)? \d{4}-\d{2}-\d{2}\)?/i, "").replace(/[.]$/, "").trim();
+      const revisitAt = assume.text.match(/revisit(?: by| on)? (\d{4}-\d{2}-\d{2})/i)?.[1];
+      const r = (await call("record_assumption", { statement, ownerUserId: userIdFor(req.context.prompt, assume.speaker), ...(revisitAt ? { revisitAt } : {}), evidence: [assume.eventId] })) as { status: string; label?: string };
+      await emit(r.status === "assumption_recorded" ? `Noted ${r.label} as ${assume.speaker}'s assumption: "${statement}"${revisitAt ? `, to revisit by ${revisitAt}` : ""}. I will flag anything that contradicts it.` : `Could not record the assumption: ${r.status}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+    const contradiction = batch.find((m) => /^(?:actually|in fact|turns out|it turns out|correction:)\b/i.test(m.text));
+    if (contradiction) {
+      const section = req.context.prompt.match(/## Assumptions \(believed, not decided\)\n([\s\S]*?)\n\n/);
+      const openOnes = [...(section?.[1] ?? "").matchAll(/^- (A-\d+) \(id (\S+)\) (.+?) — /gm)].map((m) => ({ label: m[1]!, id: m[2]!, statement: m[3]! }));
+      const words = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3 && !["that", "this", "with", "from", "have", "will", "actually", "turns"].includes(w)));
+      const mine = words(contradiction.text);
+      const best = openOnes.map((a) => ({ a, n: [...words(a.statement)].filter((w) => mine.has(w)).length })).sort((x, y) => y.n - x.n)[0];
+      if (best && best.n >= 2) {
+        const refuted = /\b(not|no|never|isn't|aren't|doesn't|don't|cannot|can't)\b/i.test(contradiction.text);
+        const r = (await call("resolve_assumption", { assumptionId: best.a.id, outcome: refuted ? "refuted" : "confirmed", note: contradiction.text.replace(/[.]$/, ""), evidence: [contradiction.eventId] })) as { status: string };
+        await emit(r.status === "assumption_resolved" ? `${best.a.label} ("${best.a.statement}") ${refuted ? "did not hold" : "held"}, per ${contradiction.speaker}. ${refuted ? "Anything built on it should be looked at again." : ""}` : `Could not settle ${best.a.label}: ${r.status}.`);
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+    }
+
     // 0o. "Contract for Service B: …": a contract card attached to that component (or "for Service A -> Service B" to a relationship).
     const contractMsg = batch.map((m) => ({ m, x: m.text.match(/^(?:(?:api|event|the) )?contract (?:for|of) (.+?):\s*([\s\S]+)$/i) })).find((x) => x.x);
     if (contractMsg) {

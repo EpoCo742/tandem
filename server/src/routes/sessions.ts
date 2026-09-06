@@ -23,7 +23,7 @@ import { adoptAlternative, openAlternativesDecision } from "../alternatives.js";
 import { requestReview, signOff, withdrawReview } from "../review.js";
 import { publishDocument, revokePublication } from "../publish.js";
 import { importFromLibrary } from "../importer.js";
-import { impactLines, impactOf, contractsOf } from "@tandem/shared";
+import { impactLines, impactOf, contractsOf, nextAssumptionLabel } from "@tandem/shared";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -93,6 +93,37 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const r = revokePublication(req.params.id, req.params.artifactId, user.id);
     if (!r.ok) return reply.code(r.status).send({ error: r.error });
     return r;
+  });
+
+  // Assumptions by hand: add one (owned by me) or settle one. No AI turn.
+  app.post<{ Params: { id: string }; Body: { statement: string; revisitAt?: string } }>("/api/v1/sessions/:id/assumptions", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot record assumptions" });
+    const statement = (req.body?.statement ?? "").trim().replace(/\.$/, "");
+    if (!statement) return reply.code(400).send({ error: "a statement is needed" });
+    if (req.body.revisitAt && !/^\d{4}-\d{2}-\d{2}/.test(req.body.revisitAt)) return reply.code(400).send({ error: "revisitAt must be an ISO date" });
+    const state = getState(req.params.id);
+    const assumptionId = ulid();
+    const label = nextAssumptionLabel(state);
+    appendEvent(req.params.id, { type: "assumption.recorded", actorKind: "user", actorUserId: user.id, payload: { assumptionId, label, statement, ownerUserId: user.id, ...(req.body.revisitAt ? { revisitAt: req.body.revisitAt.slice(0, 10) } : {}), evidence: [] } });
+    return { assumptionId, label };
+  });
+
+  app.post<{ Params: { id: string; assumptionId: string }; Body: { outcome: "confirmed" | "refuted" | "decided"; decisionId?: string; note?: string } }>("/api/v1/sessions/:id/assumptions/:assumptionId/resolve", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot settle assumptions" });
+    const state = getState(req.params.id);
+    const a = state.assumptions[req.params.assumptionId];
+    if (!a) return reply.code(404).send({ error: "no such assumption" });
+    if (a.status !== "open") return reply.code(400).send({ error: `${a.label} is already ${a.status}` });
+    if (!["confirmed", "refuted", "decided"].includes(req.body?.outcome)) return reply.code(400).send({ error: "outcome must be confirmed, refuted or decided" });
+    if (req.body.outcome === "decided" && req.body.decisionId && !state.decisions[req.body.decisionId]) return reply.code(400).send({ error: "no such decision" });
+    appendEvent(req.params.id, { type: "assumption.resolved", actorKind: "user", actorUserId: user.id, payload: { assumptionId: a.id, outcome: req.body.outcome, ...(req.body.decisionId ? { decisionId: req.body.decisionId } : {}), ...(req.body.note ? { note: req.body.note.trim() } : {}) } });
+    return { assumptionId: a.id, label: a.label, outcome: req.body.outcome };
   });
 
   // Contracts with their providers, consumers and whether they moved after the model.

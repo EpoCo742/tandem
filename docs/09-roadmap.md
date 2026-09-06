@@ -204,6 +204,8 @@ Added 2026-09-05. Phase D deepens the model so more of governance becomes determ
 
 **Effort.** Three days. Depends on A2, B1.
 
+**Status (2026-09-05): shipped.** `assumption.recorded` and `assumption.resolved` events; `state.assumptions` with labels A-01…; `record_assumption` and `resolve_assumption` tools with a prompt rule, and an "Assumptions" section in the prompt; `revisitAt` on decisions; `dueForRevisit` feeds the digest's waiting list (my assumptions, the session's decisions) and the home page shows "due a look"; Assumptions section in the Decisions tab with held / did not hold and an add-by-hand form with a date; routes for both; export section; the offline provider records "we assume …" and settles on "actually …".
+
 ### D8. Import from existing notation
 
 **What.** Paste Mermaid (flowchart), PlantUML (component) or Structurizr DSL and get a model, with what could not be mapped listed as notes. Export Structurizr DSL alongside Markdown so the model can leave.

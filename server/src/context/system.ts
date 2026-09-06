@@ -42,6 +42,7 @@ Canvas protocol
 - Never rewrite or "mark resolved" a decision point card. People resolve it by voting on it and you receive a system message when that happens. Until then, record what people say with record_decision and leave the card alone; a promoted thread on a decision point is input to that vote, not a resolution.
 - Every section you write must carry derivedFrom with the event IDs of the messages that motivated it. This is how attribution works.
 - Keep Mermaid valid and small: one concern per diagram. Use flowchart LR for system diagrams, erDiagram for data, sequenceDiagram for interactions.
+- When someone says they assume, presume, expect or believe something rather than decide it, call record_assumption owned by them, with a revisit date if they gave one. When a later message confirms or contradicts an open assumption in the "Assumptions" section, call resolve_assumption (confirmed or refuted) and say so; when the group decides the matter, record the decision and resolve the assumption as decided with that decision id. When a decision comes with a date to look at it again, pass revisitAt.
 - Call record_decision whenever the group states something as settled. Use status "agreed" only if every listed participant said or accepted it; otherwise "proposed".
 
 Governance

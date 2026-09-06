@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { DecisionPointContent, SessionState } from "@tandem/shared";
-import { liveArtifacts, pendingProposals } from "@tandem/shared";
+import { liveArtifacts, pendingProposals, dueForRevisit } from "@tandem/shared";
 import { db, schema } from "./db/index.js";
 import { appendEvent, getState } from "./ledger.js";
 
@@ -67,6 +67,7 @@ export interface DigestSession {
     proposals: { id: string; title: string; op: string; proposer: string; autoApplyAt: string | null }[];
     externalCalls: { id: string; summary: string; onBehalfOf: string }[];
     signoffs: { artifactId: string; title: string; versionNo: number; requestedBy: string; signed: number; needed: number }[];
+    revisits: { kind: "assumption" | "decision"; id: string; label: string; statement: string; revisitAt: string }[]; // mine (assumptions I own) or the session's (decisions), past their date
   };
   since: {
     messages: number;
@@ -103,6 +104,11 @@ export function digestFor(userId: string): DigestSession[] {
     const signoffs = Object.values(state.reviews)
       .filter((r) => r.status === "in_review" && r.reviewers.includes(userId) && !r.signoffs[userId])
       .map((r) => ({ artifactId: r.artifactId, title: state.artifacts[r.artifactId]?.title ?? "Design document", versionNo: r.requestedVersionNo, requestedBy: name(r.requestedBy), signed: Object.keys(r.signoffs).length, needed: r.reviewers.length }));
+    const due = dueForRevisit(state);
+    const revisits = [
+      ...due.assumptions.filter((a) => a.ownerUserId === userId).map((a) => ({ kind: "assumption" as const, id: a.id, label: a.label, statement: a.statement, revisitAt: a.revisitAt! })),
+      ...due.decisions.map((d) => ({ kind: "decision" as const, id: d.id, label: d.label, statement: d.statement, revisitAt: d.revisitAt! })),
+    ];
     const fresh = state.messages.filter((m) => m.seq > row.lastSeenSeq);
     const since = {
       messages: fresh.filter((m) => m.kind === "user" && m.userId !== userId).length,
@@ -112,7 +118,7 @@ export function digestFor(userId: string): DigestSession[] {
       mentions: fresh.filter((m) => m.kind === "user" && m.mentions?.includes(userId) && m.userId !== userId).map((m) => ({ eventId: m.eventId, from: name(m.userId), text: m.text.slice(0, 160) })),
     };
     const lastActivityAt = state.messages.length ? state.messages[state.messages.length - 1]!.createdAt : "";
-    out.push({ sessionId: row.sessionId, title: state.title, lastSeenSeq: row.lastSeenSeq, lastSeq: state.lastSeq, waiting: { decisionPoints, proposals, externalCalls, signoffs }, since, lastActivityAt });
+    out.push({ sessionId: row.sessionId, title: state.title, lastSeenSeq: row.lastSeenSeq, lastSeq: state.lastSeq, waiting: { decisionPoints, proposals, externalCalls, signoffs, revisits }, since, lastActivityAt });
   }
   const weight = (d: DigestSession) => d.waiting.decisionPoints.length + d.waiting.proposals.length + d.waiting.externalCalls.length + d.waiting.signoffs.length;
   return out.sort((a, b) => weight(b) - weight(a) || b.lastActivityAt.localeCompare(a.lastActivityAt));

@@ -777,6 +777,27 @@ const tplFork = await alice.call("POST", `/api/v1/sessions/${tpl.id}/fork`, {});
 assert((await alice.call("GET", `/api/v1/sessions/${tplFork.id}`)).template === "integration", "a fork keeps the template");
 subT.ws.close();
 
+// Assumptions: believed, owned, dated; the AI records and settles them; the digest lists what is due.
+const asTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "We assume the payment gateway is idempotent." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > asTurns, "assumption turn");
+const asEv = subA.events.find((e) => e.type === "assumption.recorded");
+assert(asEv && asEv.payload.label === "A-01" && asEv.payload.ownerUserId === bobId && /gateway is idempotent/.test(asEv.payload.statement), "the AI recorded Bob's assumption as A-01, owned by Bob");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Actually the payment gateway is not idempotent; duplicates came through in staging." });
+await waitFor(() => subA.events.some((e) => e.type === "assumption.resolved"), "assumption settled by a contradiction");
+const asRes = subA.events.find((e) => e.type === "assumption.resolved").payload;
+assert(asRes.assumptionId === asEv.payload.assumptionId && asRes.outcome === "refuted", "the contradiction refuted A-01");
+const byHand = await alice.call("POST", `/api/v1/sessions/${sessionId}/assumptions`, { statement: "Order volume stays under 10k per day", revisitAt: "2020-01-01" });
+assert(byHand.label === "A-02", "an assumption can be added by hand and takes the next label");
+const aliceDigestRevisit = (await alice.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);
+assert(aliceDigestRevisit.waiting.revisits.some((r) => r.kind === "assumption" && r.label === "A-02"), "an assumption past its revisit date is in its owner's digest");
+const bobDigestRevisit = (await bob.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);
+assert(!bobDigestRevisit.waiting.revisits.some((r) => r.label === "A-02"), "other people's assumptions are not in my digest");
+const settled = await alice.call("POST", `/api/v1/sessions/${sessionId}/assumptions/${byHand.assumptionId}/resolve`, { outcome: "confirmed", note: "checked the dashboards" });
+assert(settled.outcome === "confirmed" && /already confirmed/.test(await fails(alice.call("POST", `/api/v1/sessions/${sessionId}/assumptions/${byHand.assumptionId}/resolve`, { outcome: "refuted" }))), "an assumption settles once");
+const mdAssumptions = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/## Assumptions[\s\S]*A-01\*\* \[refuted\][\s\S]*A-02\*\* \[confirmed\]/.test(mdAssumptions), "the export lists the assumptions with their outcomes");
+
 // Contracts as cards: attached to a component, consumers derived from the model, a change flags them.
 const ctTurns = subA.events.filter((e) => e.type === "turn.completed").length;
 await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Contract for Service B: openapi 3.0.0, title Orders API, POST /orders creates an order, GET /orders/{id} reads one." });
