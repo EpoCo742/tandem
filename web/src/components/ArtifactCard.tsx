@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+
+const EMPTY_SET: Set<string> = new Set();
+const ChangedRowsContext = createContext<Set<string>>(EMPTY_SET);
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -20,8 +23,46 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   },
 };
 
+// True for a moment after the version changes (not on first render): the card lights up so a
+// change made by the AI or by someone else is seen, not just present.
+function useGlow(versionNo: number, ms = 2600): boolean {
+  const [glow, setGlow] = useState(false);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    setGlow(true);
+    const t = setTimeout(() => setGlow(false), ms);
+    return () => clearTimeout(t);
+  }, [versionNo, ms]);
+  return glow;
+}
+
+// Ids of the rows that differ between the previous version and this one (model components,
+// constraints), so a table can light up only what changed.
+function changedRows(a: Artifact): Set<string> {
+  const prev = a.versions.length > 1 ? a.versions[a.versions.length - 2] : undefined;
+  if (!prev) return new Set();
+  const key = (c: unknown) => JSON.stringify(c);
+  const out = new Set<string>();
+  if (a.type === "arch_model") {
+    const before = new Map(((prev.content as ArchModelContent).components ?? []).map((c) => [c.id, key(c)]));
+    for (const c of (a.current.content as ArchModelContent).components ?? []) if (before.get(c.id) !== key(c)) out.add(c.id);
+  } else if (a.type === "constraints") {
+    const before = new Map(((prev.content as ConstraintsContent).constraints ?? []).map((c) => [c.id, key(c)]));
+    for (const c of (a.current.content as ConstraintsContent).constraints ?? []) if (before.get(c.id) !== key(c)) out.add(c.id);
+  }
+  return out;
+}
+
 export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSize }: { artifact: Artifact; sessionId: string; sized?: boolean; onResetSize?: () => void }) {
   const state = useStore((s) => s.state);
+  const seenAtOpen = useStore((s) => s.seenAtOpen);
+  const acknowledged = useStore((s) => s.acknowledged[a.id]);
+  const acknowledge = useStore((s) => s.acknowledge);
+  const glow = useGlow(a.current.versionNo);
+  const changed = glow ? changedRows(a) : EMPTY_SET;
+  const currentSeq = state.eventsById[a.current.eventId]?.seq ?? 0;
+  const fresh = !acknowledged && currentSeq > seenAtOpen && seenAtOpen > 0;
   const me = useStore((s) => s.me)!;
   const setHighlight = useStore((s) => s.setHighlight);
   const setThreadTarget = useStore((s) => s.setThreadTarget);
@@ -80,8 +121,10 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
   }
 
   return (
-    <div className={"art type-" + a.type + (sized ? " sized" : "") + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "")} style={{ borderTopColor: isDp ? undefined : authorColor }}>
+    <div className={"art type-" + a.type + (sized ? " sized" : "") + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "") + (glow ? " glow" : "") + (fresh ? " fresh" : "")} style={{ borderTopColor: isDp ? undefined : authorColor }} onMouseDown={() => fresh && acknowledge(a.id)}>
+      <ChangedRowsContext.Provider value={changed}>
       <div className="art-head">
+        {fresh && <span className="chip fresh-chip" title="Changed since you last looked at this session">new</span>}
         <span className="chip" style={{ color: isDp ? "var(--warn)" : AI_COLOR }}>{a.type.replace("_", " ")}</span>
         {renaming === null ? (
           <span className="title" title={`${a.title} (double-click to rename)`} onDoubleClick={() => !a.blockedByDecisionPoint && setRenaming(a.title)}>{a.title}</span>
@@ -153,6 +196,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
           </span>
         )}
       </div>
+      </ChangedRowsContext.Provider>
       {editing && <ArtifactEditor artifact={a} sessionId={sessionId} onClose={() => setEditing(false)} />}
       {expanded && createPortal(
         <div className="modal-bg nodrag nowheel" onClick={() => setExpanded(false)}>
@@ -211,6 +255,7 @@ function SourceView({ sessionId, content, full = false }: { sessionId: string; c
 
 // The rules the design has to respect: who set each one and where it came from.
 function ConstraintsTable({ content }: { content: ConstraintsContent }) {
+  const changedRows = useContext(ChangedRowsContext);
   const state = useStore((s) => s.state);
   const setHighlight = useStore((s) => s.setHighlight);
   const sourceLabel = (k: ConstraintsContent["constraints"][number]) => {
@@ -229,7 +274,7 @@ function ConstraintsTable({ content }: { content: ConstraintsContent }) {
         <thead><tr><th>Constraint</th><th>Kind</th><th>Area</th><th>Set by</th></tr></thead>
         <tbody>
           {content.constraints.map((k) => (
-            <tr key={k.id}>
+            <tr key={k.id} className={changedRows.has(k.id) ? "row-changed" : ""}>
               <td>
                 <span className="mono">{k.id}</span> {k.statement}{k.value ? <span className="mono" style={{ marginLeft: 6 }}>{k.value}</span> : null}
                 {k.exceptionTo && <span className="chip" style={{ marginLeft: 6 }} title={`Relaxes ${k.exceptionTo}; agreed by whoever set it`}>exception to {k.exceptionTo}</span>}
@@ -269,6 +314,7 @@ function ModelView({ content }: { content: ViewContent }) {
 }
 
 function ModelTable({ content, artifactId }: { content: ArchModelContent; artifactId: string }) {
+  const changedRows = useContext(ChangedRowsContext);
   const state = useStore((s) => s.state);
   const focus = useStore((s) => s.focusComponentId);
   const setFocus = useStore((s) => s.setFocusComponent);
@@ -293,7 +339,7 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
           {content.components.map((c) => {
             const n = decisionsAbout(c.id);
             return (
-              <tr key={c.id} className={focus === c.id ? "focus" : ""} onClick={() => setFocus(focus === c.id ? null : c.id)} style={{ cursor: "pointer" }} title={c.description ?? c.id}>
+              <tr key={c.id} className={(focus === c.id ? "focus" : "") + (changedRows.has(c.id) ? " row-changed" : "")} onClick={() => setFocus(focus === c.id ? null : c.id)} style={{ cursor: "pointer" }} title={c.description ?? c.id}>
                 <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}{statusOf(c.id) && <span className="chip" style={{ marginLeft: 6, color: statusOf(c.id) === "added" ? "var(--ok)" : "var(--accent)" }} title="Against the as-is baseline">{statusOf(c.id)}</span>}{c.importedFrom && <span className="chip" style={{ marginLeft: 6, color: "var(--accent)" }} title={`Copied from session "${c.importedFrom.sessionTitle}" through the library`}>from {c.importedFrom.sessionTitle}</span>}</td>
                 <td className="mono">{c.kind}</td>
                 <td className="mono">{c.technology ?? ""}</td>

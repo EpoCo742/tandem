@@ -31,6 +31,9 @@ interface Store {
   connected: boolean;
   setConnected: (c: boolean) => void;
   gone: boolean; // the session was deleted while this tab had it open
+  seenAtOpen: number; // how far I had read when this tab opened the session; cards changed after that carry a mark
+  acknowledged: Record<string, true>; // cards I have touched since opening, so their mark is gone
+  acknowledge: (artifactId: string) => void;
   focusArtifactId: string | null;
   setFocusArtifact: (id: string | null) => void;
   focusComponentId: string | null; // architecture model component whose decisions the side pane shows
@@ -45,7 +48,10 @@ export const useStore = create<Store>((set, get) => ({
   me: null,
   setMe: (me) => set({ me }),
   meta: null,
-  setMeta: (meta) => set({ meta }),
+  setMeta: (meta) => set({ meta, ...(meta ? { seenAtOpen: meta.me.lastSeenSeq ?? 0, acknowledged: {} } : {}) }),
+  seenAtOpen: 0,
+  acknowledged: {},
+  acknowledge: (artifactId) => { if (!get().acknowledged[artifactId]) set({ acknowledged: { ...get().acknowledged, [artifactId]: true } }); },
   state: emptyState(""),
   reset: (sessionId) => set({ state: emptyState(sessionId), gone: false, streaming: null, toolProgress: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
   applyEvent: (ev) => {

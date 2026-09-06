@@ -418,6 +418,12 @@ Uploaded source cards start folded to one line (▾ opens them, double-click too
 
 Double-click a card's title to rename it; the rename is a new version under the same governance as an edit. A resized card shows ↺ in its header to go back to automatic size; images and diagrams scale with a resized card.
 
+## Stage 14a: change glow (no script)
+
+Feature: a card lights up for a moment when its version changes, and the rows that changed on the model or constraints tables glow a little longer. A card changed since you last looked at the session carries a **new** chip and an accent edge until you touch it.
+
+Point at: Bob's edit or an AI turn landing while Alice watches; open the session in a second window after some turns and see the **new** chips.
+
 ## Stage 14: theme and canvas grid (no script)
 
 Feature: personal UI preferences, not shared state.

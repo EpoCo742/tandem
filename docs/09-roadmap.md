@@ -216,6 +216,8 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 
 **Effort.** Two days.
 
+**Status (2026-09-05): shipped.** Card glow and per-row glow on version change (model components and constraints, diffed against the previous version client-side); "new" chip and accent edge on cards changed after the reader's last seen sequence, cleared on touch; reduced-motion respected.
+
 ### E2. Live cursors and selection, with a visibility toggle
 
 **What.** Each person's cursor and selected card shown on the canvas in their colour. A toggle in the top bar with three states: see others and be seen (default), see others but hide me, hide everyone. The choice is per person and per session, remembered, and honoured on both sides: someone who hides themselves is not shown to anyone, and someone who hides others still broadcasts unless they also hide themselves.

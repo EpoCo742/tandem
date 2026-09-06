@@ -209,7 +209,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       template: s.template,
       createdBy: s.createdBy,
       forkedFrom: s.forkedFromSessionId ? { sessionId: s.forkedFromSessionId, commitId: s.forkedAtCommitId } : null,
-      me: { role: me.role, consented: Boolean(me.consentedAt), hasCredential: Boolean(findCredentialForUser(user.id, s.provider)) },
+      me: { role: me.role, consented: Boolean(me.consentedAt), hasCredential: Boolean(findCredentialForUser(user.id, s.provider)), lastSeenSeq: me.lastSeenSeq },
       collabToken: mintCollabToken(s.id, user.id),
       lastSeq: getState(s.id).lastSeq,
     };

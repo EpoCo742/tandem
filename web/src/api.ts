@@ -36,7 +36,7 @@ export interface SessionMeta {
   status: "active" | "archived";
   template: string | null;
   createdBy: string;
-  me: { role: string; consented: boolean; hasCredential: boolean };
+  me: { role: string; consented: boolean; hasCredential: boolean; lastSeenSeq: number };
   collabToken: string;
   lastSeq: number;
 }

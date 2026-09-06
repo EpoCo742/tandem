@@ -115,6 +115,15 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .session-row.archived { opacity: .7; }
 .archived-banner { grid-column: 1 / -1; background: var(--panel-2); border-bottom: 1px solid var(--line); padding: 6px 14px; font-size: 13px; color: var(--ink-2); }
 
+/* change glow: a card lights up for a moment when its version changes; rows that changed stay lit a little longer */
+@keyframes art-glow { 0% { box-shadow: 0 0 0 3px var(--accent), var(--shadow); } 100% { box-shadow: var(--shadow); } }
+.art.glow { animation: art-glow 2.4s ease-out; }
+@keyframes row-glow { 0% { background: color-mix(in srgb, var(--accent) 28%, transparent); } 100% { background: transparent; } }
+tr.row-changed td { animation: row-glow 2.6s ease-out; }
+.art.fresh { border-left: 3px solid var(--accent); }
+.chip.fresh-chip { color: var(--accent); border-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .art.glow, tr.row-changed td { animation: none; } }
+
 /* design checklist */
 .gauge { height: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
 .gauge-fill { height: 100%; background: var(--ok); }
