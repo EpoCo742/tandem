@@ -836,7 +836,7 @@ const ctTurns = subA.events.filter((e) => e.type === "turn.completed").length;
 await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Contract for Service B: openapi 3.0.0, title Orders API, POST /orders creates an order, GET /orders/{id} reads one." });
 await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > ctTurns, "contract turn");
 const contractEv = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "contract").pop();
-assert(contractEv && contractEv.payload.content.format === "openapi" && contractEv.payload.content.attachedTo.componentId === "service-b" && /Orders API/.test(contractEv.payload.content.body), "the AI recorded an OpenAPI contract attached to Service B");
+assert(contractEv && contractEv.payload.content.format === "openapi" && contractEv.payload.content.attachedTo.componentId === "service-b" && contractEv.payload.content.body.startsWith("openapi: 3.1.0") && contractEv.payload.content.body.length === big.length, "the AI recorded an OpenAPI contract attached to Service B, and its prose body was swapped for the uploaded orders-api.yaml it referred to");
 const contracts1 = await alice.call("GET", `/api/v1/sessions/${sessionId}/contracts`);
 const ct = contracts1.find((c) => c.artifactId === contractEv.payload.artifactId);
 assert(ct && ct.provider === "service-b" && ct.changedAfterModel === false, `the contract is provided by Service B (${ct.consumers.length} consumer(s))`);
@@ -847,7 +847,20 @@ if (ctEdit.status === "applied") {
   assert(contracts2.find((c) => c.artifactId === ct.artifactId).changedAfterModel === true, "a contract changed after the model is flagged for its consumers");
 }
 const mdContracts = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
-assert(/openapi.*provided by Service B/.test(mdContracts) && mdContracts.includes("Orders API"), "the export carries the contract with its provider and body");
+assert(/openapi.*provided by Service B/.test(mdContracts) && mdContracts.includes("title: Orders"), "the export carries the contract with its provider and body");
+
+// A contract from an uploaded file is the file, verbatim, whatever the AI would have retold; the format comes from the content.
+const asyncSpec = "asyncapi: 2.6.0\ninfo:\n  title: Order events\n  version: 1.0.0\nchannels:\n  orders/placed:\n    publish:\n      summary: An order was placed\n      message:\n        name: OrderPlaced\n        payload:\n          type: object\n";
+const upAsync = await upload(alice, "orders-events.yaml", "application/yaml", asyncSpec);
+await wait(300);
+const ctFromTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Contract for Service A from orders-events.yaml." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > ctFromTurns, "contract-from-file turn");
+const ctFile = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "contract" && e.payload.content.attachedTo.componentId === "service-a").pop();
+assert(ctFile && ctFile.payload.content.body === asyncSpec && ctFile.payload.content.format === "asyncapi" && ctFile.payload.content.version === "1.0.0", "a contract taken from an uploaded file is the file verbatim, with format and version read from it");
+const ctFileReply = subA.events.filter((e) => e.type === "ai.message").pop();
+assert(ctFileReply && /from orders-events\.yaml as uploaded/.test(ctFileReply.payload.text ?? ""), "the AI says the document came from the upload");
+void upAsync;
 assert((await alice.call("GET", "/api/v1/library?q=Orders+API&kind=contract")).hits.some((h) => h.kind === "contract" && h.artifactId === ct.artifactId), "contracts are in the library");
 
 // Sequence diagrams from the model: a view kind that follows the relationships from a start.

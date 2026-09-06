@@ -98,7 +98,8 @@ export const updateArtifactInput = z.object({
 export const upsertContractInput = z.object({
   title: z.string().describe("e.g. 'Payment gateway API', 'OrderPlaced event'"),
   format: z.enum(["openapi", "asyncapi", "json_schema", "graphql", "proto", "markdown", "other"]),
-  body: z.string(),
+  body: z.string().optional().describe("The contract document itself, verbatim (the OpenAPI/AsyncAPI YAML or JSON, the schema, the SDL). Never a summary or a Markdown description of it. Omit when sourceArtifactId is given."),
+  sourceArtifactId: z.string().optional().describe("The uploaded source card that holds the document; its text becomes the body unchanged. Use this whenever the contract came from a file."),
   attachedTo: z.object({ relationshipId: z.string().optional(), componentId: z.string().optional() }).describe("Exactly one of: the relationship id the contract governs, or the component id that exposes it"),
   version: z.string().optional(),
   derivedFrom: z.array(z.string()),
@@ -389,7 +390,7 @@ export const toolDescriptions: Record<ToolName, string> = {
   resolve_assumption:
     "Settle an open assumption: confirmed (it held), refuted (it did not; say what showed it), or decided (a decision replaced it; pass the decision id). Use when a message contradicts or confirms an assumption in the registry.",
   upsert_contract:
-    "Record an API or event contract (OpenAPI, AsyncAPI, a schema, or Markdown) as a card attached to the relationship it governs or the component that exposes it. Updating the contract attached to the same thing makes a new version and flags every consumer in the model. Use when people describe endpoints, payloads, events or schemas.",
+    "Record an API or event contract as a card attached to the relationship it governs or the component that exposes it. The body is the document itself, verbatim: pass sourceArtifactId for an uploaded file (the server copies its text; do not retype or summarise it), or the full OpenAPI/AsyncAPI/schema text as written. A body that is prose or Markdown about the API is wrong. The result names the consumers and the format detected from the content.",
   library_search:
     "Search the organisation library: decisions, model components, constraints and published design documents from the speaker's other sessions and from every session that published a document. Read only. Cite hits by session title and the people named; to copy one in, use record_decision, upsert_components or upsert_constraints with the hit's importRef as importedFrom.",
   remove_constraints: "Drop constraints that no longer apply. Removing a constraint someone else set is proposed to that person. Prefer an exception (upsert_constraints with exceptionTo) or a decision when people disagree.",
@@ -412,7 +413,7 @@ export type ToolResult =
   | { status: "alternatives_proposed"; artifactId: string; candidates: { id: string; title: string }[] }
   | { status: "as_is_set"; artifactId: string; versionNo: number; components: number; relationships: number; modelReplaced: boolean; diffViewArtifactId: string }
   | { status: "library_results"; hits: LibraryHit[]; searched: { sessions: number; publicSessions: number } }
-  | { status: "contract_recorded"; artifactId: string; versionNo: number; consumers: string[] }
+  | { status: "contract_recorded"; artifactId: string; versionNo: number; consumers: string[]; format: string; bodyFrom?: string }
   | { status: "assumption_recorded"; assumptionId: string; label: string }
   | { status: "assumption_resolved"; assumptionId: string; label: string; outcome: string }
   | { status: "error"; message: string };

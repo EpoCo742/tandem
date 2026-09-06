@@ -679,17 +679,21 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 <thead>
 <tr>
 <th>Who</th>
-<th>Says</th>
+<th>Does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Alice</td>
-<td>"Contract for Service B: openapi: 3.0.0 … paths: /orders: post"</td>
+<td>Uploads <code>orders-api.yaml</code> (Attach file, or drop it on the lane).</td>
+</tr>
+<tr>
+<td>Alice</td>
+<td>"Contract for Service B from orders-api.yaml."</td>
 </tr>
 </tbody>
 </table></div>
-<p>Fake architect: records an OpenAPI contract card attached to Service B and names its consumers. Edit the card (the body is the text) to add a path: the consumers' rows flag "contract changed". A real model gets <code>upsert_contract</code> and a rule to use it whenever people describe endpoints, payloads or schemas. Contracts are in the library and the export.</p>
+<p>The card shows the document as an API reference: title, version, server, endpoints grouped by tag with method, path and summary; click one for parameters, body and responses; <strong>raw</strong> shows the text as written. The body is the uploaded file verbatim, never the AI's retelling: <code>upsert_contract</code> takes a <code>sourceArtifactId</code> and the server copies the source card's text, and a body that does not parse as a spec is swapped for the one uploaded spec it plainly refers to. The format and version come from the content. Edit the card to add a path: the consumers' rows flag "contract changed". Contracts are in the library and the export.</p>
 <h2 id="stage-2e-sequence-diagrams-from-the-model-no-ai-turn-needed">Stage 2e: sequence diagrams from the model (no AI turn needed)</h2>
 <p>Feature: a <strong>sequence</strong> view kind. <strong>sequence from</strong> on the Architecture model card picks a starting component and generates the sequence diagram from the relationships (three hops), as a view card that redraws when the model changes. "Draw a sequence diagram for Service A" does the same through the AI.</p>
 <p>Point at: the arrows follow the relationship kinds (publish and write are asynchronous, subscribe and read are dashed replies) and carry the data classes; the integration template's checklist ticks "Sequence diagram" either way.</p>

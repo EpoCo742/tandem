@@ -1,7 +1,7 @@
 import { ulid } from "ulid";
 import { allAdrs, emptyModel, nextAssumptionLabel, nextQuestionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertDeployment, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { AlternativesContent, ConstraintsContent, ContractContent, DecisionPointContent, SessionState } from "@tandem/shared";
-import { contractsOf } from "@tandem/shared";
+import { contractsOf, liveArtifacts, parseContract, type SourceContent } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
@@ -361,11 +361,42 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       if (input.attachedTo.componentId && !model.components.some((c) => c.id === input.attachedTo.componentId)) return { status: "error", message: `No component ${input.attachedTo.componentId} in the model` };
       if (!input.attachedTo.relationshipId && !input.attachedTo.componentId) return { status: "error", message: "attachedTo needs a relationshipId or a componentId" };
       const existing = Object.values(state.artifacts).find((a) => a.type === "contract" && !a.deleted && JSON.stringify((a.current.content as ContractContent).attachedTo ?? {}) === JSON.stringify(input.attachedTo));
-      const content: ContractContent = { format: input.format, body: input.body, attachedTo: input.attachedTo, ...(input.version ? { version: input.version } : {}), sections: [{ id: "body", derivedFrom: input.derivedFrom }] };
-      const r = requestChange({ ...common, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "contract", title: input.title, content, summary: `${input.format} contract${input.version ? ` ${input.version}` : ""}`, rationale: input.rationale, baseVersionNo: existing?.current.versionNo ?? null, provenance: [{ sectionId: "body", derivedFrom: input.derivedFrom }] });
+      // The body is the document, never a retelling of it. An uploaded file is copied from its source card;
+      // a body that does not parse as a spec is swapped for the one uploaded file it plainly refers to.
+      const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      let body = (input.body ?? "").trim();
+      let bodyFrom: string | undefined;
+      if (input.sourceArtifactId) {
+        const src = state.artifacts[input.sourceArtifactId];
+        if (!src || src.type !== "source" || src.deleted) return { status: "error", message: `No source card ${input.sourceArtifactId}` };
+        const sc = src.current.content as SourceContent;
+        if (!sc.extractedText) return { status: "error", message: `Source "${sc.name}" has no text (an image?)` };
+        body = sc.extractedText;
+        bodyFrom = sc.name;
+      } else if (!parseContract(body)) {
+        const hay = ` ${norm(`${input.title} ${body} ${input.rationale}`)} `;
+        const candidates = liveArtifacts(state)
+          .filter((a) => a.type === "source")
+          .map((a) => ({ a, sc: a.current.content as SourceContent }))
+          .filter(({ sc }) => sc.extractedText && parseContract(sc.extractedText))
+          .filter(({ sc }) => {
+            const stem = norm(sc.name.replace(/\.[^.]+$/, ""));
+            const title = parseContract(sc.extractedText!)?.title;
+            return (stem && hay.includes(` ${stem} `)) || (title && hay.includes(` ${norm(title)} `));
+          });
+        if (candidates.length === 1) {
+          body = candidates[0]!.sc.extractedText!;
+          bodyFrom = candidates[0]!.sc.name;
+        }
+      }
+      if (!body) return { status: "error", message: "body or sourceArtifactId is needed" };
+      const parsed = parseContract(body);
+      const format = parsed ? parsed.kind : input.format;
+      const content: ContractContent = { format, body, attachedTo: input.attachedTo, ...(input.version ? { version: input.version } : parsed?.version ? { version: parsed.version } : {}), sections: [{ id: "body", derivedFrom: input.derivedFrom }] };
+      const r = requestChange({ ...common, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "contract", title: input.title, content, summary: `${format} contract${content.version ? ` ${content.version}` : ""}${bodyFrom ? ` from ${bodyFrom}` : ""}`, rationale: input.rationale, baseVersionNo: existing?.current.versionNo ?? null, provenance: [{ sectionId: "body", derivedFrom: input.derivedFrom }] });
       if (r.status !== "applied") return r as ToolResult;
       const status = contractsOf(getState(scope.sessionId)).find((c) => c.artifact.id === r.artifactId);
-      return { status: "contract_recorded", artifactId: r.artifactId, versionNo: r.versionNo, consumers: (status?.consumers ?? []).map((id) => model.components.find((c) => c.id === id)?.name ?? id) };
+      return { status: "contract_recorded", artifactId: r.artifactId, versionNo: r.versionNo, consumers: (status?.consumers ?? []).map((id) => model.components.find((c) => c.id === id)?.name ?? id), format, ...(bodyFrom ? { bodyFrom } : {}) };
     }),
 
     bind("read_artifact", async (input) => {

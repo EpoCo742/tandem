@@ -510,9 +510,15 @@ export const fakeProvider: ProviderAdapter = {
     }
 
     // 0o. "Contract for Service B: …": a contract card attached to that component (or "for Service A -> Service B" to a relationship).
-    const contractMsg = batch.map((m) => ({ m, x: m.text.match(/^(?:(?:api|event|the) )?contract (?:for|of) (.+?):\s*([\s\S]+)$/i) })).find((x) => x.x);
+    const contractMsg = batch.map((m) => ({ m, x: m.text.match(/^(?:(?:api|event|the) )?contract (?:for|of) (.+?)(?::\s*([\s\S]+)| from (\S+?)\.?)$/i) })).find((x) => x.x);
     if (contractMsg) {
-      const [, target, body] = contractMsg.x!;
+      const [, target, bodyGiven, fromFile] = contractMsg.x!;
+      const sourceCard = fromFile ? artifacts.find((a) => a.type === "source" && a.title.toLowerCase() === fromFile.toLowerCase()) : undefined;
+      if (fromFile && !sourceCard) {
+        await emit(`I do not see an uploaded file called "${fromFile}" on the canvas.`);
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const body = bodyGiven ?? "";
       const modelArt = artifacts.find((a) => a.type === "arch_model");
       const cur = modelArt ? ((await call("read_artifact", { artifactId: modelArt.id })) as { content?: ArchModelContent }).content : undefined;
       const byName = (n: string) => cur?.components.find((c) => c.name.toLowerCase() === n.trim().toLowerCase());
@@ -527,8 +533,8 @@ export const fakeProvider: ProviderAdapter = {
         await emit(`I do not know "${target}" in the model; name a component or a relationship (A -> B) that exists.`);
         return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
       }
-      const r = (await call("upsert_contract", { title: `${target!.trim()} contract`, format, body: body!.trim(), attachedTo, derivedFrom: [contractMsg.m.eventId], rationale: `Contract stated by ${contractMsg.m.speaker}` })) as { status: string; versionNo?: number; consumers?: string[] };
-      await emit(r.status === "contract_recorded" ? `Recorded the ${format} contract for ${target!.trim()} (v${r.versionNo})${r.consumers?.length ? `; consumers: ${r.consumers.join(", ")}` : ""}.` : `Could not record the contract: ${r.status}.`);
+      const r = (await call("upsert_contract", { title: `${target!.trim()} contract`, format, ...(sourceCard ? { sourceArtifactId: sourceCard.id } : { body: body!.trim() }), attachedTo, derivedFrom: [contractMsg.m.eventId], rationale: `Contract stated by ${contractMsg.m.speaker}` })) as { status: string; versionNo?: number; consumers?: string[]; format?: string; bodyFrom?: string };
+      await emit(r.status === "contract_recorded" ? `Recorded the ${r.format ?? format} contract for ${target!.trim()} (v${r.versionNo})${r.bodyFrom ? `, the document from ${r.bodyFrom} as uploaded` : ""}${r.consumers?.length ? `; consumers: ${r.consumers.join(", ")}` : ""}.` : `Could not record the contract: ${r.status}.`);
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 

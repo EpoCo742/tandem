@@ -93,6 +93,9 @@ importers:
 
   shared:
     dependencies:
+      yaml:
+        specifier: 2.8.1
+        version: 2.8.1
       zod:
         specifier: ^4.5.4
         version: 4.5.4

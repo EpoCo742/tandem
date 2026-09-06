@@ -252,11 +252,24 @@ const STAGES = [
     await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/questions/${q2.questionId}/resolve`, { outcome: "answered", answer: "Frankfurt, same as production" });
     console.log(`   ${q1.label} answered by Bob in chat and settled by the AI; ${q2.label} answered in the Questions tab, no turn spent`);
   }],
-  ["contract", "an API contract as a card attached to the component that exposes it", async () => {
+  ["contract", "an API contract uploaded as a file becomes a card attached to the component that exposes it", async () => {
+    const spec = [
+      "openapi: 3.0.3", "info:", "  title: Orders API", "  version: 1.2.0", "servers:", "  - url: https://api.example.com/v1",
+      "paths:", "  /orders:",
+      "    get:", "      tags: [orders]", "      summary: List orders", "      parameters:", "        - name: status", "          in: query", "          schema: { type: string, enum: [new, paid, shipped] }", "      responses:", "        \"200\": { description: A page of orders }",
+      "    post:", "      tags: [orders]", "      summary: Create an order", "      requestBody:", "        required: true", "        content:", "          application/json:", "            schema: { $ref: \"#/components/schemas/NewOrder\" }", "      responses:", "        \"201\": { description: Created }", "        \"422\": { description: Validation failed }",
+      "  /orders/{id}:", "    parameters:", "      - name: id", "        in: path", "        required: true", "        schema: { type: string, format: uuid }",
+      "    get:", "      tags: [orders]", "      summary: Read one order", "      responses:", "        \"200\": { description: The order }", "        \"404\": { description: No such order }",
+      "    delete:", "      tags: [orders]", "      summary: Cancel an order", "      responses:", "        \"204\": { description: Cancelled }",
+      "  /orders/{id}/payments:", "    post:", "      tags: [payments]", "      summary: Take a payment for an order", "      requestBody:", "        content:", "          application/json:", "            schema: { $ref: \"#/components/schemas/Payment\" }", "      responses:", "        \"202\": { description: Accepted for processing }",
+      "components:", "  schemas:", "    NewOrder: { type: object }", "    Order: { type: object }", "    Payment: { type: object }", "",
+    ].join("\n");
+    await upload(alice, "orders-api.yaml", "application/yaml", spec);
+    await new Promise((r) => setTimeout(r, 400));
     const n = await completedTurns();
-    await say(alice, "Contract for Service B: openapi 3.0.0, title Orders API, POST /orders creates an order, GET /orders/{id} reads one.");
+    await say(alice, "Contract for Service B from orders-api.yaml.");
     await waitForTurns(n + 1, "contract turn");
-    console.log("   An OpenAPI contract card attached to Service B; its consumers are read from the model");
+    console.log("   The uploaded OpenAPI document, verbatim, as a contract card attached to Service B: endpoints grouped by tag, consumers read from the model");
   }],
   ["sequence", "a sequence view generated from the model's relationships", async () => {
     const n = await completedTurns();

@@ -366,11 +366,12 @@ External tool servers that connect normally no longer announce themselves in the
 
 Feature: an API or event contract (OpenAPI, AsyncAPI, a JSON schema, GraphQL, proto or Markdown) is a **contract** card attached to the relationship it governs or the component that exposes it. The model says who provides and who consumes it; when the contract changes after the model last changed, every consumer row on the Architecture model card shows "contract changed" until the model moves again.
 
-| Who | Says |
+| Who | Does |
 |---|---|
-| Alice | "Contract for Service B: openapi: 3.0.0 … paths: /orders: post" |
+| Alice | Uploads `orders-api.yaml` (Attach file, or drop it on the lane). |
+| Alice | "Contract for Service B from orders-api.yaml." |
 
-Fake architect: records an OpenAPI contract card attached to Service B and names its consumers. Edit the card (the body is the text) to add a path: the consumers' rows flag "contract changed". A real model gets `upsert_contract` and a rule to use it whenever people describe endpoints, payloads or schemas. Contracts are in the library and the export.
+The card shows the document as an API reference: title, version, server, endpoints grouped by tag with method, path and summary; click one for parameters, body and responses; **raw** shows the text as written. The body is the uploaded file verbatim, never the AI's retelling: `upsert_contract` takes a `sourceArtifactId` and the server copies the source card's text, and a body that does not parse as a spec is swapped for the one uploaded spec it plainly refers to. The format and version come from the content. Edit the card to add a path: the consumers' rows flag "contract changed". Contracts are in the library and the export.
 
 ## Stage 2e: sequence diagrams from the model (no AI turn needed)
 
