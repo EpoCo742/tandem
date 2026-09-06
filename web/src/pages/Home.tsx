@@ -6,7 +6,7 @@ import { useStore } from "../state/store";
 import { SessionMenu } from "../components/SessionMenu";
 import { TEMPLATES, TEMPLATE_IDS, type TemplateId } from "@tandem/shared";
 
-interface SessionRow { id: string; title: string; status: "active" | "archived"; template: string | null; role: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string; updatedAt: string }
+interface SessionRow { id: string; title: string; status: "active" | "archived"; template: string | null; thumbnail: string | null; role: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string; updatedAt: string }
 interface DigestSession {
   sessionId: string;
   title: string;
@@ -143,6 +143,7 @@ export function Home() {
 function SessionListRow({ s, onChange }: { s: SessionRow; onChange: () => void }) {
   return (
     <div className={`card row session-row${s.status === "archived" ? " archived" : ""}`} onClick={() => navigate(`/s/${s.id}`)}>
+      <div className="thumb" aria-hidden="true">{s.thumbnail ? <img src={`data:image/svg+xml;utf8,${encodeURIComponent(s.thumbnail)}`} alt="" /> : <span className="mono">empty</span>}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600 }}>{s.title}{s.status === "archived" && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}</div>
         <div className="mono">{s.provider} · {s.pinnedModel} · {s.payerMode} · {s.policy}{s.template && TEMPLATES[s.template as TemplateId] ? ` · ${TEMPLATES[s.template as TemplateId].name}` : ""} · you are {s.role}</div>

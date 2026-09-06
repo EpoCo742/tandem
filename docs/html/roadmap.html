@@ -194,6 +194,7 @@ strong{font-weight:600}
 <p><strong>What.</strong> A small preview of the canvas on the home page rows and on library hits, so a session is recognised by its shape, not its title.</p>
 <p><strong>Design.</strong> The client renders a thumbnail from the layout document and card types (coloured rectangles, no content) and posts it to the server on leave; stored per session, served with the session list; regenerated when the layout changes.</p>
 <p><strong>Effort.</strong> One day.</p>
+<p><strong>Status (2026-09-05): shipped.</strong> The canvas draws an SVG of card rectangles tinted by type from the shared layout and puts it on <code>PUT /sessions/:id/thumbnail</code> (plain SVG only, size-capped) four seconds after the layout settles and when the tab leaves; the session list returns it and the home page rows show it. Library hits do not show it (their sessions may not be the reader's).</p>
 <h3>E7. Guided empty state per template</h3>
 <p><strong>What.</strong> A blank templated canvas suggests the first prompt and shows the checklist's first three items as the plan: "Start by describing the systems involved; then state the limits; then ask for the data model". Blank sessions get a lighter version: three example prompts.</p>
 <p><strong>Design.</strong> A <code>starters</code> list per template in <code>templates.ts</code>; an empty-state panel on the canvas that disappears once the first card exists; clicking a starter puts it in the composer.</p>

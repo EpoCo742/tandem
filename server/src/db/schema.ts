@@ -46,6 +46,7 @@ export const sessions = sqliteTable("sessions", {
   title: text("title").notNull(),
   status: text("status").notNull().default("active"),
   template: text("template"), // session template id, or null for a blank session
+  thumbnail: text("thumbnail"), // small SVG of the canvas shape, drawn by a client, for lists
   policy: text("policy").notNull().default("hybrid"),
   payerMode: text("payer_mode").notNull().default("sponsor"),
   pinnedModel: text("pinned_model").notNull(),

@@ -43,7 +43,7 @@ function ownerOr403(sessionId: string, userId: string) {
 // Writes an archived session refuses. Everything else under /sessions/:id that changes state
 // is caught by one guard rather than a check in every route; the listed sub-paths are the ones
 // that manage the session itself (or read it), so they stay open.
-const ARCHIVE_EXEMPT = new Set(["", "/archive", "/fork", "/seen", "/export", "/adrs"]);
+const ARCHIVE_EXEMPT = new Set(["", "/archive", "/fork", "/seen", "/export", "/adrs", "/thumbnail"]);
 const SESSION_PATH = /^\/api\/v1\/sessions\/([^/?]+)((?:\/[^?]*)?)/;
 
 const deleteSessionTx = sqlite.transaction((id: string) => {
@@ -73,7 +73,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       .where(eq(schema.participants.userId, user.id))
       .orderBy(desc(schema.sessions.updatedAt))
       .all();
-    return rows.map(({ s, role }) => ({ id: s.id, title: s.title, status: s.status, template: s.template, role, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt, updatedAt: s.updatedAt }));
+    return rows.map(({ s, role }) => ({ id: s.id, title: s.title, status: s.status, template: s.template, thumbnail: s.thumbnail, role, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt, updatedAt: s.updatedAt }));
   });
 
   // Publish the design document (owner only): a public page with a frozen copy per version.
@@ -93,6 +93,17 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const r = revokePublication(req.params.id, req.params.artifactId, user.id);
     if (!r.ok) return reply.code(r.status).send({ error: r.error });
     return r;
+  });
+
+  // A client draws a small SVG of the canvas (card rectangles by type, no content) and stores it here for the lists.
+  app.put<{ Params: { id: string }; Body: { svg: string } }>("/api/v1/sessions/:id/thumbnail", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    participantOr403(req.params.id, user.id);
+    const svg = req.body?.svg ?? "";
+    if (!svg.startsWith("<svg") || svg.length > 20_000 || /<script|<foreignObject|on\w+=|href=|xlink/i.test(svg)) return reply.code(400).send({ error: "a small plain SVG is expected" });
+    db.update(schema.sessions).set({ thumbnail: svg }).where(eq(schema.sessions.id, req.params.id)).run();
+    return { ok: true };
   });
 
   // Import a diagram in another notation into the model: preview, then merge, replace, or record as as-is.

@@ -16,6 +16,7 @@ import {
   type NodeChange,
 } from "@xyflow/react";
 import { liveArtifacts, completeness, BLANK_STARTERS, TEMPLATES, isTemplateId, type Artifact } from "@tandem/shared";
+import { api } from "../api";
 import { setCursor, setSelectedArtifact, type Collab, type Layout } from "../collab";
 import { useStore } from "../state/store";
 import { usePrefs, type GridStyle } from "../state/prefs";
@@ -104,6 +105,27 @@ function defaultPositions(artifacts: Artifact[]): Map<string, { x: number; y: nu
 
 const GRID_LABEL: Record<GridStyle, string> = { dots: "grid: dots", lines: "grid: lines", off: "grid: off" };
 
+const THUMB_TINT: Partial<Record<Artifact["type"], string>> = { arch_model: "#3FB4C3", view: "#3FB4C3", mermaid: "#3FB4C3", design_doc: "#E9A63A", markdown: "#9AA7B3", data_model: "#8e44ad", constraints: "#c26b1f", decision_point: "#c0392b", alternatives: "#2e9e5b", contract: "#2f7fd4", source: "#7C8893", code: "#7C8893" };
+
+/** The canvas as coloured rectangles: enough to recognise a session by its shape. */
+function thumbnailSvg(artifacts: Artifact[], layout: Record<string, Layout>): string | null {
+  if (artifacts.length === 0) return null;
+  const defaults = defaultPositions(artifacts);
+  const rects = artifacts.map((a) => {
+    const l = layout[a.id];
+    const p = l ? { x: l.x, y: l.y } : defaults.get(a.id)!;
+    return { x: p.x, y: p.y, w: l?.w ?? (WIDE_TYPES.has(a.type) ? 820 : 420), h: l?.h ?? 300, tint: THUMB_TINT[a.type] ?? "#7C8893" };
+  });
+  const minX = Math.min(...rects.map((r) => r.x));
+  const minY = Math.min(...rects.map((r) => r.y));
+  const maxX = Math.max(...rects.map((r) => r.x + r.w));
+  const maxY = Math.max(...rects.map((r) => r.y + r.h));
+  const w = Math.max(1, maxX - minX);
+  const h = Math.max(1, maxY - minY);
+  const body = rects.map((r) => `<rect x="${(r.x - minX).toFixed(0)}" y="${(r.y - minY).toFixed(0)}" width="${r.w.toFixed(0)}" height="${r.h.toFixed(0)}" rx="12" fill="${r.tint}" fill-opacity="0.85"/>`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-40} ${-40} ${w + 80} ${h + 80}" preserveAspectRatio="xMidYMid meet">${body}</svg>`;
+}
+
 // Viewport animations run on animation frames, which browsers stop for hidden tabs.
 const animMs = () => (typeof document !== "undefined" && document.visibilityState === "visible" ? 300 : 0);
 
@@ -169,6 +191,23 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
   }, [collab]);
 
   const artifacts = useMemo(() => liveArtifacts(state), [state]);
+
+  // A small picture of the canvas for the session lists: card rectangles tinted by type, drawn
+  // from the shared layout, sent a few seconds after the layout settles and when the tab leaves.
+  const thumbTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastThumb = useRef("");
+  const sendThumbnail = useCallback(() => {
+    const svg = thumbnailSvg(artifacts, layout);
+    if (!svg || svg === lastThumb.current) return;
+    lastThumb.current = svg;
+    void api("PUT", `/api/v1/sessions/${sessionId}/thumbnail`, { svg }).catch(() => undefined);
+  }, [artifacts, layout, sessionId]);
+  useEffect(() => {
+    if (thumbTimer.current) clearTimeout(thumbTimer.current);
+    thumbTimer.current = setTimeout(sendThumbnail, 4000);
+    return () => { if (thumbTimer.current) clearTimeout(thumbTimer.current); };
+  }, [sendThumbnail]);
+  useEffect(() => () => sendThumbnail(), [sendThumbnail]);
 
   // Writing defaults before the server document has synced would race the stored layout
   // (a local set on the same key can win the merge), so wait for the first sync.

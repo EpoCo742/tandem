@@ -282,6 +282,8 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 
 **Effort.** One day.
 
+**Status (2026-09-05): shipped.** The canvas draws an SVG of card rectangles tinted by type from the shared layout and puts it on `PUT /sessions/:id/thumbnail` (plain SVG only, size-capped) four seconds after the layout settles and when the tab leaves; the session list returns it and the home page rows show it. Library hits do not show it (their sessions may not be the reader's).
+
 ### E7. Guided empty state per template
 
 **What.** A blank templated canvas suggests the first prompt and shows the checklist's first three items as the plan: "Start by describing the systems involved; then state the limits; then ask for the data model". Blank sessions get a lighter version: three example prompts.

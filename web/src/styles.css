@@ -112,6 +112,9 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .session-menu .pop .confirm { padding: 6px; border-top: 1px solid var(--line); margin-top: 2px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .session-menu .pop .confirm .row button { border-color: var(--line); }
 .session-row { cursor: pointer; }
+.session-row .thumb { width: 84px; height: 52px; flex: none; background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.session-row .thumb img { width: 100%; height: 100%; object-fit: contain; }
+.session-row .thumb .mono { font-size: 10px; }
 .session-row.archived { opacity: .7; }
 .archived-banner { grid-column: 1 / -1; background: var(--panel-2); border-bottom: 1px solid var(--line); padding: 6px 14px; font-size: 13px; color: var(--ink-2); }
 

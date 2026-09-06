@@ -846,6 +846,11 @@ const flowState = (await alice.call("GET", `/api/v1/sessions/${sessionId}/events
 assert(flowState === 1, "one violation event for one new violation");
 subF.ws.close();
 
+// Thumbnails: a client stores a small SVG of the canvas; the session list carries it.
+const thumbOk = await alice.call("PUT", `/api/v1/sessions/${sessionId}/thumbnail`, { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"><rect x="0" y="0" width="40" height="30" fill="#3FB4C3"/></svg>' });
+assert(thumbOk.ok === true && (await alice.call("GET", "/api/v1/sessions")).find((s) => s.id === sessionId).thumbnail.startsWith("<svg"), "a canvas thumbnail is stored and listed");
+assert(/plain SVG/.test(await fails(alice.call("PUT", `/api/v1/sessions/${sessionId}/thumbnail`, { svg: '<svg xmlns="http://www.w3.org/2000/svg"><script>1</script></svg>' }))), "a thumbnail with script is refused");
+
 // Import from another notation: preview, then merge into the model; export as Structurizr DSL.
 const importPreview = await alice.call("POST", `/api/v1/sessions/${sessionId}/model/import`, { text: "flowchart LR\n  search[Search API] -->|queries| es[(Elasticsearch)]\n  search -.-> kafka{{Kafka}}", apply: false });
 assert(importPreview.preview.notation === "mermaid" && importPreview.preview.components.length === 3 && importPreview.preview.components.find((c) => c.id === "es").kind === "database" && importPreview.preview.relationships.length === 2, "a pasted Mermaid flowchart previews as components and relationships");

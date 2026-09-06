@@ -43,6 +43,12 @@ Feature: dev login, encrypted credential, sponsor-mode session, invite, consent.
 
 Point at: the top bar reads `fake · fake-architect-1 · sponsor · hybrid · live`, "2 participants", both avatars.
 
+## Stage 1g: session thumbnails (no script)
+
+Feature: each session row on the home page carries a small picture of its canvas: card rectangles tinted by type (teal for structure, amber for the design document, purple for data, orange for constraints, red for decision points, green for alternatives), drawn by whoever last had the session open and refreshed a few seconds after the layout settles.
+
+Point at: recognising a session by its shape before reading its title; an empty session shows "empty".
+
 ## Stage 1c: managing sessions (no script)
 
 Feature: rename, archive, delete; who sees what.
