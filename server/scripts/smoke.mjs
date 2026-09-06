@@ -726,6 +726,24 @@ const probe = l2.doc.getMap("nodes").get("smoke-probe");
 assert(probe && probe.w === 640, "layout written by one client is served to the next");
 l2.provider.destroy();
 
+// Copy into session without an AI turn: a decision arrives as proposed with its origin, a
+// constraint lands on the target's constraints card, a viewer cannot copy, documents are not copied.
+const kafkaDecision = (await alice.call("GET", "/api/v1/library?q=Kafka&kind=decision")).hits.find((h) => h.sessionId === sessionId && h.refId !== copied.importedFrom.refId);
+const copyDec = await alice.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: kafkaDecision.importRef });
+assert(copyDec.status === "recorded" && /^D-\d+$/.test(copyDec.label), `alice copied ${kafkaDecision.refId} into Speaker mode as ${copyDec.label} without an AI turn`);
+const copiedEv = (await alice.call("GET", `/api/v1/sessions/${speakerSession}/events`)).filter((e) => e.type === "decision.recorded").pop();
+assert(copiedEv.actorKind === "user" && copiedEv.payload.status === "proposed" && copiedEv.payload.importedFrom.refId === kafkaDecision.refId && /Copied from session "Order platform v1"/.test(copiedEv.payload.context), "the copied decision is proposed, by alice, with its origin and context");
+assert(/already here/.test(await fails(alice.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: kafkaDecision.importRef }))), "copying the same decision twice is refused");
+const kafkaComponent = (await alice.call("GET", "/api/v1/library?q=Service&kind=component")).hits.find((h) => h.sessionId === sessionId && h.refId === "service-a");
+const copyComp = await alice.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: kafkaComponent.importRef });
+assert(copyComp.status === "applied" || copyComp.status === "pending_approval", `copying a component goes through governance (${copyComp.status})`);
+const euConstraint = (await alice.call("GET", "/api/v1/library?q=EU&kind=constraint")).hits.find((h) => h.sessionId === sessionId);
+const copyK = await alice.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: euConstraint.importRef });
+assert(copyK.label === "C-01" && (copyK.status === "applied" || copyK.status === "pending_approval"), "a copied constraint takes the next id in the target session");
+const docHit = (await alice.call("GET", "/api/v1/library?kind=document")).hits[0];
+assert(/not copied/.test(await fails(alice.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: docHit.importRef }))), "published documents are read, not copied");
+assert(/403/.test(await fails(dave.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: kafkaDecision.importRef }))), "someone outside the target session cannot copy into it");
+
 // Export.
 const md = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(typeof md === "string" && md.includes("## Decision log") && md.includes("<!-- artifact"), "markdown export carries provenance comments");

@@ -13,15 +13,24 @@ const KINDS: { id: LibraryKind | ""; label: string }[] = [
   { id: "document", label: "published documents" },
 ];
 
+interface SessionRow { id: string; title: string; status: "active" | "archived"; role: string; updatedAt: string }
+interface CopyResult { what: string; label?: string; status: "applied" | "pending_approval" | "recorded"; approvers?: string[]; artifactId?: string }
+
 // Search across sessions: what was decided, built, constrained and published. Your own sessions
 // plus everything any session has published. A result opens the session on the right card, or
-// the published page.
+// the published page; decisions, components and constraints can be copied into one of your
+// sessions without an AI turn, keeping their origin.
 export function Library() {
   const setFocusArtifact = useStore((s) => s.setFocusArtifact);
   const [q, setQ] = useState(() => new URLSearchParams(location.search).get("q") ?? "");
   const [kind, setKind] = useState<LibraryKind | "">("");
   const [res, setRes] = useState<{ hits: LibraryHit[]; scope: { sessions: number; publicSessions: number } } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [targets, setTargets] = useState<SessionRow[]>([]);
+
+  useEffect(() => {
+    api<SessionRow[]>("GET", "/api/v1/sessions").then((rows) => setTargets(rows.filter((s) => s.status !== "archived" && s.role !== "viewer" && s.role !== "reviewer"))).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -58,26 +67,74 @@ export function Library() {
         {err && <div className="err">{err}</div>}
         {res && res.hits.length === 0 && <p className="muted">{q ? "Nothing matches. Try fewer words." : "Nothing here yet. Decisions, components and constraints appear as sessions record them."}</p>}
         {!q && res && res.hits.length > 0 && <div className="mono" style={{ marginBottom: 6 }}>most recent</div>}
-        {res?.hits.map((h) => (
-          <div key={`${h.sessionId}:${h.kind}:${h.refId}`} className="card hit" onClick={() => open(h)}>
-            <div className="row" style={{ gap: 8, alignItems: "baseline" }}>
-              <span className={"chip kind-" + h.kind}>{h.kind}</span>
-              <span style={{ fontWeight: 600, flex: 1 }}>{h.title}</span>
-              {h.isPublic && <span className="chip" title="From a session you are not in; visible because it published a document">published</span>}
-              <span className="mono">{new Date(h.updatedAt).toLocaleDateString()}</span>
-            </div>
-            <div className="snippet"><Snippet text={h.snippet} /></div>
-            <div className="mono" style={{ marginTop: 4 }}>
-              {h.sessionTitle}
-              {h.people.length > 0 && <> · {h.kind === "decision" ? "agreed by" : h.kind === "constraint" ? "set by" : "signed by"} {h.people.join(", ")}</>}
-            </div>
-          </div>
-        ))}
+        {res?.hits.map((h) => <Hit key={`${h.sessionId}:${h.kind}:${h.refId}`} h={h} targets={targets.filter((t) => t.id !== h.sessionId)} onOpen={() => open(h)} />)}
         <p className="muted" style={{ marginTop: 20, fontSize: 12.5 }}>
-          In a session, ask the AI what earlier sessions decided about something; it searches this library, cites the session and the people, and can copy a decision, component or constraint in with its origin attached.
+          Copy puts a decision (as proposed), a component or a constraint into one of your sessions with a "from …" link back here; someone else's card there makes it a proposal. In a session, the AI can search this library too, cite what it finds, and copy it in the same way.
         </p>
       </div>
     </>
+  );
+}
+
+function Hit({ h, targets, onOpen }: { h: LibraryHit; targets: SessionRow[]; onOpen: () => void }) {
+  const [choosing, setChoosing] = useState(false);
+  const [target, setTarget] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<{ sessionId: string; title: string; r: CopyResult } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const chosen = target || targets[0]?.id || "";
+
+  async function copy() {
+    const t = targets.find((x) => x.id === chosen);
+    if (!t) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await api<CopyResult>("POST", `/api/v1/sessions/${t.id}/library/import`, { ref: h.importRef });
+      setDone({ sessionId: t.id, title: t.title, r });
+      setChoosing(false);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card hit" onClick={onOpen}>
+      <div className="row" style={{ gap: 8, alignItems: "baseline" }}>
+        <span className={"chip kind-" + h.kind}>{h.kind}</span>
+        <span style={{ fontWeight: 600, flex: 1 }}>{h.title}</span>
+        {h.isPublic && <span className="chip" title="From a session you are not in; visible because it published a document">published</span>}
+        <span className="mono">{new Date(h.updatedAt).toLocaleDateString()}</span>
+        {h.kind !== "document" && targets.length > 0 && !done && (
+          <button className="icon" onClick={(e) => { e.stopPropagation(); setChoosing((c) => !c); }} title="Copy into one of your sessions, no AI turn; the origin stays attached">copy into…</button>
+        )}
+      </div>
+      <div className="snippet"><Snippet text={h.snippet} /></div>
+      <div className="mono" style={{ marginTop: 4 }}>
+        {h.sessionTitle}
+        {h.people.length > 0 && <> · {h.kind === "decision" ? "agreed by" : h.kind === "constraint" ? "set by" : "signed by"} {h.people.join(", ")}</>}
+      </div>
+      {choosing && (
+        <div className="row" style={{ marginTop: 8, gap: 6 }} onClick={(e) => e.stopPropagation()}>
+          <select value={chosen} onChange={(e) => setTarget(e.target.value)} style={{ width: "auto", flex: 1 }}>
+            {targets.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+          </select>
+          <button className="primary" style={{ fontSize: 12 }} disabled={busy || !chosen} onClick={copy}>Copy</button>
+          <button style={{ fontSize: 12 }} onClick={() => setChoosing(false)}>cancel</button>
+        </div>
+      )}
+      {done && (
+        <div className="consent" style={{ marginTop: 8, fontSize: 12.5 }} onClick={(e) => e.stopPropagation()}>
+          {done.r.status === "recorded" && <>Copied into <b>{done.title}</b> as {done.r.label}, proposed until that session agrees. </>}
+          {done.r.status === "applied" && <>Copied into <b>{done.title}</b>{done.r.label ? ` as ${done.r.label}` : ""}. </>}
+          {done.r.status === "pending_approval" && <>Proposed in <b>{done.title}</b>; the card there belongs to someone else, so it waits for their approval. </>}
+          <a href={`/s/${done.sessionId}`} onClick={(e) => { e.preventDefault(); navigate(`/s/${done.sessionId}`); }}>open</a>
+        </div>
+      )}
+      {err && <div className="err" style={{ marginTop: 6, fontSize: 12.5 }}>{err}</div>}
+    </div>
   );
 }
 

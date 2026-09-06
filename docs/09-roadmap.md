@@ -122,7 +122,7 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 **Effort.** Five days. Depends on A1 and A2 for anything worth indexing.
 
-**Status (2026-09-05): shipped.** SQLite FTS5 index over decisions, components, constraints and published documents, rebuilt per session from the ledger whenever the ledger moved. Scope: the sessions a person is in, plus every session that has a live published document (publishing is how a session enters the organisation's memory). A `/library` page with kind filters and links into the session on the right card; a read-only `library_search` tool with a prompt rule to cite and never invent precedent; `importedFrom` on decisions, components and constraints, shown as a "from …" chip. Not done: a deterministic "copy into session" button on the library page (the AI path is one read-only search plus one record call); ranking is bm25 with the title weighted.
+**Status (2026-09-05): shipped.** SQLite FTS5 index over decisions, components, constraints and published documents, rebuilt per session from the ledger whenever the ledger moved. Scope: the sessions a person is in, plus every session that has a live published document (publishing is how a session enters the organisation's memory). A `/library` page with kind filters and links into the session on the right card; a read-only `library_search` tool with a prompt rule to cite and never invent precedent; `importedFrom` on decisions, components and constraints, shown as a "from …" chip. "Copy into…" on the library page copies a decision (as proposed), a component or a constraint into one of your sessions without an AI turn, through the same governance as a hand edit. Ranking is bm25 with the title weighted.
 
 ### C2. Templates
 
