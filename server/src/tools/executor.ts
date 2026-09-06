@@ -1,5 +1,5 @@
 import { ulid } from "ulid";
-import { allAdrs, emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
+import { allAdrs, emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { AlternativesContent, ConstraintsContent, DecisionPointContent, SessionState } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
@@ -60,6 +60,12 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
 
   return [
     bind("upsert_components", async (input) => {
+      if (input.boundaries?.length) {
+        // Boundaries first so the components can land in them with the right names and tints.
+        const withBoundaries = upsertBoundaries(currentModel(), input.boundaries);
+        const next = upsertComponents(withBoundaries, input.components, input.derivedFrom);
+        return writeModel(next, input.rationale, `Model: ${next.components.length} components, ${next.boundaries.length} boundaries`);
+      }
       const next = upsertComponents(currentModel(), input.components, input.derivedFrom);
       return writeModel(next, input.rationale, `Model: ${next.components.length} components, ${next.relationships.length} relationships`);
     }),

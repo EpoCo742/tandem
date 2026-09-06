@@ -430,6 +430,12 @@ Feature: **replay** in the top bar opens a slider over the whole ledger. Drag it
 
 Point at: the reducer is pure and the ledger complete, so this is a fold, not a new store; scrub back to before the decision point and forward to see the vote land.
 
+## Stage 14b: live cursors and coloured boundaries (no script)
+
+Feature: each person's pointer and selected card show on the canvas in their colour. **cursors: all** in the top bar cycles to **hide me** (your cursor and selection are shown to nobody; you still see theirs) and **hide others** (you see none; yours is still shown). The choice is remembered per session. Hidden people still count as present, dimmed in the presence strip. Every boundary in the model has a tint used by every view; the swatch on the Architecture model card changes it (an ordinary edit of the model).
+
+Point at: Bob's pointer moving on Alice's screen and the System architecture card outlined in his colour when he clicks it; the Data Tier boundary drawn in the same blue on the container view, the component view and the as-is diff.
+
 ## Stage 14a: change glow (no script)
 
 Feature: a card lights up for a moment when its version changes, and the rows that changed on the model or constraints tables glow a little longer. A card changed since you last looked at the session carries a **new** chip and an accent edge until you touch it.

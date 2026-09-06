@@ -10,12 +10,13 @@ import {
   Panel,
   applyNodeChanges,
   useReactFlow,
+  ViewportPortal,
   type Node,
   type NodeProps,
   type NodeChange,
 } from "@xyflow/react";
 import { liveArtifacts, type Artifact } from "@tandem/shared";
-import type { Collab, Layout } from "../collab";
+import { setCursor, setSelectedArtifact, type Collab, type Layout } from "../collab";
 import { useStore } from "../state/store";
 import { usePrefs, type GridStyle } from "../state/prefs";
 import { ArtifactCard } from "./ArtifactCard";
@@ -138,6 +139,21 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
   const cycleGrid = usePrefs((s) => s.cycleGrid);
   const palette = resolved === "dark" ? { grid: "#2c353e", node: "#3a444e" } : { grid: "#d3dae0", node: "#c9d1d8" };
   const flow = useReactFlow();
+  const cursors = useStore((s) => s.cursors);
+  const presenceMode = useStore((s) => s.presenceMode);
+
+  // My pointer, in flow coordinates, a few times a second; others draw it in my colour.
+  const lastSent = useRef(0);
+  const onMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      const now = Date.now();
+      if (now - lastSent.current < 40) return;
+      lastSent.current = now;
+      const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      setCursor({ x: Math.round(p.x), y: Math.round(p.y) });
+    },
+    [flow],
+  );
 
   const [layout, setLayout] = useState<Record<string, Layout>>({});
   useEffect(() => {
@@ -232,6 +248,10 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
       nodes={nodes}
       nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
+      onMouseMove={onMouseMove}
+      onMouseLeave={() => setCursor(null)}
+      onNodeClick={(_, n) => setSelectedArtifact(n.id)}
+      onPaneClick={() => setSelectedArtifact(null)}
       minZoom={0.1}
       maxZoom={4}
       zoomOnDoubleClick={false}
@@ -257,6 +277,16 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
       </Panel>
       <Controls showInteractive={false} />
       <MiniMap pannable zoomable nodeColor={() => palette.node} />
+      {presenceMode !== "hide-others" && (
+        <ViewportPortal>
+          {cursors.map((c) => (
+            <div key={c.user.userId} className="live-cursor" style={{ transform: `translate(${c.x}px, ${c.y}px)`, color: c.user.color }}>
+              <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 2 L16 8 L9 10 L7 17 Z" fill="currentColor" stroke="#fff" strokeWidth="1" /></svg>
+              <span className="live-cursor-name" style={{ background: c.user.color }}>{c.user.name}</span>
+            </div>
+          ))}
+        </ViewportPortal>
+      )}
     </ReactFlow>
   );
 }

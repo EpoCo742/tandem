@@ -5,7 +5,7 @@ const ChangedRowsContext = createContext<Set<string>>(EMPTY_SET);
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
+import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, boundaryColor, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -74,6 +74,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const editors = useStore((s) => s.editing[a.id]) ?? [];
+  const selectors = useStore((s) => s.selections[a.id]) ?? [];
   // Uploads stay first-class for provenance but start folded so generated work has the room.
   const [open, setOpen] = useState(a.type !== "source");
 
@@ -122,7 +123,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
   }
 
   return (
-    <div className={"art type-" + a.type + (sized ? " sized" : "") + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "") + (glow ? " glow" : "") + (fresh ? " fresh" : "")} style={{ borderTopColor: isDp ? undefined : authorColor }} onMouseDown={() => fresh && acknowledge(a.id)}>
+    <div className={"art type-" + a.type + (sized ? " sized" : "") + (a.blockedByDecisionPoint ? " blocked" : "") + (isDp ? " dp" : "") + (glow ? " glow" : "") + (fresh ? " fresh" : "")} style={{ borderTopColor: isDp ? undefined : authorColor, ...(selectors[0] ? { boxShadow: `0 0 0 2px ${selectors[0].color}, var(--shadow)` } : {}) }} onMouseDown={() => fresh && acknowledge(a.id)}>
       <ChangedRowsContext.Provider value={changed}>
       <div className="art-head">
         {fresh && <span className="chip fresh-chip" title="Changed since you last looked at this session">new</span>}
@@ -144,6 +145,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
         {a.type === "design_doc" && (() => { const r = state.reviews[a.id]; const st = r?.status ?? "draft"; return <span className={"chip status-" + st} title={st === "approved" ? `Approved at v${r?.approvedVersionNo}` : st === "in_review" ? `${Object.keys(r?.signoffs ?? {}).length} of ${r?.reviewers.length ?? 0} signed` : "Draft; not yet reviewed"}>{st === "in_review" ? "in review" : st}</span>; })()}
         {pending > 0 && <span className="chip accent">{pending} pending</span>}
         {editors.map((u) => <span key={u.userId} className="chip solid" style={{ background: u.color }} title={`${u.name} has this card open in the editor`}>{u.name} editing</span>)}
+        {selectors.filter((u) => !editors.some((e) => e.userId === u.userId)).map((u) => <span key={u.userId} className="chip" style={{ color: u.color, borderColor: u.color }} title={`${u.name} has this card selected`}>{u.name}</span>)}
         {a.type === "source" && <button className="icon nodrag" style={{ padding: "0 5px" }} title={open ? "Fold this upload" : "Show the uploaded content"} onClick={() => setOpen((o) => !o)}>{open ? "▴" : "▾"}</button>}
         {sized && onResetSize && <button className="icon nodrag" style={{ padding: "0 5px" }} title="Back to automatic size" onClick={onResetSize}>&#x21BA;</button>}
         <button className={"icon nodrag" + (openThreads ? " has-threads" : "")} style={{ padding: "0 5px" }} title={openThreads ? `${openThreads} open thread${openThreads === 1 ? "" : "s"} on this card` : "Start a thread on this card (people only; promote a message to bring the AI in)"} onClick={() => setThreadTarget({ artifactId: a.id })}>&#x1F5E8;{openThreads ? <span className="mono" style={{ marginLeft: 2 }}>{openThreads}</span> : null}</button>
@@ -345,7 +347,7 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
                 <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}{statusOf(c.id) && <span className="chip" style={{ marginLeft: 6, color: statusOf(c.id) === "added" ? "var(--ok)" : "var(--accent)" }} title="Against the as-is baseline">{statusOf(c.id)}</span>}{c.importedFrom && <span className="chip" style={{ marginLeft: 6, color: "var(--accent)" }} title={`Copied from session "${c.importedFrom.sessionTitle}" through the library`}>from {c.importedFrom.sessionTitle}</span>}</td>
                 <td className="mono">{c.kind}</td>
                 <td className="mono">{c.technology ?? ""}</td>
-                <td className="mono">{bname(c.boundary)}</td>
+                <td className="mono">{c.boundary ? <><span className="swatch" style={{ background: boundaryColor(content, c.boundary) }} />{bname(c.boundary)}</> : ""}</td>
                 <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                   <button className="icon" style={{ padding: "0 4px" }} title={`What depends on ${c.name}: decisions, constraints, views, documents, threads`} onClick={(e) => { e.stopPropagation(); setImpactOf(c.id); }}>&#x2058;</button>
                   <button className="icon" style={{ padding: "0 4px" }} title={threadsOn(c.id) ? `${threadsOn(c.id)} open thread(s) on ${c.name}` : `Start a thread on ${c.name}`} onClick={(e) => { e.stopPropagation(); setThreadTarget({ artifactId, componentId: c.id }); }}>
@@ -363,8 +365,39 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
           {content.relationships.map((r) => <div key={r.id}>{name(r.from)} <span className="muted">{r.kind.replace("_", " ")}</span> {name(r.to)}{r.label ? <span className="muted"> ({r.label})</span> : null}</div>)}
         </div>
       )}
+      {content.boundaries.length > 0 && <BoundaryLegend artifactId={artifactId} content={content} />}
       <CompareVersions artifactId={artifactId} current={content} />
       {impactOf && <ImpactPanel componentId={impactOf} onClose={() => setImpactOf(null)} />}
+    </div>
+  );
+}
+
+// Boundaries with their tints; picking a colour is an ordinary edit of the model card.
+function BoundaryLegend({ artifactId, content }: { artifactId: string; content: ArchModelContent }) {
+  const meta = useStore((s) => s.meta);
+  const [msg, setMsg] = useState<string | null>(null);
+  async function recolor(id: string, color: string) {
+    if (!meta) return;
+    const next = { ...content, boundaries: content.boundaries.map((b) => (b.id === id ? { ...b, color } : b)) };
+    try {
+      const r = await api<{ status: string }>("POST", `/api/v1/sessions/${meta.id}/artifacts/${artifactId}/versions`, { content: next, rationale: `Recoloured boundary ${id}` });
+      setMsg(r.status === "applied" ? null : `Colour change ${r.status.replace(/_/g, " ")}`);
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
+  }
+  return (
+    <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+      {content.boundaries.map((b) => {
+        const c = boundaryColor(content, b.id);
+        return (
+          <label key={b.id} className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }} title={`${b.name} (${b.kind ?? "system"}); click the swatch to change its tint in every view`}>
+            <input type="color" value={c} onChange={(e) => void recolor(b.id, e.target.value)} style={{ width: 16, height: 16, padding: 0, border: "none", background: "transparent" }} />
+            <span style={{ color: c }}>{b.name}</span>
+          </label>
+        );
+      })}
+      {msg && <span className="muted" style={{ fontSize: 11 }}>{msg}</span>}
     </div>
   );
 }

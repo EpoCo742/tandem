@@ -115,6 +115,14 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .session-row.archived { opacity: .7; }
 .archived-banner { grid-column: 1 / -1; background: var(--panel-2); border-bottom: 1px solid var(--line); padding: 6px 14px; font-size: 13px; color: var(--ink-2); }
 
+.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+/* live cursors: other people's pointers on the canvas, in their colour */
+.live-cursor { position: absolute; left: 0; top: 0; pointer-events: none; display: flex; align-items: flex-start; gap: 2px; transition: transform 80ms linear; z-index: 20; }
+.live-cursor-name { font-family: var(--mono); font-size: 10px; color: #fff; padding: 1px 5px; border-radius: 3px; margin-top: 10px; white-space: nowrap; }
+.hidden-presence { opacity: .45; }
+@media (prefers-reduced-motion: reduce) { .live-cursor { transition: none; } }
+
 /* change glow: a card lights up for a moment when its version changes; rows that changed stay lit a little longer */
 @keyframes art-glow { 0% { box-shadow: 0 0 0 3px var(--accent), var(--shadow); } 100% { box-shadow: var(--shadow); } }
 .art.glow { animation: art-glow 2.4s ease-out; }

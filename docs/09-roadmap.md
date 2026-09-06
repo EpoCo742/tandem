@@ -230,6 +230,8 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 
 **Effort.** Two days.
 
+**Status (2026-09-05): shipped.** Cursor (flow coordinates, throttled), selected card and a `visible` flag travel in Yjs awareness; others' cursors render in a viewport portal in their colour with a name tag; a selected card gets an outline and a chip; the three-state toggle is per session in local storage and honoured on both sides; hidden people are dimmed in the presence strip.
+
 ### E3. Coloured boundaries
 
 **What.** Trust zones, teams and systems get their own tint in every generated view, consistent across views and the deployment view; nodes show technology and decision count on hover; hovering a relationship highlights both ends.
@@ -237,6 +239,8 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 **Design.** A `color` on `ModelBoundary` chosen from the participant palette's neighbours, set on creation and editable on the model card; `modelToMermaid` emits `classDef` per boundary; hover behaviour on the rendered SVG through data attributes the renderer already leaves on nodes.
 
 **Effort.** One day. Depends on A1.
+
+**Status (2026-09-05): shipped.** `color` on boundaries with a palette fallback by position so every view agrees; `style` lines in every generated view (container, context, component, diff, compare); swatches on the model table and a legend with a colour picker that writes a new model version through the usual governance; `upsert_components` accepts `boundaries` (name, kind, colour). Hover details and relationship highlighting were not done (Mermaid's strict mode blocks click handlers; would need SVG post-processing).
 
 ### E4. Presentation mode
 

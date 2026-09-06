@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
-import { useStore, type PresenceUser } from "./state/store";
+import { useStore, type Cursor, type PresenceMode, type PresenceUser } from "./state/store";
 
 // Yjs layout document: Y.Map "nodes" (artifactId -> {x, y, w?, h?}). Awareness carries presence.
 
@@ -25,6 +25,31 @@ export function setEditingArtifact(artifactId: string | null) {
   current?.setAwarenessField("editing", artifactId);
 }
 
+/** My pointer on the canvas, in flow coordinates (null when off the canvas). */
+export function setCursor(pos: { x: number; y: number } | null) {
+  current?.setAwarenessField("cursor", pos);
+}
+
+/** The card I have selected, so others see it outlined in my colour. */
+export function setSelectedArtifact(artifactId: string | null) {
+  current?.setAwarenessField("selected", artifactId);
+}
+
+/** Whether my cursor and selection are broadcast at all. Hidden people still count as present. */
+export function setPresenceVisible(visible: boolean) {
+  current?.setAwarenessField("visible", visible);
+}
+
+export function loadPresenceMode(sessionId: string): PresenceMode {
+  try {
+    const v = localStorage.getItem(`tandem.presence.${sessionId}`);
+    if (v === "hide-me" || v === "hide-others" || v === "all") return v;
+  } catch {
+    /* storage may be blocked */
+  }
+  return "all";
+}
+
 export function connectCollab(sessionId: string, token: string, me: PresenceUser): Collab {
   const doc = new Y.Doc();
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -36,20 +61,31 @@ export function connectCollab(sessionId: string, token: string, me: PresenceUser
   });
   const nodes = doc.getMap<Layout>("nodes");
   provider.setAwarenessField("user", me);
+  provider.setAwarenessField("visible", loadPresenceMode(sessionId) !== "hide-me");
   current = provider;
   const onAwareness = () => {
     const states = provider.awareness?.getStates() ?? new Map();
     const seen = new Map<string, PresenceUser>();
     const editing: Record<string, PresenceUser[]> = {};
+    const selections: Record<string, PresenceUser[]> = {};
+    const cursors: Cursor[] = [];
     for (const s of states.values()) {
-      const u = (s as { user?: PresenceUser; editing?: string | null }).user;
+      const st = s as { user?: PresenceUser; editing?: string | null; cursor?: { x: number; y: number } | null; selected?: string | null; visible?: boolean };
+      const u = st.user;
       if (!u) continue;
-      seen.set(u.userId, u);
-      const e = (s as { editing?: string | null }).editing;
-      if (e && u.userId !== me.userId) editing[e] = [...(editing[e] ?? []), u];
+      const hidden = st.visible === false;
+      seen.set(u.userId, { ...u, hidden });
+      if (u.userId === me.userId) continue;
+      if (st.editing) editing[st.editing] = [...(editing[st.editing] ?? []), u];
+      if (hidden) continue; // someone who hides themselves is shown to nobody
+      if (st.selected) selections[st.selected] = [...(selections[st.selected] ?? []), u];
+      if (st.cursor) cursors.push({ user: u, x: st.cursor.x, y: st.cursor.y });
     }
-    useStore.getState().setPresence([...seen.values()]);
-    useStore.getState().setEditing(editing);
+    const store = useStore.getState();
+    store.setPresence([...seen.values()]);
+    store.setEditing(editing);
+    store.setSelections(selections);
+    store.setCursors(cursors);
   };
   provider.awareness?.on("change", onAwareness);
   onAwareness();

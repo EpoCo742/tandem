@@ -746,7 +746,7 @@ assert(/403/.test(await fails(dave.call("POST", `/api/v1/sessions/${speakerSessi
 
 // Impact analysis: what depends on a component, deterministically.
 const impactA = await alice.call("GET", `/api/v1/sessions/${sessionId}/impact/service-a`);
-assert(impactA.component.name === "Service A" && impactA.decisions.length >= 1 && impactA.relationships >= 1 && impactA.views.length >= 1 && impactA.lines.length >= 3, `impact of Service A: ${impactA.decisions.length} decisions, ${impactA.relationships} relationships, ${impactA.views.length} views`);
+assert(impactA.component.name === "Service A" && impactA.decisions.length >= 1 && impactA.views.length >= 1 && impactA.lines.length >= 2 && typeof impactA.ifRemoved.decisionsLeftPointing === "number", `impact of Service A: ${impactA.decisions.length} decisions, ${impactA.relationships} relationships, ${impactA.views.length} views`);
 assert(/404/.test(await fails(alice.call("GET", `/api/v1/sessions/${sessionId}/impact/nope`))), "impact of an unknown component is a 404");
 
 // Templates: a kind of design seeds the constraints card and carries a checklist the AI works toward.

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, type SessionMeta } from "../api";
 import { useStore } from "../state/store";
 import { connectLedger, disconnectLedger } from "../ws";
-import { connectCollab, type Collab } from "../collab";
+import { connectCollab, loadPresenceMode, setPresenceVisible, type Collab } from "../collab";
 import { TopBar, Avatar } from "../components/TopBar";
 import { navigate } from "../App";
 import { ConversationPane } from "../components/ConversationPane";
@@ -26,6 +26,17 @@ export function Session({ sessionId }: { sessionId: string }) {
   const requestTab = useStore((s) => s.requestTab);
   const replay = useStore((s) => s.replay);
   const setReplay = useStore((s) => s.setReplay);
+  const presenceMode = useStore((s) => s.presenceMode);
+  const setPresenceMode = useStore((s) => s.setPresenceMode);
+  useEffect(() => {
+    setPresenceMode(sessionId, loadPresenceMode(sessionId));
+  }, [sessionId, setPresenceMode]);
+  function cyclePresence() {
+    const order: ("all" | "hide-me" | "hide-others")[] = ["all", "hide-me", "hide-others"];
+    const next = order[(order.indexOf(presenceMode) + 1) % order.length]!;
+    setPresenceMode(sessionId, next);
+    setPresenceVisible(next !== "hide-me");
+  }
   const [err, setErr] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState<"editor" | "reviewer" | "viewer">("editor");
@@ -110,9 +121,12 @@ export function Session({ sessionId }: { sessionId: string }) {
         <button className={"icon" + (replay ? " primary" : "")} onClick={() => setReplay(replay ? null : Math.max(1, state.lastSeq - 1))} title="Scrub through the session's history: every card, decision and message as it was at that moment">{replay ? "replaying" : "replay"}</button>
         <span className="mono">{meta.provider} · {meta.pinnedModel} · {meta.payerMode} · {state.policy}</span>
         <span className="mono" style={{ color: connected ? "var(--ok)" : "var(--warn)" }}>{connected ? "live" : "reconnecting"}</span>
-        <div className="presence" title="present now">
-          {presence.map((p) => <Avatar key={p.userId} name={p.name} color={p.color} src={p.avatarUrl} />)}
+        <div className="presence" title={`${presence.length} present${presence.filter((p) => p.hidden).length ? `, ${presence.filter((p) => p.hidden).length} with cursor hidden` : ""}`}>
+          {presence.map((p) => <span key={p.userId} className={p.hidden ? "hidden-presence" : ""} title={p.hidden ? `${p.name} (cursor hidden)` : p.name}><Avatar name={p.name} color={p.color} src={p.avatarUrl} /></span>)}
         </div>
+        <button className="icon" onClick={cyclePresence} title={presenceMode === "all" ? "Cursors: you see others and they see you. Click to hide yours." : presenceMode === "hide-me" ? "Your cursor and selection are hidden from everyone; you still see theirs. Click to hide theirs too." : "You see no cursors and yours is shown. Click to show all."}>
+          {presenceMode === "all" ? "cursors: all" : presenceMode === "hide-me" ? "cursors: hide me" : "cursors: hide others"}
+        </button>
         <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)} style={{ width: "auto" }} title="Editors change the canvas. Reviewers comment, vote, sign off and propose, but nothing they do lands without approval. Viewers only read.">
           <option value="editor">as editor</option>
           <option value="reviewer">as reviewer</option>

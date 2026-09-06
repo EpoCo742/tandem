@@ -33,6 +33,22 @@ export interface ModelBoundary {
   id: string;
   name: string;
   kind?: "system" | "team" | "zone" | "other";
+  color?: string; // hex; chosen from the palette by position when unset, so every view agrees
+}
+
+/** Boundary tints, distinct from the participant palette and legible on both themes. */
+export const BOUNDARY_PALETTE = ["#2f7fd4", "#c26b1f", "#2e9e5b", "#8e44ad", "#c0392b", "#16a085", "#7f8c8d", "#b7950b"];
+
+/** The colour a boundary is drawn with: its own, or the palette entry for its position in the model. */
+export function boundaryColor(model: Pick<ArchModelContent, "boundaries">, boundaryId: string): string {
+  const i = model.boundaries.findIndex((b) => b.id === boundaryId);
+  const b = model.boundaries[i];
+  return b?.color ?? BOUNDARY_PALETTE[(i < 0 ? 0 : i) % BOUNDARY_PALETTE.length]!;
+}
+
+function boundaryStyle(model: Pick<ArchModelContent, "boundaries">, b: ModelBoundary): string {
+  const c = boundaryColor(model, b.id);
+  return `  style b_${mermaidId(b.id)} fill:${c}1a,stroke:${c},stroke-width:1.5px`;
 }
 
 /** The architecture as it exists, captured from code or a manifest; the model itself is the target state. */
@@ -162,7 +178,7 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
     };
     for (const b of systems) {
       const members = model.components.filter((c) => c.boundary === b.id);
-      if (members.length) lines.push(`  b_${mermaidId(b.id)}["${quote(b.name)}\n${members.length} component${members.length === 1 ? "" : "s"}"]`);
+      if (members.length) lines.push(`  b_${mermaidId(b.id)}["${quote(b.name)}\n${members.length} component${members.length === 1 ? "" : "s"}"]`, boundaryStyle(model, b));
     }
     for (const c of model.components) if (!c.boundary || !systems.some((s) => s.id === c.boundary)) lines.push(`  ${mermaidId(c.id)}${shape(c)}`);
     const seen = new Set<string>();
@@ -199,7 +215,7 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
     const b = bid ? model.boundaries.find((x) => x.id === bid) : undefined;
     if (b) lines.push(`  subgraph b_${mermaidId(b.id)}["${quote(b.name)}"]`);
     for (const c of list) lines.push(`  ${b ? "  " : ""}${mermaidId(c.id)}${shape(c)}`);
-    if (b) lines.push("  end");
+    if (b) lines.push("  end", boundaryStyle(model, b));
   }
   for (const r of model.relationships) {
     if (!include.has(r.from) || !include.has(r.to)) continue;
@@ -233,7 +249,7 @@ export function compareMermaid(before: ModelShape, after: ModelShape): string {
     const b = bid ? boundaries.find((x) => x.id === bid) : undefined;
     if (b) lines.push(`  subgraph b_${mermaidId(b.id)}["${quote(b.name)}"]`);
     for (const e of list) lines.push(`  ${b ? "  " : ""}${mermaidId(e.c.id)}${shape(e.c)}:::${e.status}`);
-    if (b) lines.push("  end");
+    if (b) lines.push("  end", boundaryStyle({ boundaries }, b));
   }
   const addedIds = new Set(d.addedRels.map((r) => r.id));
   for (const r of model.relationships) lines.push(`  ${mermaidId(r.from)} ${addedIds.has(r.id) ? "==>" : "-->"}|"${quote(r.label ?? VERB[r.kind])}"| ${mermaidId(r.to)}`);
@@ -265,6 +281,18 @@ export function modelToText(model: ArchModelContent): string {
 
 /** Merge components into the model by id; a component with an existing id is updated (rename, re-kind), others are added. */
 export type IncomingComponent = Omit<ModelComponent, "id" | "derivedFrom"> & { id?: string; derivedFrom?: string[] };
+
+export function upsertBoundaries(model: ArchModelContent, incoming: { id: string; name?: string; kind?: ModelBoundary["kind"]; color?: string }[]): ArchModelContent {
+  const boundaries = [...model.boundaries];
+  for (const raw of incoming) {
+    const i = boundaries.findIndex((b) => b.id === raw.id);
+    const base: ModelBoundary = i >= 0 ? boundaries[i]! : { id: raw.id, name: raw.name ?? raw.id.replace(/[-_]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()), kind: raw.kind ?? "system" };
+    const next: ModelBoundary = { ...base, ...(raw.name ? { name: raw.name } : {}), ...(raw.kind ? { kind: raw.kind } : {}), ...(raw.color ? { color: raw.color } : {}) };
+    if (i >= 0) boundaries[i] = next;
+    else boundaries.push(next);
+  }
+  return { ...model, boundaries };
+}
 
 export function upsertComponents(model: ArchModelContent, incoming: IncomingComponent[], derivedFrom: string[]): ArchModelContent {
   const components = [...model.components];

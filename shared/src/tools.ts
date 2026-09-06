@@ -101,6 +101,10 @@ export const upsertComponentsInput = z.object({
       }),
     )
     .min(1),
+  boundaries: z
+    .array(z.object({ id: z.string(), name: z.string().optional(), kind: z.enum(["system", "team", "zone", "other"]).optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().describe("Hex tint used in every view; omit to keep the palette colour") }))
+    .optional()
+    .describe("Boundaries to add or update (name, kind, colour); components reference them by id"),
   derivedFrom: z.array(z.string()).describe("Ledger event ids of the messages that motivated this"),
   rationale: z.string(),
 });

@@ -2,7 +2,11 @@ import { create } from "zustand";
 import { emptyState, reduce, reduceUpTo, type AnyLedgerEvent, type EphemeralEvent, type MessageAnchor, type SessionState, type TurnStatus } from "@tandem/shared";
 import type { Me, SessionMeta } from "../api";
 
+export interface Cursor { user: PresenceUser; x: number; y: number }
+export type PresenceMode = "all" | "hide-me" | "hide-others";
+
 export interface PresenceUser {
+  hidden?: boolean; // this person chose not to show their cursor and selection
   userId: string;
   name: string;
   color: string;
@@ -25,6 +29,12 @@ interface Store {
   presence: PresenceUser[];
   setPresence: (p: PresenceUser[]) => void;
   editing: Record<string, PresenceUser[]>; // artifactId -> who has it open in the editor
+  cursors: Cursor[]; // other people's pointers on the canvas, in flow coordinates
+  setCursors: (c: Cursor[]) => void;
+  selections: Record<string, PresenceUser[]>; // artifactId -> who has it selected
+  setSelections: (s: Record<string, PresenceUser[]>) => void;
+  presenceMode: PresenceMode; // see others and be seen; hide me; hide others
+  setPresenceMode: (sessionId: string, m: PresenceMode) => void;
   setEditing: (e: Record<string, PresenceUser[]>) => void;
   highlight: string[];
   setHighlight: (ids: string[]) => void;
@@ -106,6 +116,15 @@ export const useStore = create<Store>((set, get) => ({
   setPresence: (presence) => set({ presence }),
   editing: {},
   setEditing: (editing) => set({ editing }),
+  cursors: [],
+  setCursors: (cursors) => set({ cursors }),
+  selections: {},
+  setSelections: (selections) => set({ selections }),
+  presenceMode: "all",
+  setPresenceMode: (sessionId, presenceMode) => {
+    try { localStorage.setItem(`tandem.presence.${sessionId}`, presenceMode); } catch { /* storage may be blocked */ }
+    set({ presenceMode });
+  },
   highlight: [],
   setHighlight: (highlight) => set({ highlight }),
   connected: false,
