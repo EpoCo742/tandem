@@ -20,6 +20,23 @@ import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
 
 const turnSlots = new Semaphore(config.maxConcurrentTurns);
 
+// A tool server that is broken stays broken across turns; the lane hears about it once per session,
+// again only when what is wrong changes or after it has recovered. The console gets every turn.
+const lastServerNote = new Map<string, string>();
+function noteServerOnce(req: TurnRequest, serverName: string, note: string | null) {
+  const key = `${req.sessionId}:${serverName}`;
+  if (note === null) {
+    lastServerNote.delete(key);
+    return;
+  }
+  if (lastServerNote.get(key) === note) {
+    console.log(`[tandem] turn ${req.turnId}: ${note} (already told the session)`);
+    return;
+  }
+  lastServerNote.set(key, note);
+  req.onNote(note);
+}
+
 function makeClient(token: string) {
   return new CopilotClient({
     gitHubToken: token,
@@ -220,10 +237,12 @@ export const copilotProvider: ProviderAdapter = {
           });
           for (const s of req.mcpServers) {
             const st = statuses.get(s.name);
-            if (!st || st.status === "pending") req.onNote(`External tool server "${s.name}" did not finish connecting within 25 seconds; its tools are not available this turn.`);
-            else if (st.status === "connected") console.log(`[tandem] turn ${req.turnId}: external tool server "${s.name}" connected; ${s.tools.length} tools available`);
-            else if (st.status === "needs-auth") req.onNote(`External tool server "${s.name}" needs an OAuth login the runtime cannot complete here; register it as a stdio server through mcp-remote, or supply a valid Authorization header.`);
-            else req.onNote(`External tool server "${s.name}" failed to connect${st.error ? `: ${st.error}` : ""}.`);
+            if (!st || st.status === "pending") noteServerOnce(req, s.name, `External tool server "${s.name}" did not finish connecting within 25 seconds; its tools are not available until it does.`);
+            else if (st.status === "connected") {
+              console.log(`[tandem] turn ${req.turnId}: external tool server "${s.name}" connected; ${s.tools.length} tools available`);
+              noteServerOnce(req, s.name, null);
+            } else if (st.status === "needs-auth") noteServerOnce(req, s.name, `External tool server "${s.name}" needs an OAuth login the runtime cannot complete here; register it as a stdio server through mcp-remote, or supply a valid Authorization header.`);
+            else noteServerOnce(req, s.name, `External tool server "${s.name}" failed to connect${st.error ? `: ${st.error}` : ""}.`);
           }
           console.log(`[tandem] turn ${req.turnId}: MCP status ${JSON.stringify(Object.fromEntries(statuses))}`);
         }
