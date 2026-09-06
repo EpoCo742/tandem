@@ -312,15 +312,67 @@ const reviewDecision = subA.events.filter((e) => e.type === "decision.recorded")
 assert(approvedEv.signers.length === 2 && reviewDecision.decisionId === approvedEv.decisionId && reviewDecision.agreedBy.includes(bobId) && reviewDecision.agreedBy.includes(carolId) && /is approved$/.test(reviewDecision.statement), "the approval is a decision agreed by the signers");
 const mdApproved = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(/\*\*Status:\*\* approved at v\d+, signed off by Bob \(.*\), Carol \(.*\) \(D-\d+\)/.test(mdApproved), "the export shows the approval with named signatures");
+
+// Publishing and the library. Before anything is published, only participants find the session's
+// decisions and components; publishing puts the document on a public page and the session into
+// everyone's library. Dave is in no session at all.
+const fails = (p) => p.then(() => null, (e) => e.message);
+const dave = client("dave");
+await dave.call("POST", "/auth/dev", { handle: "dave", name: "Dave" });
+const daveBefore = await dave.call("GET", "/api/v1/library?q=Kafka");
+assert(daveBefore.hits.length === 0 && daveBefore.scope.sessions === 0, "a person outside the session finds nothing from it in the library before it publishes");
+const aliceHits = await alice.call("GET", "/api/v1/library?q=Kafka");
+assert(aliceHits.hits.some((h) => h.kind === "decision" && h.sessionTitle === "Order platform v1" && h.people.includes("Alice")), "alice finds her session's Kafka decisions in the library with attribution");
+assert(aliceHits.hits.some((h) => h.kind === "component" && /Kafka/.test(h.title) && h.artifactId), "components are in the library and link to the model card");
+const recent = await alice.call("GET", "/api/v1/library?q=");
+assert(recent.hits.length > 0 && recent.hits.some((h) => h.kind === "decision") && recent.hits.some((h) => h.kind === "component"), "an empty query lists the most recent entries of every kind");
+assert(/403/.test(await fails(bob.call("POST", `/api/v1/sessions/${sessionId}/publish/${docCard.artifactId}`, {}))), "only the owner publishes");
+const pub1 = await alice.call("POST", `/api/v1/sessions/${sessionId}/publish/${docCard.artifactId}`, { note: "First public version" });
+assert(pub1.slug && pub1.publicationVersionNo === 1 && pub1.approved?.signers.length === 2 && /\/p\/[a-z0-9]+$/.test(pub1.url), "alice published the approved document; version 1 carries the signatures");
+const anon = await fetch(`${BASE}/api/v1/public/${pub1.slug}`);
+const pubDoc = await anon.json();
+assert(anon.status === 200 && pubDoc.version.markdown.includes("## Decision log") && pubDoc.version.approval.signerNames.join() === "Bob,Carol" && pubDoc.versions.length === 1 && pubDoc.sessionTitle === "Order platform v1", "the public page needs no sign-in and shows the frozen document with its signers");
+const rawMd = await fetch(`${BASE}/p/${pub1.slug}.md`);
+assert(rawMd.status === 200 && /text\/markdown/.test(rawMd.headers.get("content-type")) && (await rawMd.text()).includes("signed off by Bob, Carol"), "the raw Markdown is served with the approval in its header");
+assert(/already published/.test(await fails(alice.call("POST", `/api/v1/sessions/${sessionId}/publish/${docCard.artifactId}`, {}))), "publishing the same version twice is refused");
+await waitFor(() => subA.events.some((e) => e.type === "doc.published" && e.payload.publicationVersionNo === 1), "publish event");
+const daveAfter = await dave.call("GET", "/api/v1/library?q=Kafka");
+assert(daveAfter.hits.some((h) => h.kind === "document" && h.isPublic && h.link === `/p/${pub1.slug}`) && daveAfter.hits.some((h) => h.kind === "decision" && h.isPublic), "once published, the document and the session's decisions are in everyone's library");
+assert((await dave.call("GET", "/api/v1/library?q=Kafka&kind=document")).hits.every((h) => h.kind === "document"), "the library filters by kind");
 const dmNow = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === modelId).pop().payload.content;
 const afterApproval = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${modelId}/versions`, { content: { ...dmNow, entities: [...dmNow.entities, { name: "shipments", fields: [{ name: "id", type: "uuid", pk: true }], derivedFrom: [] }] }, rationale: "after approval" });
 assert(afterApproval.status === "applied", "alice's edit after approval applies");
 const mdDraft = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(/\*\*Status:\*\* draft \(previously approved v\d+ by Bob, Carol; since then: Data model changed \(v\d+, Alice\)\)/.test(mdDraft), "a canvas change after approval moves the document back to draft with a note of what changed");
+
 const withdrawNothing = await alice.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/withdraw`, { reason: "x" }).catch((e) => ({ error: String(e.message) }));
 assert(withdrawNothing.error && /nothing to withdraw/.test(withdrawNothing.error), "a draft has nothing to withdraw");
 const noteResolved = await bob.call("POST", `/api/v1/sessions/${sessionId}/proposals/${carolEdit.proposalId}/resolve`, { decision: "reject" }).catch(() => null);
 assert(noteResolved === null || noteResolved.status, "carol's suggestion was settled by its approver");
+
+// The page keeps every version: a recompiled document publishes as version 2 (not signed off),
+// version 1 stays with its approval; unpublishing takes the page down and the session out of
+// other people's library; publishing again restores the address; an approval on a live page
+// publishes on its own.
+const compileTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/compile`);
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > compileTurns, "recompile turn");
+const pub2 = await alice.call("POST", `/api/v1/sessions/${sessionId}/publish/${docCard.artifactId}`, { note: "Recompiled after the data model change" });
+assert(pub2.publicationVersionNo === 2 && pub2.approved === null && pub2.slug === pub1.slug && pub2.docVersionNo > pub1.docVersionNo, "a newer document publishes as version 2 at the same address, marked not signed off");
+const pubLatest = await (await fetch(`${BASE}/api/v1/public/${pub1.slug}`)).json();
+const pubV1 = await (await fetch(`${BASE}/api/v1/public/${pub1.slug}?v=1`)).json();
+assert(pubLatest.version.no === 2 && pubLatest.version.approval === null && pubV1.version.approval?.decisionLabel && pubLatest.versions.length === 2, "the page shows the latest version and keeps version 1 with its approval");
+const revoked = await alice.call("POST", `/api/v1/sessions/${sessionId}/publish/${docCard.artifactId}/revoke`);
+assert(revoked.revoked === true && (await fetch(`${BASE}/api/v1/public/${pub1.slug}`)).status === 410, "unpublishing takes the page down (410)");
+await waitFor(() => subA.events.some((e) => e.type === "doc.unpublished"), "unpublish event");
+assert((await dave.call("GET", "/api/v1/library?q=Kafka")).hits.length === 0, "an unpublished session leaves other people's library");
+const pub3 = await alice.call("POST", `/api/v1/sessions/${sessionId}/publish/${docCard.artifactId}`, {});
+assert(pub3.slug === pub1.slug && pub3.publicationVersionNo === 3, "publishing again restores the same address as version 3");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/request`, { reviewers: [bobId] });
+const autoSign = await bob.call("POST", `/api/v1/sessions/${sessionId}/review/${docCard.artifactId}/sign`);
+assert(autoSign.approved === true, "bob's signature approves the recompiled document");
+const pubAuto = await (await fetch(`${BASE}/api/v1/public/${pub1.slug}`)).json();
+assert(pubAuto.version.no === 4 && pubAuto.version.approval?.decisionLabel === autoSign.decisionLabel && /on approval/.test(pubAuto.version.note), "an approval publishes a new version on its own while the page is live");
 
 // Fork: a v2 session starts from the current canvas and agreed decisions.
 const fork = await alice.call("POST", `/api/v1/sessions/${sessionId}/fork`, {});
@@ -336,7 +388,6 @@ const forkMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
 assert(forkMeta.me.consented === false && forkMeta.forkedFrom.sessionId === sessionId, "participants must re-consent in the fork");
 
 // Managing sessions: rename, archive, delete are the owner's; the fork is the guinea pig so the main session stays.
-const fails = (p) => p.then(() => null, (e) => e.message);
 assert(/403/.test(await fails(bob.call("PATCH", `/api/v1/sessions/${fork.id}`, { title: "Bob's" }))), "a non-owner cannot rename a session");
 const renamedSession = await alice.call("PATCH", `/api/v1/sessions/${fork.id}`, { title: "Order platform v2 (renamed)" });
 assert(renamedSession.title === "Order platform v2 (renamed)", "the owner renamed the fork");
@@ -372,6 +423,18 @@ assert(!(await bob.call("GET", "/api/v1/sessions")).some((s) => s.id === fork.id
 assert(/404/.test(await fails(alice.call("GET", `/api/v1/sessions/${fork.id}/events`))), "a deleted session has no ledger");
 const mainStill = await alice.call("GET", `/api/v1/sessions/${sessionId}`);
 assert(mainStill.id === sessionId && mainStill.status === "active", "the original session is untouched by deleting its fork");
+
+// The library through the AI: precedent from another session, cited and copied in with its origin.
+const subL = subscribe(bob, speakerSession);
+await subL.ready;
+const libTurns = subL.events.filter((e) => e.type === "turn.completed").length;
+await bob.call("POST", `/api/v1/sessions/${speakerSession}/messages`, { text: "What did earlier sessions decide about Kafka? Pull in the first one." });
+await waitFor(() => subL.events.filter((e) => e.type === "turn.completed").length > libTurns, "library turn");
+const libReply = subL.events.filter((e) => e.type === "ai.message").pop().payload.text;
+assert(/Order platform v1/.test(libReply) && /agreed by/.test(libReply), "the AI cites the earlier session and who agreed");
+const copied = subL.events.filter((e) => e.type === "decision.recorded").pop().payload;
+assert(copied.importedFrom?.sessionId === sessionId && copied.importedFrom.kind === "decision" && copied.status === "proposed" && /Kafka/.test(copied.statement), "the copied decision carries where it came from");
+subL.ws.close();
 
 // External tools: Alice registers the demo MCP server (a stand-in for Atlassian); Bob has none.
 const demoDir = fileURLToPath(new URL("../data-smoke/mcp-demo", import.meta.url));

@@ -2,6 +2,7 @@ import { ulid } from "ulid";
 import { nextDecisionLabel, type MarkdownContent } from "@tandem/shared";
 import { appendEvent, getState } from "./ledger.js";
 import { createCommit } from "./governance.js";
+import { livePublications, publishDocument } from "./publish.js";
 
 // Review and sign-off for the design document. The document has a status (draft, in review,
 // approved) derived by the reducer from these events; sign-offs are named, and approval is
@@ -65,6 +66,8 @@ export function signOff(sessionId: string, artifactId: string, userId: string): 
   });
   appendEvent(sessionId, { type: "review.approved", actorKind: "system", actorUserId: null, causedBy: evidence, payload: { artifactId, versionNo: doc.current.versionNo, decisionId, decisionLabel: label, signers } });
   createCommit(sessionId, userId, null, `Design document v${doc.current.versionNo} approved (${label})`);
+  // A document that is already out there gets its approved version published as a matter of course.
+  if (livePublications(sessionId).some((p) => p.artifactId === artifactId)) publishDocument(sessionId, artifactId, null, `Published on approval (${label})`);
   return { ok: true, approved: true, signed, needed, decisionLabel: label };
 }
 

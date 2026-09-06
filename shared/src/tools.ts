@@ -1,4 +1,10 @@
 import { z } from "zod";
+import type { LibraryHit } from "./library.js";
+
+/** Provenance for anything copied out of the library; pass a search hit's importRef through unchanged. */
+export const importedFromInput = z
+  .object({ sessionId: z.string(), sessionTitle: z.string(), kind: z.enum(["decision", "component", "constraint", "document"]), refId: z.string() })
+  .describe("Where this was copied from: the importRef of a library_search hit, unchanged");
 
 // Canvas tools the AI can call. Schemas are shared by every provider adapter
 // and by the executor's validation.
@@ -91,6 +97,7 @@ export const upsertComponentsInput = z.object({
         description: z.string().optional(),
         technology: z.string().optional().describe("e.g. 'Kafka', 'PostgreSQL 16', 'Node service'"),
         boundary: z.string().optional().describe("Boundary id (a system, team or trust zone); created if new"),
+        importedFrom: importedFromInput.optional(),
       }),
     )
     .min(1),
@@ -137,6 +144,7 @@ export const recordDecisionInput = z.object({
     .optional()
     .describe("ADR options considered, with the chosen one marked"),
   consequences: z.string().optional().describe("ADR consequences: what becomes easier or harder because of this decision"),
+  importedFrom: importedFromInput.optional(),
 });
 
 const constraintKind = z.enum(["must", "must_not", "target"]);
@@ -153,6 +161,7 @@ export const upsertConstraintsInput = z.object({
         value: z.string().optional().describe("The measurable part, e.g. 'p95 < 200 ms'"),
         source: z.string().optional().describe("Event id of the message, or artifact id of the uploaded document, that established it"),
         exceptionTo: z.string().optional().describe("Id of the constraint this one relaxes (C-01). Use this instead of editing someone else's constraint; it is proposed to whoever set that constraint"),
+        importedFrom: importedFromInput.optional(),
       }),
     )
     .min(1),
@@ -252,6 +261,13 @@ export const pinArtifactInput = z.object({
   pinned: z.boolean(),
 });
 
+export const librarySearchInput = z.object({
+  query: z.string().describe("A few words: a technology, a concern, a component name. Empty returns the most recent entries"),
+  kind: z.enum(["decision", "component", "constraint", "document"]).optional(),
+  limit: z.number().int().min(1).max(20).optional(),
+  excludeThisSession: z.boolean().optional().describe("Leave out this session's own entries (when looking for precedent elsewhere)"),
+});
+
 export const toolSchemas = {
   create_artifact: createArtifactInput,
   update_artifact: updateArtifactInput,
@@ -269,6 +285,7 @@ export const toolSchemas = {
   remove_constraints: removeConstraintsInput,
   propose_alternatives: proposeAlternativesInput,
   set_as_is: setAsIsInput,
+  library_search: librarySearchInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -299,6 +316,8 @@ export const toolDescriptions: Record<ToolName, string> = {
     "Record the architecture as it exists today (read from a repository's manifests or a deployment file) as the model's as-is baseline. When the model is still empty it becomes the model too; otherwise the model stays the target state and the 'As-is vs to-be' view shows the difference. Read only manifests (package.json, docker-compose, go.mod, pom.xml, terraform, k8s), never whole source trees.",
   propose_alternatives:
     "Put two or three candidate architectures side by side on one card, each a complete model of its own with what speaks for and against it and which constraints it meets or puts at risk. The architecture model is not changed; people choose with the card's Decide button, the majority's pick becomes the model and the decision is recorded automatically.",
+  library_search:
+    "Search the organisation library: decisions, model components, constraints and published design documents from the speaker's other sessions and from every session that published a document. Read only. Cite hits by session title and the people named; to copy one in, use record_decision, upsert_components or upsert_constraints with the hit's importRef as importedFrom.",
   remove_constraints: "Drop constraints that no longer apply. Removing a constraint someone else set is proposed to that person. Prefer an exception (upsert_constraints with exceptionTo) or a decision when people disagree.",
 };
 
@@ -317,4 +336,5 @@ export type ToolResult =
   | { status: "constraints_updated"; artifactId: string; versionNo: number; constraints: { id: string; statement: string }[] }
   | { status: "alternatives_proposed"; artifactId: string; candidates: { id: string; title: string }[] }
   | { status: "as_is_set"; artifactId: string; versionNo: number; components: number; relationships: number; modelReplaced: boolean; diffViewArtifactId: string }
+  | { status: "library_results"; hits: LibraryHit[]; searched: { sessions: number; publicSessions: number } }
   | { status: "error"; message: string };

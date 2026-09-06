@@ -195,6 +195,11 @@ const STAGES = [
     const r = await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/review/${doc.artifactId}/sign`);
     console.log(`   Bob signs off -> approved, recorded as ${r.decisionLabel}. The next stage changes the model, which moves the document back to draft with a note`);
   }],
+  ["publish", "the approved document goes on a public page; every version is kept with its signatures", async () => {
+    const doc = await latestArtifact("design_doc");
+    const r = await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/publish/${doc.artifactId}`, { note: "First public version" });
+    console.log(`   Alice publishes -> ${r.url} (version ${r.publicationVersionNo}, ${r.approved ? `approved as ${r.approved.decisionLabel}` : "not signed off"}). Open it in a private window: no sign-in needed. The session is now in everyone's library`);
+  }],
   ["alternatives", "three candidate architectures side by side; a vote picks one and the model follows", async () => {
     const n = await completedTurns();
     await say(alice, "Explore alternatives for the order pipeline.");

@@ -4,6 +4,7 @@ import type { AlternativesContent, ConstraintsContent, DecisionPointContent, Ses
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
+import { searchLibrary } from "../library.js";
 
 // Binds the shared tool schemas to a session/turn. The same handlers serve every provider.
 
@@ -96,6 +97,7 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
           setBy: i >= 0 ? list[i]!.setBy : fromDocument ? null : scope.onBehalfOf,
           source: raw.source ?? input.derivedFrom[0],
           ...(raw.exceptionTo ? { exceptionTo: raw.exceptionTo } : {}),
+          ...(raw.importedFrom ? { importedFrom: raw.importedFrom } : {}),
           derivedFrom: [...new Set([...(i >= 0 ? list[i]!.derivedFrom : []), ...input.derivedFrom])],
         };
         if (i >= 0) list[i] = { ...list[i]!, ...next };
@@ -225,7 +227,7 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
         actorUserId: scope.onBehalfOf,
         turnId: scope.turnId,
         causedBy: input.evidence.length ? input.evidence : scope.batchEventIds,
-        payload: { decisionId, label, statement: input.statement, status, supersedes: input.supersedes, agreedBy: input.agreedBy, evidence: input.evidence, about: input.about ?? [], context: input.context, options: input.options, consequences: input.consequences },
+        payload: { decisionId, label, statement: input.statement, status, supersedes: input.supersedes, agreedBy: input.agreedBy, evidence: input.evidence, about: input.about ?? [], context: input.context, options: input.options, consequences: input.consequences, ...(input.importedFrom ? { importedFrom: input.importedFrom } : {}) },
       });
       return { status: "recorded", decisionId, label };
     }),
@@ -290,6 +292,12 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
         payload: { question: input.question, addressedTo: input.addressedTo, onBehalfOf: scope.onBehalfOf },
       });
       return { status: "asked" };
+    }),
+
+    // Read only, scoped to the person the turn acts for: their sessions plus everything published.
+    bind("library_search", async (input) => {
+      const r = searchLibrary(scope.onBehalfOf, input.query, { kind: input.kind, limit: input.limit ?? 8, excludeSessionId: input.excludeThisSession ? scope.sessionId : undefined });
+      return { status: "library_results", hits: r.hits, searched: r.scope };
     }),
 
     bind("read_artifact", async (input) => {

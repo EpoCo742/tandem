@@ -12,6 +12,7 @@ import { registerAuthRoutes } from "./auth.js";
 import { registerCredentialRoutes } from "./routes/credentials.js";
 import { registerSessionRoutes } from "./routes/sessions.js";
 import { registerMcpRoutes } from "./routes/mcp.js";
+import { registerLibraryRoutes } from "./routes/library.js";
 import { rehydrateDeadlines } from "./async.js";
 import { registerLedgerSocket } from "./ws.js";
 import { registerCollabSocket, hocuspocus } from "./collab.js";
@@ -33,6 +34,7 @@ async function main() {
   await registerCredentialRoutes(app);
   await registerSessionRoutes(app);
   await registerMcpRoutes(app);
+  await registerLibraryRoutes(app);
   await registerUploadRoutes(app);
   await registerLedgerSocket(app);
   await registerCollabSocket(app);

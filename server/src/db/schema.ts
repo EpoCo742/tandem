@@ -109,6 +109,38 @@ export const uploads = sqliteTable("uploads", {
   createdAt: text("created_at").notNull(),
 });
 
+// A published design document: one slug for its life, a frozen copy per version.
+export const publications = sqliteTable("publications", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  artifactId: text("artifact_id").notNull(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  ownerUserId: text("owner_user_id").notNull(),
+  revokedAt: text("revoked_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const publicationVersions = sqliteTable(
+  "publication_versions",
+  {
+    id: text("id").primaryKey(),
+    publicationId: text("publication_id").notNull(),
+    no: integer("no").notNull(),
+    docVersionNo: integer("doc_version_no").notNull(),
+    commitId: text("commit_id"),
+    title: text("title").notNull(),
+    markdown: text("markdown").notNull(),
+    publishedBy: text("published_by"),
+    publishedByName: text("published_by_name").notNull(),
+    publishedAt: text("published_at").notNull(),
+    note: text("note"),
+    approval: text("approval"), // JSON {decisionLabel, signers, signerNames} or null when published without sign-off
+  },
+  (t) => [index("publication_versions_pub_idx").on(t.publicationId)],
+);
+
 export const yjsDocuments = sqliteTable("yjs_documents", {
   name: text("name").primaryKey(),
   state: blob("state", { mode: "buffer" }).notNull(),

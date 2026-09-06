@@ -115,6 +115,27 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .session-row.archived { opacity: .7; }
 .archived-banner { grid-column: 1 / -1; background: var(--panel-2); border-bottom: 1px solid var(--line); padding: 6px 14px; font-size: 13px; color: var(--ink-2); }
 
+/* library and published pages */
+.library .hit { cursor: pointer; padding: 12px 14px; }
+.library .hit:hover { background: var(--panel-2); }
+.library .snippet { margin-top: 4px; font-size: 13px; color: var(--ink-2); }
+.library mark { background: transparent; color: var(--accent); font-weight: 600; }
+.chip.kind-decision { color: var(--ok); }
+.chip.kind-component { color: var(--link); }
+.chip.kind-constraint { color: var(--warn); }
+.chip.kind-document { color: var(--accent); }
+.published { max-width: 820px; }
+.pub-head { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 20px; }
+.pub-body { font-size: 15px; line-height: 1.55; }
+.pub-body h1 { font-size: 26px; margin: 26px 0 10px; }
+.pub-body h2 { font-size: 20px; margin: 24px 0 8px; }
+.pub-body h3 { font-size: 16px; margin: 18px 0 6px; }
+.pub-body table { border-collapse: collapse; margin: 8px 0; font-size: 13.5px; }
+.pub-body th, .pub-body td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+.pub-body pre { overflow-x: auto; }
+.pub-foot { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 10px; }
+.publish { border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 8px; }
+
 /* pages */
 .page { max-width: 880px; margin: 0 auto; padding: 32px 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); padding: 16px; margin-bottom: 14px; }

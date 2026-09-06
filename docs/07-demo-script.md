@@ -306,6 +306,34 @@ The card drops to "draft" with "Back to draft after v1 was approved: Architectur
 
 Point at: the Status chip on the card; the reviewer's edit arriving as a proposal; the Status line in the export.
 
+## Stage 12g: publishing
+
+Feature: the design document gets a public page at a stable address, no sign-in needed. Every publish freezes a copy as a numbered version that says which document version it is and who signed it. Approval publishes on its own while the page is live. The owner can unpublish; publishing again restores the same address.
+
+| Who | Does |
+|---|---|
+| Alice | On the **Design document** card, below the review line, clicks **Publish**. The card shows "published · v1 · approved", the link, and **copy**. |
+| Anyone | Opens the link in a private window: the document rendered with its diagrams, "approved · D-06, signed off by Bob", a version picker, and a `.md` link for the raw Markdown. |
+| Alice | Changes something on the canvas and recompiles. The card says "v2 is newer than the page" with **Publish v2**; she publishes. The page shows version 2 "not signed off"; version 1 is still in the picker with its approval. |
+| Bob | Signs off v2 when Alice requests review again: version 3 appears on the page by itself, "published on approval". |
+| Alice | **Unpublish**: the link answers "no longer published". **Publish again** brings it back at the same address. |
+
+Point at: the frozen copy (the session moves on, the page does not); the signers on each version; the raw `.md` for anyone who wants to put it somewhere else.
+
+## Stage 12h: the library
+
+Feature: **library** in the top bar searches decisions, components, constraints and published documents across sessions: the sessions you are in, plus every session that has published a document. Inside a session, the AI can search the same library, cite what it finds, and copy an entry in with its origin attached.
+
+| Who | Does |
+|---|---|
+| Alice | Top bar, **library**. Types "Kafka": decisions from this session with who agreed, the Kafka component, and the published document. Clicks the component: the session opens on the Architecture model card. |
+| Dave (not in the session) | Logs in, opens the library, searches "Kafka": only the published document and the decisions of sessions that published; nothing from unpublished sessions. |
+| Bob | In a second session, says "What did earlier sessions decide about Kafka? Pull in the first one." |
+
+Fake architect: searches the library (leaving out the current session), replies "Earlier sessions on Kafka: D-01 … (decision in "Order platform v1", agreed by Alice, Bob)", and records the first decision here as proposed with a "from Order platform v1" link in the Decisions tab. A real model gets the same tool and the same rule: cite, never invent precedent, and copy with `importedFrom`.
+
+Point at: attribution on every hit; the "from …" chip on copied decisions, components and constraints; the AI turn used one read-only search.
+
 ## Stage 12e: alternatives side by side
 
 Feature: "explore alternatives" puts two or three candidate architectures on one card, each with its own model, the case for and against, and the constraints it meets or strains. Choosing is a vote; the winner becomes the architecture model without an AI turn, the losers stay folded on the card, and the decision records every candidate as an option considered.

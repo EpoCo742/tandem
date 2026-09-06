@@ -1,5 +1,6 @@
 import { dataModelMarkdown, manifestPaths, scanRepo, slugId, type ArchModelContent, type DataModelContent, type RepoFile, type ToolResult } from "@tandem/shared";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
+import type { LibraryHit } from "@tandem/shared";
 import { callMcpTool } from "../mcp.js";
 
 // Offline provider for local development and tests. It reads the rendered prompt,
@@ -438,6 +439,29 @@ export const fakeProvider: ProviderAdapter = {
       const r = (await call("set_as_is", { source, components: scan.components, relationships: scan.relationships, notes: scan.notes, derivedFrom: [asIsMsg.eventId], rationale: `As-is read from ${source} for ${asIsMsg.speaker}` })) as { status: string; components?: number; modelReplaced?: boolean };
       if (r.status === "as_is_set") await emit(`Captured the as-is: ${scan.components.map((c) => c.name).join(", ")}${r.modelReplaced ? ". The model now equals it; changes from here are the target state, and the As-is vs to-be view shows them." : ". The model keeps the target state; the As-is vs to-be view shows the difference."}`);
       else await emit(`Could not record the as-is: ${r.status}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0j. Precedent: "what did earlier sessions decide about X" searches the library and cites the
+    //     hits; "pull in" / "import" / "reuse" copies the first decision in with its origin attached.
+    const precedent = batch.find((m) => /\b(earlier|previous|other|past) sessions?\b|\blibrary\b|\bprecedent\b/i.test(m.text));
+    if (precedent) {
+      const topic = (precedent.text.match(/\babout\s+([^?.!]+)/i)?.[1] ?? precedent.text.replace(/\b(what|did|have|has|do|does|earlier|previous|other|past|sessions?|decide[ds]?|the|library|precedent|for|on|about|pull|in|import|reuse|bring|first|one|it|please|search)\b/gi, " ")).replace(/[?.!,]/g, " ").trim();
+      const wantsImport = /\b(pull (it )?in|import|reuse|bring (it )?in|copy)\b/i.test(precedent.text);
+      const r = (await call("library_search", { query: topic, limit: 5, excludeThisSession: true })) as { status: string; hits?: LibraryHit[] };
+      const hits = r.hits ?? [];
+      if (hits.length === 0) {
+        await emit(`Nothing in the library matches "${topic}" outside this session.`);
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const cite = (h: LibraryHit) => `${h.title} (${h.kind} in "${h.sessionTitle}"${h.people.length ? `, ${h.kind === "decision" ? "agreed by" : h.kind === "constraint" ? "set by" : "signed by"} ${h.people.join(", ")}` : ""})`;
+      await emit(`Earlier sessions on "${topic}": ${hits.map(cite).join("; ")}.`);
+      const first = hits.find((h) => h.kind === "decision");
+      if (wantsImport && first) {
+        const statement = first.title.replace(/^D-\d+\s+/, "");
+        const rec = (await call("record_decision", { statement, status: "proposed", agreedBy: [userIdFor(req.context.prompt, precedent.speaker)], supersedes: null, evidence: [precedent.eventId], context: `Copied from session "${first.sessionTitle}", where it was agreed by ${first.people.join(", ") || "the participants"}.`, importedFrom: first.importRef })) as { status: string; label?: string };
+        if (rec.status === "recorded") await emit(` Brought the first one in as ${rec.label} (proposed, from "${first.sessionTitle}").`);
+      }
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 

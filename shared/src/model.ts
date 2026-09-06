@@ -1,4 +1,5 @@
 import type { Section } from "./artifacts.js";
+import type { ImportedFrom } from "./library.js";
 
 // The architecture model: one per session, the source of truth for structure. Diagrams are
 // views generated from it, so a rename in the model shows up in every view, and decisions,
@@ -15,6 +16,7 @@ export interface ModelComponent {
   description?: string;
   technology?: string;
   boundary?: string; // ModelBoundary.id
+  importedFrom?: ImportedFrom; // copied in from another session through the library
   derivedFrom: string[];
 }
 
@@ -257,7 +259,7 @@ export function upsertComponents(model: ArchModelContent, incoming: IncomingComp
     const id = raw.id ?? slugId(raw.name);
     if (raw.boundary && !boundaries.some((b) => b.id === raw.boundary)) boundaries.push({ id: raw.boundary, name: raw.boundary.replace(/[-_]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()), kind: "system" });
     const i = components.findIndex((c) => c.id === id);
-    const next: ModelComponent = { id, name: raw.name, kind: raw.kind, description: raw.description, technology: raw.technology, boundary: raw.boundary, derivedFrom: [...new Set([...(i >= 0 ? components[i]!.derivedFrom : []), ...(raw.derivedFrom ?? []), ...derivedFrom])] };
+    const next: ModelComponent = { id, name: raw.name, kind: raw.kind, description: raw.description, technology: raw.technology, boundary: raw.boundary, importedFrom: raw.importedFrom, derivedFrom: [...new Set([...(i >= 0 ? components[i]!.derivedFrom : []), ...(raw.derivedFrom ?? []), ...derivedFrom])] };
     if (i >= 0) components[i] = { ...components[i]!, ...stripUndefined(next) };
     else components.push(next);
   }

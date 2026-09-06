@@ -1,3 +1,4 @@
+import type { ImportedFrom, PublicationState } from "./library.js";
 import type {
   AnyLedgerEvent,
   ArtifactType,
@@ -110,6 +111,7 @@ export interface Decision {
   context: string;
   options: { title: string; tradeoffs?: string; chosen?: boolean }[];
   consequences: string;
+  importedFrom?: ImportedFrom;
   eventId: string;
   createdAt: string;
 }
@@ -173,6 +175,7 @@ export interface SessionState {
   uploads: Record<string, UploadInfo>;
   externalCalls: Record<string, ExternalCall>;
   reviews: Record<string, ReviewState>; // by design document artifact id
+  publications: Record<string, PublicationState>; // by design document artifact id
   lastSeq: number;
   eventsById: Record<string, AnyLedgerEvent>;
 }
@@ -246,6 +249,7 @@ export function emptyState(sessionId: string): SessionState {
     uploads: {},
     externalCalls: {},
     reviews: {},
+    publications: {},
     lastSeq: 0,
     eventsById: {},
   };
@@ -276,6 +280,24 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       s.status = p.archived ? "archived" : "active";
       const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "someone";
       s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: p.archived ? `${who} archived the session; it is read only until it is reopened` : `${who} reopened the session`, turnId: ev.turnId, createdAt: ev.createdAt }];
+      return s;
+    }
+    case "doc.published": {
+      const p = ev.payload as Payloads["doc.published"];
+      const cur = s.publications[p.artifactId];
+      const version = { publicationVersionNo: p.publicationVersionNo, docVersionNo: p.docVersionNo, at: ev.createdAt, byUserId: ev.actorUserId, approved: p.approved, ...(p.note ? { note: p.note } : {}) };
+      s.publications = { ...s.publications, [p.artifactId]: { publicationId: p.publicationId, artifactId: p.artifactId, slug: p.slug, status: "live", versions: [...(cur?.versions ?? []), version] } };
+      const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "Approval";
+      const title = s.artifacts[p.artifactId]?.title ?? "the design document";
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${who} published ${title} v${p.docVersionNo} as version ${p.publicationVersionNo} of its public page${p.approved ? ` (approved, ${p.approved.decisionLabel})` : " (not signed off)"}`, turnId: ev.turnId, createdAt: ev.createdAt }];
+      return s;
+    }
+    case "doc.unpublished": {
+      const p = ev.payload as Payloads["doc.unpublished"];
+      const cur = s.publications[p.artifactId];
+      if (cur) s.publications = { ...s.publications, [p.artifactId]: { ...cur, status: "revoked" } };
+      const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "someone";
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${who} took the public page of ${s.artifacts[p.artifactId]?.title ?? "the design document"} down`, turnId: ev.turnId, createdAt: ev.createdAt }];
       return s;
     }
     case "participant.joined": {
@@ -516,6 +538,7 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
         context: p.context ?? "",
         options: p.options ?? [],
         consequences: p.consequences ?? "",
+        ...(p.importedFrom ? { importedFrom: p.importedFrom } : {}),
         eventId: ev.id,
         createdAt: ev.createdAt,
       };

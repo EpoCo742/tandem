@@ -1,3 +1,5 @@
+import type { ImportedFrom } from "./library.js";
+
 // Ledger event catalogue. Every persisted change in a session is one of these.
 // Wire shape is identical on the server, over WebSocket, and in the client reducer.
 
@@ -81,6 +83,8 @@ export type Payloads = {
   "session.created": { title: string; policy: Policy; payerMode: PayerMode; pinnedModel: string; forkedFrom?: { sessionId: string; commitId: string | null; title: string } };
   "session.renamed": { title: string; previous: string }; // the owner gave the session a new title
   "session.archived": { archived: boolean }; // the owner closed the session (read only) or reopened it
+  "doc.published": { publicationId: string; artifactId: string; slug: string; docVersionNo: number; publicationVersionNo: number; approved: { decisionLabel: string; signers: string[] } | null; note?: string }; // a frozen copy of the design document went on its public page
+  "doc.unpublished": { publicationId: string; artifactId: string; slug: string }; // the public page was taken down
   "participant.joined": { role: Role; name: string; color: string; avatarUrl?: string };
   "participant.left": Record<string, never>;
   "participant.consented": { providers: string[] };
@@ -141,6 +145,7 @@ export type Payloads = {
     context?: string; // ADR: the situation that called for a decision
     options?: { title: string; tradeoffs?: string; chosen?: boolean }[]; // ADR: what was considered
     consequences?: string; // ADR: what follows from it
+    importedFrom?: ImportedFrom; // copied in from another session through the library
   };
   "decision.voted": { decisionPointArtifactId: string; optionId: string };
   "decision.deadline_set": { decisionPointArtifactId: string; at: string };

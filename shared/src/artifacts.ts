@@ -1,4 +1,5 @@
 import type { ArtifactType, Option, Provenance } from "./events.js";
+import type { ImportedFrom } from "./library.js";
 import { modelToText, type ArchModelContent, type ViewContent } from "./model.js";
 
 export interface Section {
@@ -75,6 +76,7 @@ export interface Constraint {
   setBy: string | null; // participant id, or null when it came from a document
   source?: string; // event id of the message, or artifact id of the upload, that established it
   exceptionTo?: string; // this constraint relaxes that one (C-01); agreed by whoever set it
+  importedFrom?: ImportedFrom; // copied in from another session through the library
   derivedFrom: string[];
 }
 

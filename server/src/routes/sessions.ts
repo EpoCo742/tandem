@@ -21,6 +21,7 @@ import { mintCollabToken } from "../crypto.js";
 import { exportMarkdown } from "../export.js";
 import { adoptAlternative, openAlternativesDecision } from "../alternatives.js";
 import { requestReview, signOff, withdrawReview } from "../review.js";
+import { publishDocument, revokePublication } from "../publish.js";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -71,6 +72,25 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       .orderBy(desc(schema.sessions.updatedAt))
       .all();
     return rows.map(({ s, role }) => ({ id: s.id, title: s.title, status: s.status, role, policy: s.policy, payerMode: s.payerMode, pinnedModel: s.pinnedModel, provider: s.provider, createdAt: s.createdAt, updatedAt: s.updatedAt }));
+  });
+
+  // Publish the design document (owner only): a public page with a frozen copy per version.
+  app.post<{ Params: { id: string; artifactId: string }; Body: { note?: string } | undefined }>("/api/v1/sessions/:id/publish/:artifactId", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    ownerOr403(req.params.id, user.id);
+    const r = publishDocument(req.params.id, req.params.artifactId, user.id, req.body?.note);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    return r;
+  });
+
+  app.post<{ Params: { id: string; artifactId: string } }>("/api/v1/sessions/:id/publish/:artifactId/revoke", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    ownerOr403(req.params.id, user.id);
+    const r = revokePublication(req.params.id, req.params.artifactId, user.id);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    return r;
   });
 
   // Rename: owner only. The ledger carries the change so open tabs pick it up live.

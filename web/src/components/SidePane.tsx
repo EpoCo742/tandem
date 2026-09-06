@@ -219,6 +219,7 @@ function Decisions() {
           <div>{d.statement}</div>
           {d.about.length > 0 && <div style={{ marginTop: 3 }}>{d.about.map((id) => <span key={id} className="chip" style={{ marginRight: 4, color: "var(--ink-2)", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setFocus(id); }}>{cname(id)}</span>)}</div>}
           {d.supersedes && <div className="mono">supersedes {state.decisions[d.supersedes]?.label}</div>}
+          {d.importedFrom && <div className="mono" title={`Copied from session "${d.importedFrom.sessionTitle}" (${d.importedFrom.refId}) through the library`}>from <a href={`/s/${d.importedFrom.sessionId}`} onClick={(e) => e.stopPropagation()}>{d.importedFrom.sessionTitle}</a></div>}
           {(d.context || d.options.length > 0 || d.consequences) && (
             <details className="adr" onClick={(e) => e.stopPropagation()}>
               <summary className="mono">record</summary>

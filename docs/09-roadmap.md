@@ -4,7 +4,7 @@ Plan of record from 2026-09-05. Everything built so far is listed in `05-poc-pla
 
 ## Where the product stands
 
-Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger.
+Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger. Publishing shipped the same day: a design document gets a public page at a stable address with a frozen, numbered copy per version and the signatures on each; approval publishes on its own while the page is live; the owner can unpublish and restore. C1, the organisation library, shipped with it (see below); B4 notifications is next, then C2.
 
 The POC does the moment of collaboration well: two to five people in one AI conversation, turns batched and attributed, a governed canvas with proposals and decision points, versions and forks, a compiled design document, per-person AI credentials and per-person external tools with gated writes, a running brief for long sessions, and an export with provenance.
 
@@ -122,6 +122,8 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 **Effort.** Five days. Depends on A1 and A2 for anything worth indexing.
 
+**Status (2026-09-05): shipped.** SQLite FTS5 index over decisions, components, constraints and published documents, rebuilt per session from the ledger whenever the ledger moved. Scope: the sessions a person is in, plus every session that has a live published document (publishing is how a session enters the organisation's memory). A `/library` page with kind filters and links into the session on the right card; a read-only `library_search` tool with a prompt rule to cite and never invent precedent; `importedFrom` on decisions, components and constraints, shown as a "from …" chip. Not done: a deterministic "copy into session" button on the library page (the AI path is one read-only search plus one record call); ranking is bm25 with the title weighted.
+
 ### C2. Templates
 
 **What.** Session types (new service, integration, data migration, platform change) that seed the constraints card, the expected artifacts, and a completeness gauge the AI drives toward, so a session ends with a whole design instead of answers to whatever was last said.
@@ -132,7 +134,6 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 ## Carried over from the earlier backlog
 
-- **Publishing design documents.** Shipped so far: sessions are private to their participants (creator plus accepted invites); a design document leaves a session only by export (Markdown) or by the AI committing it to a repository through a GitHub MCP tool. A public, versioned, read-only page per approved design document (publish on sign-off, one URL per document, a version list, revocable) is a natural next item after B4 and overlaps with C1: the library needs the same "published, approved documents" index. Estimate two to three days.
 - **Constraint check after hand edits.** Direct edits of the model or of free Mermaid cards are not checked against the constraints; only the AI's own changes are. The cheap version tells the AI on its next turn that the model changed by hand so it re-checks; the user's concern is that this spends tokens on every turn after a manual edit. Park until there is evidence of hand edits breaking constraints.
 - **Sandboxed MCP servers.** Stdio servers run as children of the Tandem server; production needs a per-user sandbox. Production item; unchanged.
 - **Copilot runtime MCP path on a real seat.** Wired and typechecked, not yet exercised on a seat. Needs a person with an Atlassian or GitHub MCP registered to ask the AI to publish something. Half a day, user-driven.
@@ -155,7 +156,7 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 | 7 | B3 Review and sign-off | 3 | A2 |
 | 8 | A5 As-is from code | 4 | A1 |
 | 9 | B4 Notifications | 2 | B1 |
-| 10 | C1 Organisation library | 5 | A1, A2 |
+| 10 | C1 Organisation library (shipped, with publishing) | 5 | A1, A2 |
 | 11 | C2 Templates | 3 | A3 |
 
 Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices. Each item adds its stage to `07-demo-script.md` and its assertions to the smoke test before it is called done.

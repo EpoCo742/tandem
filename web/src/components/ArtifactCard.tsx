@@ -9,6 +9,7 @@ import { Mermaid } from "./Mermaid";
 import { ArtifactEditor } from "./ArtifactEditor";
 import { AlternativesView } from "./AlternativesView";
 import { ReviewPanel } from "./ReviewPanel";
+import { PublishPanel } from "./PublishPanel";
 
 // Render ```mermaid fences inside Markdown cards as diagrams instead of code.
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
@@ -178,6 +179,7 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
     <>
       {a.type === "mermaid" && <Mermaid source={(v.content as MermaidContent).source} />}
       {a.type === "design_doc" && <ReviewPanel artifact={a} sessionId={sessionId} />}
+      {a.type === "design_doc" && <PublishPanel artifact={a} sessionId={sessionId} />}
       {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
       {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
       {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
@@ -232,6 +234,7 @@ function ConstraintsTable({ content }: { content: ConstraintsContent }) {
                 <span className="mono">{k.id}</span> {k.statement}{k.value ? <span className="mono" style={{ marginLeft: 6 }}>{k.value}</span> : null}
                 {k.exceptionTo && <span className="chip" style={{ marginLeft: 6 }} title={`Relaxes ${k.exceptionTo}; agreed by whoever set it`}>exception to {k.exceptionTo}</span>}
                 {exceptionsOf(k.id).length > 0 && <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }} title="Exceptions recorded against this constraint">{exceptionsOf(k.id).join(", ")} excepted</span>}
+                {k.importedFrom && <span className="chip" style={{ marginLeft: 6, color: "var(--accent)" }} title={`Copied from session "${k.importedFrom.sessionTitle}" (${k.importedFrom.refId}) through the library`}>from {k.importedFrom.sessionTitle}</span>}
               </td>
               <td className="mono">{kindLabel[k.kind]}</td>
               <td className="mono">{k.category.replace(/_/g, " ")}</td>
@@ -291,7 +294,7 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
             const n = decisionsAbout(c.id);
             return (
               <tr key={c.id} className={focus === c.id ? "focus" : ""} onClick={() => setFocus(focus === c.id ? null : c.id)} style={{ cursor: "pointer" }} title={c.description ?? c.id}>
-                <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}{statusOf(c.id) && <span className="chip" style={{ marginLeft: 6, color: statusOf(c.id) === "added" ? "var(--ok)" : "var(--accent)" }} title="Against the as-is baseline">{statusOf(c.id)}</span>}</td>
+                <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}{statusOf(c.id) && <span className="chip" style={{ marginLeft: 6, color: statusOf(c.id) === "added" ? "var(--ok)" : "var(--accent)" }} title="Against the as-is baseline">{statusOf(c.id)}</span>}{c.importedFrom && <span className="chip" style={{ marginLeft: 6, color: "var(--accent)" }} title={`Copied from session "${c.importedFrom.sessionTitle}" through the library`}>from {c.importedFrom.sessionTitle}</span>}</td>
                 <td className="mono">{c.kind}</td>
                 <td className="mono">{c.technology ?? ""}</td>
                 <td className="mono">{bname(c.boundary)}</td>

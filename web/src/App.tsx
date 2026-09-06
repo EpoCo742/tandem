@@ -7,6 +7,8 @@ import { Join } from "./pages/Join";
 import { Session } from "./pages/Session";
 import { Vote } from "./pages/Vote";
 import { Login } from "./pages/Login";
+import { Published } from "./pages/Published";
+import { Library } from "./pages/Library";
 
 function usePath() {
   const [path, setPath] = useState(location.pathname);
@@ -37,7 +39,10 @@ export function App() {
   }, [setMe]);
 
   if (!loaded || !me) return <div className="page muted">Loading…</div>;
+  const published = path.match(/^\/p\/([A-Za-z0-9]+)$/);
+  if (published) return <Published slug={published[1]!} />; // public: no sign-in needed
   if (!me.user) return <Login />;
+  if (path.startsWith("/library")) return <Library />;
 
   const join = path.match(/^\/join\/([^/]+)/);
   if (join) return <Join token={join[1]!} />;

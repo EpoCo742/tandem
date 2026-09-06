@@ -47,6 +47,7 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
       <ThemeToggle />
       {user && (
         <div className="who">
+          <a href="/library" onClick={(e) => { e.preventDefault(); navigate("/library"); }} title="Search decisions, components, constraints and published documents across sessions">library</a>
           <a href="/settings" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>credentials</a>
           {user.avatarUrl ? (
             <a href={`https://github.com/${user.handle}`} target="_blank" rel="noreferrer" title="GitHub profile" style={{ display: "inline-flex" }}>
