@@ -279,6 +279,7 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
             {starters.map((s) => (
               <button key={s} onClick={() => setComposerDraft(s)} title="Put this in the AI composer; edit it before sending">{s}</button>
             ))}
+            <div className="muted" style={{ fontSize: 12 }}>Have a diagram already? Once the Architecture model card exists, <b>import…</b> on it takes Mermaid, Structurizr DSL or PlantUML. Or paste it here as a note and say "import this".</div>
             {c && (
               <div className="mono" style={{ marginTop: 8, fontSize: 11 }}>
                 the checklist wants first: {c.items.filter((i) => !i.done).slice(0, 3).map((i) => i.title).join(" · ")}

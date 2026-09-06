@@ -335,6 +335,12 @@ Feature: a **sequence** view kind. **sequence from** on the Architecture model c
 
 Point at: the arrows follow the relationship kinds (publish and write are asynchronous, subscribe and read are dashed replies) and carry the data classes; the integration template's checklist ticks "Sequence diagram" either way.
 
+## Stage 1f: import an existing diagram (no AI turn)
+
+Feature: **import…** on the Architecture model card takes a Mermaid flowchart, Structurizr DSL or a PlantUML component diagram. Preview shows what it maps to (nodes to components with a guessed kind, subgraphs, groups and packages to boundaries, arrows to relationships, what was skipped); then merge it into the model, replace the model, or record it as the as-is baseline. Same governance as a hand edit. **structurizr .dsl** next to it downloads the model as a Structurizr workspace.
+
+Point at: the kinds guessed from shapes and names (a cylinder is a database, a hexagon a queue, "Customer" a person); the notes for anything the parser could not place.
+
 ## Stage 12j: deployment view
 
 Feature: a second layer under the model: environments, nodes (regions, zones, clusters, machines, managed services, nested by parent) and which node each component runs on per environment. A **deployment** view draws it; the Architecture model card lists placements. Where a component is placed wins over its boundary in the residency and security checks.

@@ -216,6 +216,8 @@ Added 2026-09-05. Phase D deepens the model so more of governance becomes determ
 
 **Effort.** Four days. Depends on A1, A5.
 
+**Status (2026-09-05): shipped.** `shared/src/notation.ts`: parsers for Mermaid flowcharts (shapes, edge labels, chains, `&`, subgraphs), Structurizr DSL (people, software systems with containers as boundaries, groups, relationships lifted from components to containers) and PlantUML component diagrams (declarations, aliases, packages, arrows with labels), each returning components, relationships, boundaries and notes; notation detection; `toStructurizrDsl` exporter. `POST /sessions/:id/model/import` previews or applies (merge, replace, as-is) through `requestChange`; `?format=structurizr` on the export route; an import dialog and a `.dsl` link on the model card; unit tests for all three parsers and the exporter. Not done: C4-PlantUML macros and Mermaid C4 diagrams.
+
 ---
 
 ## Phase E: presence (the session looks alive and reads well)

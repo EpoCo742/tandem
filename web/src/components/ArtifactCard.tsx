@@ -14,6 +14,7 @@ import { AlternativesView } from "./AlternativesView";
 import { ReviewPanel } from "./ReviewPanel";
 import { PublishPanel } from "./PublishPanel";
 import { ImpactPanel } from "./ImpactPanel";
+import { ImportModel } from "./ImportModel";
 
 // Render ```mermaid fences inside Markdown cards as diagrams instead of code.
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
@@ -392,6 +393,7 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
         </div>
       )}
       {content.relationships.length > 0 && <SequenceFrom content={content} />}
+      <ImportButton />
       <CompareVersions artifactId={artifactId} current={content} />
       {impactOf && <ImpactPanel componentId={impactOf} onClose={() => setImpactOf(null)} />}
     </div>
@@ -415,6 +417,20 @@ function ContractView({ artifactId, content }: { artifactId: string; content: Co
         {st?.changedAfterModel && <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }} title="This contract changed after the model last changed; the consumers may not have caught up">changed after the model</span>}
       </div>
       {content.format === "markdown" ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{content.body}</ReactMarkdown></div> : <pre>{content.body}</pre>}
+    </div>
+  );
+}
+
+// "import…": paste a diagram in another notation into the model.
+function ImportButton() {
+  const meta = useStore((s) => s.meta);
+  const [open, setOpen] = useState(false);
+  if (!meta) return null;
+  return (
+    <div className="row" style={{ gap: 6, marginTop: 6 }}>
+      <button className="icon" onClick={() => setOpen(true)} title="Paste a Mermaid flowchart, Structurizr DSL or PlantUML component diagram and merge it into the model, replace the model, or record it as the as-is baseline">import…</button>
+      <a className="mono" href={`/api/v1/sessions/${meta.id}/export?format=structurizr`} title="Download the model as Structurizr DSL">structurizr .dsl</a>
+      {open && <ImportModel sessionId={meta.id} onClose={() => setOpen(false)} />}
     </div>
   );
 }

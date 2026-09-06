@@ -846,6 +846,20 @@ const flowState = (await alice.call("GET", `/api/v1/sessions/${sessionId}/events
 assert(flowState === 1, "one violation event for one new violation");
 subF.ws.close();
 
+// Import from another notation: preview, then merge into the model; export as Structurizr DSL.
+const importPreview = await alice.call("POST", `/api/v1/sessions/${sessionId}/model/import`, { text: "flowchart LR\n  search[Search API] -->|queries| es[(Elasticsearch)]\n  search -.-> kafka{{Kafka}}", apply: false });
+assert(importPreview.preview.notation === "mermaid" && importPreview.preview.components.length === 3 && importPreview.preview.components.find((c) => c.id === "es").kind === "database" && importPreview.preview.relationships.length === 2, "a pasted Mermaid flowchart previews as components and relationships");
+assert(/403/.test(await fails(carol.call("POST", `/api/v1/sessions/${sessionId}/model/import`, { text: "flowchart LR\n a --> b", apply: true }))), "a reviewer cannot import into the model");
+const importApplied = await alice.call("POST", `/api/v1/sessions/${sessionId}/model/import`, { text: "flowchart LR\n  search[Search API] -->|queries| es[(Elasticsearch)]\n  search -.-> kafka{{Kafka}}", mode: "merge", apply: true });
+assert(importApplied.status === "applied" || importApplied.status === "pending_approval", `the import went through governance (${importApplied.status})`);
+if (importApplied.status === "applied") {
+  const merged = (await alice.call("GET", `/api/v1/sessions/${sessionId}/events`)).filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "arch_model").pop().payload.content;
+  assert(merged.components.some((c) => c.id === "search") && merged.components.some((c) => c.id === "es" && c.kind === "database") && merged.relationships.some((r) => r.from === "search" && r.to === "es" && r.label === "queries"), "the import merged into the model, keeping what was there");
+}
+const dsl = await alice.call("GET", `/api/v1/sessions/${sessionId}/export?format=structurizr`);
+assert(typeof dsl === "string" && /^workspace "Order platform v1"/.test(dsl) && /softwareSystem|container/.test(dsl) && / -> /.test(dsl), "the model exports as Structurizr DSL");
+assert(/could not tell/.test(await fails(alice.call("POST", `/api/v1/sessions/${sessionId}/model/import`, { text: "just some words", apply: false }))), "text that is no diagram is refused with a hint");
+
 // Deployment view: where things run, per environment; placement drives the residency check.
 const depTurns = subA.events.filter((e) => e.type === "turn.completed").length;
 await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Service B runs on the EU cluster in the EU (production)." });

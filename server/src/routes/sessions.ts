@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { randomBytes } from "node:crypto";
-import { allAdrs, completeness, isTemplateId, pickColor, threadRootOf, TEMPLATES, type ArchModelContent, type ConstraintsContent, type ArtifactType, type DecisionPointContent, type ImportedFrom, type MessageAnchor, type Policy, type Role } from "@tandem/shared";
+import { allAdrs, completeness, isTemplateId, pickColor, threadRootOf, TEMPLATES, type ArchModelContent, type ConstraintsContent, type ArtifactType, type DecisionPointContent, type ImportedFrom, type MessageAnchor, type Policy, type Role, type ViewContent } from "@tandem/shared";
 import { db, now, schema, sqlite } from "../db/index.js";
 import { requireUser } from "../auth.js";
 import { appendEvent, getState, listEvents, sessionExists } from "../ledger.js";
@@ -23,7 +23,7 @@ import { adoptAlternative, openAlternativesDecision } from "../alternatives.js";
 import { requestReview, signOff, withdrawReview } from "../review.js";
 import { publishDocument, revokePublication } from "../publish.js";
 import { importFromLibrary } from "../importer.js";
-import { impactLines, impactOf, contractsOf, nextAssumptionLabel } from "@tandem/shared";
+import { impactLines, impactOf, contractsOf, nextAssumptionLabel, parseNotation, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts } from "@tandem/shared";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -93,6 +93,41 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const r = revokePublication(req.params.id, req.params.artifactId, user.id);
     if (!r.ok) return reply.code(r.status).send({ error: r.error });
     return r;
+  });
+
+  // Import a diagram in another notation into the model: preview, then merge, replace, or record as as-is.
+  app.post<{ Params: { id: string }; Body: { text: string; notation?: "auto" | "mermaid" | "structurizr" | "plantuml"; mode?: "merge" | "replace" | "as_is"; apply?: boolean } }>("/api/v1/sessions/:id/model/import", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer" || me.role === "reviewer") return reply.code(403).send({ error: "only owners and editors change the model" });
+    const text = (req.body?.text ?? "").trim();
+    if (!text) return reply.code(400).send({ error: "paste a diagram first" });
+    if (text.length > 200_000) return reply.code(400).send({ error: "that is too large to import" });
+    const preview = parseNotation(text, req.body.notation);
+    if (!preview) return reply.code(400).send({ error: "could not tell the notation; choose Mermaid, Structurizr or PlantUML" });
+    if (!req.body.apply) return { preview };
+    if (preview.components.length === 0) return reply.code(400).send({ error: "nothing to import", preview });
+    const state = getState(req.params.id);
+    const existing = liveArtifacts(state).find((a) => a.type === "arch_model");
+    const cur = (existing?.current.content as ArchModelContent | undefined) ?? emptyModel();
+    const mode = req.body.mode ?? "merge";
+    const parsed = upsertRelationships(upsertComponents(upsertBoundaries(emptyModel(), preview.boundaries), preview.components, []), preview.relationships, []).model;
+    let content: ArchModelContent;
+    if (mode === "replace") content = { ...cur, components: parsed.components, relationships: parsed.relationships, boundaries: parsed.boundaries, sections: [{ id: "model", derivedFrom: [] }] };
+    else if (mode === "as_is") {
+      const asIs = { source: `import:${preview.notation}`, capturedAt: now(), components: parsed.components, relationships: parsed.relationships, boundaries: parsed.boundaries, notes: preview.notes };
+      content = cur.components.length === 0 ? { ...cur, components: parsed.components, relationships: parsed.relationships, boundaries: parsed.boundaries, sections: [{ id: "model", derivedFrom: [] }], asIs } : { ...cur, asIs };
+    } else content = upsertRelationships(upsertComponents(upsertBoundaries(cur, preview.boundaries), preview.components, []), preview.relationships, []).model;
+    const r = requestChange({ sessionId: req.params.id, turnId: null, actorKind: "user", actorUserId: user.id, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "arch_model", title: existing?.title ?? "Architecture model", content, summary: `${content.components.length} components (imported from ${preview.notation})`, rationale: `Imported from ${preview.notation} by ${user.displayName || user.handle} (${mode})`, baseVersionNo: existing?.current.versionNo ?? null, causedBy: [], provenance: [{ sectionId: "model", derivedFrom: [] }] });
+    if (r.status === "applied") {
+      createCommit(req.params.id, user.id, null, `${user.displayName || user.handle} imported ${preview.components.length} components from ${preview.notation} (${mode})`);
+      // The first model deserves a view, like the AI would have drawn one.
+      if (!liveArtifacts(getState(req.params.id)).some((a) => a.type === "view" && (a.current.content as ViewContent).kind === "container")) {
+        requestChange({ sessionId: req.params.id, turnId: null, actorKind: "user", actorUserId: user.id, op: "create", artifactId: null, artifactType: "view", title: "System architecture", content: { kind: "container", sections: [{ id: "body", derivedFrom: [] }] }, summary: "Container view of the architecture model", rationale: "Drawn after import", baseVersionNo: null, causedBy: [], provenance: [{ sectionId: "body", derivedFrom: [] }] });
+      }
+    }
+    return { preview, ...r };
   });
 
   // Assumptions by hand: add one (owned by me) or settle one. No AI turn.
@@ -677,6 +712,13 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     participantOr403(req.params.id, user.id);
     const state = getState(req.params.id);
     if (req.query.format === "json") return listEvents(req.params.id);
+    if (req.query.format === "structurizr") {
+      const model = liveArtifacts(state).find((a) => a.type === "arch_model")?.current.content as ArchModelContent | undefined;
+      if (!model) return reply.code(404).send({ error: "no architecture model to export" });
+      reply.header("Content-Type", "text/plain; charset=utf-8");
+      reply.header("Content-Disposition", `attachment; filename="${state.title.replace(/[^\w-]+/g, "-") || "session"}.dsl"`);
+      return toStructurizrDsl(model, state.title);
+    }
     reply.header("Content-Type", "text/markdown; charset=utf-8");
     reply.header("Content-Disposition", `attachment; filename="${state.title.replace(/[^\w-]+/g, "-") || "session"}.md"`);
     return exportMarkdown(state);
