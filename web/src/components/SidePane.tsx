@@ -8,7 +8,7 @@ import { LibraryPanel } from "./LibraryPanel";
 import { signalTyping } from "../ws";
 import { promotionStates } from "../threadState";
 
-type Tab = "side" | "proposals" | "decisions" | "history" | "sources" | "brief" | "checklist" | "library";
+type Tab = "side" | "proposals" | "decisions" | "questions" | "history" | "sources" | "brief" | "checklist" | "library";
 
 export function SidePane({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
@@ -42,6 +42,7 @@ export function SidePane({ sessionId }: { sessionId: string }) {
   const pending = pendingProposals(state);
   const myCalls = Object.values(state.externalCalls).filter((c) => c.status === "pending" && c.ownerUserId === me.user!.id).length;
   const myPending = pending.filter((p) => p.requiresApprovalFrom.includes(me.user!.id)).length + myCalls;
+  const openQuestions = Object.values(state.questions).filter((q) => q.status === "open").length;
 
   return (
     <div className="pane right">
@@ -49,6 +50,7 @@ export function SidePane({ sessionId }: { sessionId: string }) {
         <button className={tab === "side" ? "active" : ""} onClick={() => setTab("side")}>Side channel</button>
         <button className={tab === "proposals" ? "active" : ""} onClick={() => setTab("proposals")}>Proposals{myPending ? <span className="badge">{myPending}</span> : null}</button>
         <button className={tab === "decisions" ? "active" : ""} onClick={() => setTab("decisions")}>Decisions</button>
+        <button className={tab === "questions" ? "active" : ""} onClick={() => setTab("questions")} title="What the AI or a participant still needs answered; answer here, no AI turn needed">Questions{openQuestions ? <span className="badge">{openQuestions}</span> : null}</button>
         <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>History</button>
         <button className={tab === "sources" ? "active" : ""} onClick={() => setTab("sources")}>Sources</button>
         <button className={tab === "brief" ? "active" : ""} onClick={() => setTab("brief")}>Brief</button>
@@ -58,6 +60,7 @@ export function SidePane({ sessionId }: { sessionId: string }) {
       {tab === "side" && <SideChannel sessionId={sessionId} />}
       {tab === "proposals" && <Proposals sessionId={sessionId} proposals={pending} />}
       {tab === "decisions" && <Decisions />}
+      {tab === "questions" && <Questions />}
       {tab === "checklist" && <Checklist />}
       {tab === "library" && <LibraryPanel sessionId={sessionId} />}
       {tab === "history" && <History sessionId={sessionId} />}
@@ -223,6 +226,80 @@ function Checklist() {
 }
 
 // Believed, not decided: owned, dated, settled by hand or by the AI when something confirms or contradicts it.
+// Open questions in one place: the AI's clarifications and the group's own. Answering writes a
+// ledger event and lands in the AI's next prompt; nobody spends a turn on it.
+function Questions() {
+  const state = useStore((s) => s.state);
+  const meta = useStore((s) => s.meta);
+  const me = useStore((s) => s.me)!;
+  const [text, setText] = useState("");
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [err, setErr] = useState<string | null>(null);
+  const all = Object.values(state.questions).sort((a, b) => a.label.localeCompare(b.label));
+  const open = all.filter((q) => q.status === "open");
+  const settled = all.filter((q) => q.status !== "open").reverse();
+  const canAct = state.participants[me.user!.id]?.role !== "viewer" && !meta?.demo;
+  async function ask() {
+    if (!meta || !text.trim()) return;
+    setErr(null);
+    try {
+      await api("POST", `/api/v1/sessions/${meta.id}/questions`, { text: text.trim() });
+      setText("");
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  async function resolve(id: string, outcome: "answered" | "dropped") {
+    if (!meta) return;
+    const answer = (answers[id] ?? "").trim();
+    if (outcome === "answered" && !answer) return;
+    setErr(null);
+    try {
+      await api("POST", `/api/v1/sessions/${meta.id}/questions/${id}/resolve`, { outcome, ...(answer ? { answer } : {}) });
+      setAnswers((a) => ({ ...a, [id]: "" }));
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  return (
+    <div className="pane-body questions">
+      <div className="mono" style={{ margin: "10px 0 4px" }}>questions · {open.length} open</div>
+      {all.length === 0 && <div className="muted" style={{ fontSize: 12 }}>What the AI or a participant still needs answered. The AI asks here instead of repeating itself in the lane; an answer reaches it with the next message, no turn spent. Ask the group below.</div>}
+      {open.map((q) => (
+        <div key={q.id} className="question">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <span className="mono">{q.label} · {q.askedBy ? participantName(state, q.askedBy) : "AI"} asks{q.addressedTo.length ? ` ${q.addressedTo.map((u) => participantName(state, u)).join(", ")}` : ""}</span>
+            <span className="mono">{new Date(q.createdAt).toLocaleDateString()}</span>
+          </div>
+          <div>{q.text}</div>
+          {canAct && (
+            <div className="row answer" style={{ gap: 4 }}>
+              <input placeholder="Answer…" value={answers[q.id] ?? ""} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") void resolve(q.id, "answered"); }} style={{ flex: 1 }} />
+              <button className="icon" disabled={!(answers[q.id] ?? "").trim()} onClick={() => resolve(q.id, "answered")}>answer</button>
+              <button className="icon" onClick={() => resolve(q.id, "dropped")} title="No longer needs an answer">drop</button>
+            </div>
+          )}
+        </div>
+      ))}
+      {canAct && (
+        <div className="row" style={{ gap: 4, margin: "6px 0 10px" }}>
+          <input placeholder="Ask the group…" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void ask(); }} style={{ flex: 1 }} />
+          <button className="icon" disabled={!text.trim()} onClick={ask}>ask</button>
+        </div>
+      )}
+      {settled.length > 0 && <div className="mono" style={{ margin: "8px 0 4px" }}>settled · {settled.length}</div>}
+      {settled.map((q) => (
+        <div key={q.id} className={"question " + q.status}>
+          <div className="mono">{q.label} · {q.status}{q.resolvedBy ? ` by ${participantName(state, q.resolvedBy)}` : ""}</div>
+          <div>{q.text}</div>
+          {q.answer && <div className="answer"><b>→</b> {q.answer}</div>}
+        </div>
+      ))}
+      {err && <div className="err" style={{ fontSize: 12 }}>{err}</div>}
+    </div>
+  );
+}
+
 function Assumptions() {
   const state = useStore((s) => s.state);
   const meta = useStore((s) => s.meta);

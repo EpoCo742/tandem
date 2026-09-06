@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const EMPTY_SET: Set<string> = new Set();
 const ChangedRowsContext = createContext<Set<string>>(EMPTY_SET);
@@ -13,6 +13,7 @@ import { ArtifactEditor } from "./ArtifactEditor";
 import { AlternativesView } from "./AlternativesView";
 import { ReviewPanel } from "./ReviewPanel";
 import { PublishPanel } from "./PublishPanel";
+import { ContractSpec, parseContract } from "./ContractSpec";
 import { ImpactPanel } from "./ImpactPanel";
 import { navigate } from "../App";
 import { ImportModel } from "./ImportModel";
@@ -432,16 +433,19 @@ function ContractView({ artifactId, content }: { artifactId: string; content: Co
   const st = contractsOf(state).find((c) => c.artifact.id === artifactId);
   const model = Object.values(state.artifacts).find((x) => x.type === "arch_model" && !x.deleted)?.current.content as ArchModelContent | undefined;
   const cname = (id: string) => model?.components.find((c) => c.id === id)?.name ?? id;
+  const spec = useMemo(() => parseContract(content.body), [content.body]);
+  const [raw, setRaw] = useState(false);
   return (
     <div>
       <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
         <span className="chip" style={{ color: "var(--link)" }}>{content.format}{content.version ? ` ${content.version}` : ""}</span>
+        {spec && <button className="icon" onClick={() => setRaw((v) => !v)} title={raw ? "Endpoints grouped and readable" : "The contract text as written"}>{raw ? "reference" : "raw"}</button>}
         {st?.provider && <span className="mono">provided by <a href="#" onClick={(e) => { e.preventDefault(); setFocus(st.provider!); }}>{cname(st.provider)}</a></span>}
         {st && st.consumers.length > 0 && <span className="mono">consumed by {st.consumers.map((id, i) => <span key={id}>{i ? ", " : ""}<a href="#" onClick={(e) => { e.preventDefault(); setFocus(id); }}>{cname(id)}</a></span>)}</span>}
         {!content.attachedTo?.relationshipId && !content.attachedTo?.componentId && <span className="muted" style={{ fontSize: 12 }}>not attached to the model yet</span>}
         {st?.changedAfterModel && <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }} title="This contract changed after the model last changed; the consumers may not have caught up">changed after the model</span>}
       </div>
-      {content.format === "markdown" ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{content.body}</ReactMarkdown></div> : <pre>{content.body}</pre>}
+      {spec && !raw ? <ContractSpec spec={spec} /> : content.format === "markdown" ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{content.body}</ReactMarkdown></div> : <pre>{content.body}</pre>}
     </div>
   );
 }

@@ -12,7 +12,7 @@ It is a fixture, `server/fixtures/demo-session.json`, captured from this script.
 
 ```
 cd server && rm -rf data-demo && PORT=3013 APP_URL=http://127.0.0.1:3013 DATA_DIR=./data-demo TANDEM_PROVIDER=fake TANDEM_DEV_AUTH=1 TANDEM_DEMO=0 npx tsx src/index.ts
-node server/scripts/demo.mjs --url http://127.0.0.1:3013 --order setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,contract,sequence,deployment,flow
+node server/scripts/demo.mjs --url http://127.0.0.1:3013 --order setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,questions,contract,sequence,deployment,flow
 node server/scripts/export-demo-fixture.mjs --db server/data-demo/tandem.db --session <id printed by demo.mjs>
 ```
 
@@ -219,7 +219,7 @@ Feature: resizable cards, full-size view, delete under the same governance as ed
 |---|---|
 | Anyone | Clicks a card, drags a corner handle. The diagram scales with the card. Everyone sees the new size; it survives a reload. |
 | Anyone | Clicks the &#x2922; button on a card header to open it full size; **fit** in the canvas corner brings every card back into view. Zoom now goes to 4x. |
-| Anyone | **tidy** in the canvas corner packs every card into three columns by its real size so nothing overlaps; everyone gets the new layout. New cards land in the shortest column and are re-packed once measured, so a fresh session (the demo included) opens clean. |
+| Anyone | **tidy** in the canvas corner packs every card by its real size into as many columns as fill the screen's shape (a few tall diagrams spread sideways rather than stacking into a strip), so nothing overlaps; everyone gets the new layout. New cards land in the shortest column and are re-packed once measured, so a fresh session (the demo included) opens clean. |
 | Bob | **delete** on his own Markdown source card, then **confirm delete**. It goes at once: removing work that only you wrote is tidying. |
 | Bob | **delete** on Alice's `.mmd` card. It becomes a proposal for Alice, because someone else's work is involved. |
 
@@ -339,6 +339,28 @@ Feature: things believed true but not decided get their own register, separate f
 Fake architect: records A-01 for Bob; the contradiction settles it as "did not hold" with a system line in the lane. The Decisions tab has an Assumptions section with "held" and "did not hold" buttons and a field to add one by hand with a revisit date. A real model gets `record_assumption` and `resolve_assumption` with a rule to use them.
 
 Point at: the digest entry "Your assumption A-02 is due a look" once its date passes; the Assumptions section of the export.
+
+## Stage 2h: open questions
+
+Feature: what the AI or a participant still needs answered lives in a **Questions** tab instead of being repeated at the end of every reply. The AI's clarifications land there as Q-01, Q-02, … (with an "answer" chip on the lane message); anyone can ask the group. Answering in the tab writes a ledger event and reaches the AI in its next prompt, no turn spent; an answer typed in chat ("Q-01: yes, until March") is settled by the AI. The prompt lists the open questions with a rule never to ask them again, and the recent answers to act on.
+
+| Who | Does |
+|---|---|
+| Alice | **Questions** tab, "Ask the group…": `Do we keep the legacy CSV feed after the cut-over?` → Q-01, a system line in the lane. |
+| Bob | In the lane: `Q-01: yes, until March; the warehouse still reads it.` The AI settles Q-01 with that answer. |
+| Alice | Asks `Which region hosts the DR site?` → Q-02. |
+| Bob | Questions tab, answers `Frankfurt, same as production`. No AI turn; the answer is in the next prompt. **drop** marks a question moot. |
+
+Point at: the badge on the tab while something is open; the design document's "Open questions" section listing them; the export's Questions section with every answer.
+
+## Stage 7c: the composer (no AI turn)
+
+| Who | Does |
+|---|---|
+| Anyone | Drags a file from the desktop onto the AI lane: "drop to attach" appears, the file is staged in the composer exactly as with **Attach file**. |
+| Anyone | Drags the grip above the message box upward: the box grows upward, where the eye expects; the size is remembered in this browser. |
+
+External tool servers that connect normally no longer announce themselves in the lane each turn; only a server that fails, times out or needs a login gets a line.
 
 ## Stage 2f: contracts as cards
 

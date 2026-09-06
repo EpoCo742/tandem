@@ -24,7 +24,7 @@ import { requestReview, signOff, withdrawReview } from "../review.js";
 import { publishDocument, revokePublication } from "../publish.js";
 import { importFromLibrary } from "../importer.js";
 import { demoSessionId, demoViewer, isDemoSession } from "../demo.js";
-import { impactLines, impactOf, contractsOf, nextAssumptionLabel, parseNotation, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts, contentText, participantName } from "@tandem/shared";
+import { impactLines, impactOf, contractsOf, nextAssumptionLabel, nextQuestionLabel, parseNotation, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts, contentText, participantName } from "@tandem/shared";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -150,6 +150,38 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       }
     }
     return { preview, ...r };
+  });
+
+  // Questions by hand: ask the group, answer or drop one. No AI turn; the answer reaches the AI in its next prompt.
+  app.post<{ Params: { id: string }; Body: { text: string; addressedTo?: string[] } }>("/api/v1/sessions/:id/questions", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot ask questions here" });
+    const text = (req.body?.text ?? "").trim();
+    if (!text) return reply.code(400).send({ error: "a question is needed" });
+    const state = getState(req.params.id);
+    const addressedTo = (Array.isArray(req.body.addressedTo) ? req.body.addressedTo : []).filter((u) => typeof u === "string" && state.participants[u]);
+    const questionId = ulid();
+    const label = nextQuestionLabel(state);
+    appendEvent(req.params.id, { type: "question.raised", actorKind: "user", actorUserId: user.id, payload: { questionId, label, text, addressedTo } });
+    return { questionId, label };
+  });
+
+  app.post<{ Params: { id: string; questionId: string }; Body: { outcome?: "answered" | "dropped"; answer?: string } }>("/api/v1/sessions/:id/questions/:questionId/resolve", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot answer questions" });
+    const state = getState(req.params.id);
+    const q = state.questions[req.params.questionId];
+    if (!q) return reply.code(404).send({ error: "no such question" });
+    if (q.status !== "open") return reply.code(409).send({ error: `${q.label} is already ${q.status}` });
+    const outcome = req.body?.outcome === "dropped" ? "dropped" : "answered";
+    const answer = (req.body?.answer ?? "").trim();
+    if (outcome === "answered" && !answer) return reply.code(400).send({ error: "an answer is needed" });
+    appendEvent(req.params.id, { type: "question.resolved", actorKind: "user", actorUserId: user.id, payload: { questionId: q.id, outcome, ...(answer ? { answer } : {}) } });
+    return { questionId: q.id, label: q.label, outcome };
   });
 
   // Assumptions by hand: add one (owned by me) or settle one. No AI turn.

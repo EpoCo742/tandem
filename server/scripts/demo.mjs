@@ -23,7 +23,7 @@ const SKIP = new Set((opt("skip", "") || "").split(",").map((s) => s.trim()).fil
 // --order a,b,c runs exactly these stages in this order (the fixture uses it so the order platform
 // survives the revert and the as-is capture becomes a baseline instead of the model).
 const ORDER = (opt("order", "") || "").split(",").map((s) => s.trim()).filter(Boolean);
-export const FIXTURE_ORDER = "setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,contract,sequence,deployment,flow";
+export const FIXTURE_ORDER = "setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,questions,contract,sequence,deployment,flow";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function client(name, handle, displayName) {
@@ -242,6 +242,15 @@ const STAGES = [
     await waitForTurns(n + 1, "contradiction turn");
     await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/assumptions`, { statement: "Order volume stays under 10k per day", revisitAt: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) });
     console.log("   A-01 recorded for Bob, refuted by Alice's message; A-02 added by hand with a revisit date");
+  }],
+  ["questions", "open questions live in a register: an answer in chat is settled by the AI, an answer in the tab needs no turn", async () => {
+    const q1 = await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/questions`, { text: "Do we keep the legacy CSV feed after the cut-over?" });
+    const n = await completedTurns();
+    await say(bob, `${q1.label}: yes, until March; the warehouse still reads it.`);
+    await waitForTurns(n + 1, "question turn");
+    const q2 = await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/questions`, { text: "Which region hosts the DR site?" });
+    await bob.call("POST", `/api/v1/sessions/${ctx.sessionId}/questions/${q2.questionId}/resolve`, { outcome: "answered", answer: "Frankfurt, same as production" });
+    console.log(`   ${q1.label} answered by Bob in chat and settled by the AI; ${q2.label} answered in the Questions tab, no turn spent`);
   }],
   ["contract", "an API contract as a card attached to the component that exposes it", async () => {
     const n = await completedTurns();

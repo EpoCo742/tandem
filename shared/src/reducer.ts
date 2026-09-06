@@ -118,6 +118,21 @@ export interface Decision {
 }
 
 /** Something believed true but not decided: owned, dated, and settled one way or the other. */
+/** An open question: something the AI or a person needs answered. Lives in a register so nobody has to ask twice. */
+export interface Question {
+  id: string;
+  label: string; // Q-01, Q-02, …
+  text: string;
+  askedBy: string | null; // user id, or null for the AI
+  addressedTo: string[];
+  status: "open" | "answered" | "dropped";
+  answer?: string;
+  resolvedBy?: string | null;
+  eventId: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
 export interface Assumption {
   id: string;
   label: string; // A-01, A-02, …
@@ -196,6 +211,7 @@ export interface SessionState {
   reviews: Record<string, ReviewState>; // by design document artifact id
   publications: Record<string, PublicationState>; // by design document artifact id
   assumptions: Record<string, Assumption>;
+  questions: Record<string, Question>;
   lastSeq: number;
   eventsById: Record<string, AnyLedgerEvent>;
 }
@@ -272,6 +288,7 @@ export function emptyState(sessionId: string): SessionState {
     reviews: {},
     publications: {},
     assumptions: {},
+    questions: {},
     lastSeq: 0,
     eventsById: {},
   };
@@ -429,6 +446,24 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
         ...s.messages,
         { eventId: ev.id, seq: ev.seq, kind: "clarification", userId: null, onBehalfOf: p.onBehalfOf, text: p.question, turnId: ev.turnId, createdAt: ev.createdAt },
       ];
+      const qid = p.questionId ?? ev.id;
+      s.questions = { ...s.questions, [qid]: { id: qid, label: p.label ?? nextQuestionLabel(s), text: p.question, askedBy: null, addressedTo: p.addressedTo, status: "open", eventId: ev.id, createdAt: ev.createdAt } };
+      return s;
+    }
+    case "question.raised": {
+      const p = ev.payload as Payloads["question.raised"];
+      s.questions = { ...s.questions, [p.questionId]: { id: p.questionId, label: p.label, text: p.text, askedBy: ev.actorUserId ?? null, addressedTo: p.addressedTo, status: "open", eventId: ev.id, createdAt: ev.createdAt } };
+      const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "The AI";
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${who} asked ${p.label}: ${p.text}`, turnId: ev.turnId, createdAt: ev.createdAt }];
+      return s;
+    }
+    case "question.resolved": {
+      const p = ev.payload as Payloads["question.resolved"];
+      const cur = s.questions[p.questionId];
+      if (!cur) return s;
+      s.questions = { ...s.questions, [p.questionId]: { ...cur, status: p.outcome, ...(p.answer ? { answer: p.answer } : {}), resolvedBy: ev.actorUserId ?? null, resolvedAt: ev.createdAt } };
+      const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "The AI";
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: p.outcome === "answered" ? `${who} answered ${cur.label} ("${cur.text}"): ${p.answer ?? ""}` : `${who} dropped ${cur.label} ("${cur.text}")`, turnId: ev.turnId, createdAt: ev.createdAt }];
       return s;
     }
     case "proposal.created": {
@@ -750,6 +785,11 @@ export function reduceAll(sessionId: string, events: AnyLedgerEvent[]): SessionS
 /** The session as it was after event `seq`: a fold of the ledger up to that point (replay, diffs between moments). */
 export function reduceUpTo(sessionId: string, events: AnyLedgerEvent[], seq: number): SessionState {
   return reduceAll(sessionId, [...events].filter((e) => e.seq <= seq).sort((a, b) => a.seq - b.seq));
+}
+
+export function nextQuestionLabel(s: SessionState): string {
+  const n = Object.values(s.questions).reduce((m, q) => Math.max(m, Number(q.label.replace(/^Q-/, "")) || 0), 0) + 1;
+  return `Q-${String(n).padStart(2, "0")}`;
 }
 
 export function nextAssumptionLabel(s: SessionState): string {

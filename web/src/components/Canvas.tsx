@@ -79,22 +79,24 @@ function ArtifactNode({ data, selected }: NodeProps<ArtNode>) {
 
 const nodeTypes = { artifact: ArtifactNode };
 
-// Cards are packed into three columns like a masonry wall: each card goes to the column with
-// the least height so far, a wide card (alternatives side by side) takes the two neighbouring
-// columns, and nothing sits on top of anything. Heights are estimated per type until the cards
-// are on screen and measured, after which the same packing runs once more with real sizes.
+// Cards are packed into columns like a masonry wall: each card goes to the column with the least
+// height so far, a wide card (alternatives side by side) takes the two neighbouring columns, and
+// nothing sits on top of anything. The number of columns is whatever makes the packed wall closest
+// to the screen's shape, so a few tall diagrams spread sideways instead of stacking into a strip.
+// Heights are estimated per type until the cards are on screen and measured, after which the same
+// packing runs once more with real sizes.
 const WIDE_TYPES = new Set<Artifact["type"]>(["alternatives"]);
 const COL_W = 460;
 const GAP = 40;
 const ORIGIN = 40;
 const HEIGHT_GUESS: Partial<Record<Artifact["type"], number>> = { arch_model: 520, view: 470, mermaid: 440, design_doc: 520, markdown: 300, data_model: 440, constraints: 360, alternatives: 520, decision_point: 470, contract: 400, source: 110, code: 380 };
 
-function pack(items: { id: string; wide: boolean; h: number }[]): Map<string, { x: number; y: number }> {
-  const heights = [ORIGIN, ORIGIN, ORIGIN];
+function packInto(items: { id: string; wide: boolean; h: number }[], cols: number): { placed: Map<string, { x: number; y: number }>; width: number; height: number } {
+  const heights = Array.from({ length: cols }, () => ORIGIN);
   const out = new Map<string, { x: number; y: number }>();
   for (const it of items) {
     if (it.wide) {
-      const pairs = [0, 1].map((c) => ({ c, y: Math.max(heights[c]!, heights[c + 1]!) }));
+      const pairs = Array.from({ length: cols - 1 }, (_, c) => ({ c, y: Math.max(heights[c]!, heights[c + 1]!) }));
       const best = pairs.reduce((a, b) => (b.y < a.y ? b : a));
       out.set(it.id, { x: ORIGIN + best.c * COL_W, y: best.y });
       heights[best.c] = heights[best.c + 1] = best.y + it.h + GAP;
@@ -104,11 +106,30 @@ function pack(items: { id: string; wide: boolean; h: number }[]): Map<string, { 
       heights[c] = heights[c]! + it.h + GAP;
     }
   }
-  return out;
+  const used = heights.filter((h) => h > ORIGIN).length;
+  return { placed: out, width: Math.max(1, used) * COL_W, height: Math.max(...heights) - ORIGIN };
+}
+
+/** Pack with the column count whose wall is closest to the wanted width-to-height ratio. */
+function pack(items: { id: string; wide: boolean; h: number }[], ratio = 1.6): Map<string, { x: number; y: number }> {
+  const most = Math.max(2, Math.min(8, items.length));
+  let best: { placed: Map<string, { x: number; y: number }>; score: number } | null = null;
+  for (let cols = 2; cols <= most; cols++) {
+    const r = packInto(items, cols);
+    const score = Math.abs(Math.log((r.width / Math.max(1, r.height)) / ratio));
+    if (!best || score < best.score) best = { placed: r.placed, score };
+  }
+  return best?.placed ?? new Map();
+}
+
+/** The shape of the space the canvas has, so the wall is packed to fill it rather than to a fixed width. */
+function canvasRatio(): number {
+  const el = document.querySelector(".react-flow") as HTMLElement | null;
+  return el && el.clientHeight > 0 ? el.clientWidth / el.clientHeight : 1.6;
 }
 
 function defaultPositions(artifacts: Artifact[]): Map<string, { x: number; y: number }> {
-  return pack(artifacts.map((a) => ({ id: a.id, wide: WIDE_TYPES.has(a.type), h: HEIGHT_GUESS[a.type] ?? 400 })));
+  return pack(artifacts.map((a) => ({ id: a.id, wide: WIDE_TYPES.has(a.type), h: HEIGHT_GUESS[a.type] ?? 400 })), canvasRatio());
 }
 
 const GRID_LABEL: Record<GridStyle, string> = { dots: "grid: dots", lines: "grid: lines", off: "grid: off" };
@@ -268,7 +289,7 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
       const w = n?.width ?? n?.measured?.width ?? 420;
       return { id: a.id, wide: WIDE_TYPES.has(a.type) || w > COL_W, h, keep: l };
     });
-    const placed = pack(items);
+    const placed = pack(items, canvasRatio());
     collab.doc.transact(() => {
       for (const it of items) {
         const p = placed.get(it.id)!;
@@ -373,7 +394,7 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
         <button className="icon" onClick={() => void flow.fitView({ padding: 0.15, duration: animMs() })} title="Fit every card in view">
           fit
         </button>
-        <button className="icon" onClick={tidy} title="Pack the cards into columns with their real sizes so nothing overlaps; everyone gets the new layout">
+        <button className="icon" onClick={tidy} title="Pack the cards with their real sizes into as many columns as fill the screen, so nothing overlaps; everyone gets the new layout">
           tidy
         </button>
         <button className="icon" onClick={cycleGrid} title="Cycle the canvas backdrop: dots, lines, off">

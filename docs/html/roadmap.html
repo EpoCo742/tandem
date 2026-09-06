@@ -44,7 +44,7 @@ strong{font-weight:600}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
 </style>
 <div class="page">
-<nav class="toc"><div class="k">Contents</div><a href="#where-the-product-stands">Where the product stands</a><a href="#principles-that-stay-fixed">Principles that stay fixed</a><a href="#phase-a-depth-the-canvas-means-something">Phase A: depth (the canvas means something)</a><a href="#phase-b-reach-people-who-are-not-in-the-room">Phase B: reach (people who are not in the room)</a><a href="#phase-c-memory-sessions-compound">Phase C: memory (sessions compound)</a><a href="#phase-d-rigour-the-model-can-be-checked-replayed-and-reused">Phase D: rigour (the model can be checked, replayed and reused)</a><a href="#phase-e-presence-the-session-looks-alive-and-reads-well">Phase E: presence (the session looks alive and reads well)</a><a href="#readable-diagrams-added-2026-09-06">Readable diagrams (added 2026-09-06)</a><a href="#built-in-demo-added-2026-09-05">Built-in demo (added 2026-09-05)</a><a href="#carried-over-from-the-earlier-backlog">Carried over from the earlier backlog</a><a href="#order-and-next-steps">Order and next steps</a></nav>
+<nav class="toc"><div class="k">Contents</div><a href="#where-the-product-stands">Where the product stands</a><a href="#principles-that-stay-fixed">Principles that stay fixed</a><a href="#phase-a-depth-the-canvas-means-something">Phase A: depth (the canvas means something)</a><a href="#phase-b-reach-people-who-are-not-in-the-room">Phase B: reach (people who are not in the room)</a><a href="#phase-c-memory-sessions-compound">Phase C: memory (sessions compound)</a><a href="#phase-d-rigour-the-model-can-be-checked-replayed-and-reused">Phase D: rigour (the model can be checked, replayed and reused)</a><a href="#phase-e-presence-the-session-looks-alive-and-reads-well">Phase E: presence (the session looks alive and reads well)</a><a href="#readable-diagrams-added-2026-09-06">Readable diagrams (added 2026-09-06)</a><a href="#built-in-demo-added-2026-09-05">Built-in demo (added 2026-09-05)</a><a href="#carried-over-from-the-earlier-backlog">Carried over from the earlier backlog</a><a href="#order-and-next-steps">Order and next steps</a><a href="#phase-f-first-feedback-round-2026-09-06">Phase F: first feedback round (2026-09-06)</a></nav>
 <article>
 <div class="eyebrow"><span>Tandem design package · 09 · Roadmap</span><span>2026-09-03</span></div>
 <h1>Tandem roadmap</h1>
@@ -394,5 +394,53 @@ strong{font-weight:600}
 <p>Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices, for items 1 to 11; items 12 to 27 add about seven more. Each item adds its stage to <code>07-demo-script.md</code> and its assertions to the smoke test before it is called done.</p>
 <p><strong>Why this order for 12 to 27.</strong> Start with two visible wins that need no new model work (change glow, replay), then impact analysis because it reuses the library index. Data-flow classification next, since deployment view and the hand-edit constraint check both build on it, with the small visual items (coloured boundaries, guided empty state) slotted between larger ones. Contracts and assumptions extend what the AI can record and the templates can check. Presentation mode and the published page polish come once there is more to show. Deployment view and import are the largest and least urgent. B4 notifications stays last at the user's request; it can move up when people outside the room start asking for it.</p>
 <p><strong>Shipped 2026-09-05:</strong> A1, the architecture model (model, generated views, tools, decision links). A2, decisions as records (ADR fields on record_decision, the Decisions tab record, ADR-form export, ADR file download, <code>render_adr</code> tool and repository commit through a registered file tool under the outbound gate, data-model <code>ownedBy</code>). B1, asynchronous participation (deadlines with expiry, vote page, home-page digest with waiting items and since-you-looked, mentions). A3, constraints (constraints card with attribution and sources, two tools, prompt enforcement, decision points that name the violated constraint, export and design-document sections). B2, threads anchored to cards (notes with an anchor to a card or a model component, replies, resolve, promotion that carries the anchor and the rest of the thread as background, thread panel on every card and per component on the model table, export section). A4, alternatives side by side (propose_alternatives tool, alternatives card with per-candidate models, comparison against the constraints, Decide opens a vote, adoption sets the model and records the decision with every candidate considered, no AI turn). B3, review and sign-off (reviewer role on invites, design document status derived from review events, named sign-offs, approval recorded as a decision agreed by the signers, back to draft on any canvas change with a note, digest item for pending sign-offs, export status line). A5, as-is from code (repository manifests read through the person's read-only tool or an attachment, <code>scanRepo</code> heuristics in shared, <code>set_as_is</code> tool, as-is baseline on the model, diff view kind with added, removed, changed and unchanged, model card banner and row chips, export summary). Next: B4, notifications.</p>
+<h2 id="phase-f-first-feedback-round-2026-09-06">Phase F: first feedback round (2026-09-06)</h2>
+<p>Seven things noticed in use, all shipped the same day.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Item</th>
+<th>What changed</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1 Light-mode buttons</td>
+<td>Primary buttons inside containers that reset button backgrounds (the session menu's rename, canvas tools, empty state) showed white text on white; they keep the primary look now.</td>
+<td>shipped</td>
+</tr>
+<tr>
+<td>F2 Drop to attach</td>
+<td>A file dragged onto the AI lane is staged in the composer, the same as Attach file.</td>
+<td>shipped</td>
+</tr>
+<tr>
+<td>F3 Composer grip</td>
+<td>The resize handle moved to the top edge: dragging up makes the box taller where it grows; remembered per browser.</td>
+<td>shipped</td>
+</tr>
+<tr>
+<td>F4 Quiet tool servers</td>
+<td>External tool servers that connect normally no longer post a line in the lane each turn; only failures, timeouts and login requests do.</td>
+<td>shipped</td>
+</tr>
+<tr>
+<td>F5 Tidy fills the screen</td>
+<td>Packing chooses the column count whose wall is closest to the canvas's shape, so tall diagrams spread sideways instead of forming a strip.</td>
+<td>shipped</td>
+</tr>
+<tr>
+<td>F6 Questions register</td>
+<td>Open questions in a Questions tab (Q-nn labels, ask, answer, drop), the AI's clarifications recorded there, open ones listed in the prompt with a rule never to re-ask, answers reaching the AI without a turn, <code>resolve_question</code> tool, export and design-document sections.</td>
+<td>shipped</td>
+</tr>
+<tr>
+<td>F7 Contracts as API references</td>
+<td>An OpenAPI or AsyncAPI contract renders as grouped endpoints (method, path, summary; parameters, body and responses on click) or channels, with the raw text a click away.</td>
+<td>shipped</td>
+</tr>
+</tbody>
+</table></div>
 </article>
 </div>

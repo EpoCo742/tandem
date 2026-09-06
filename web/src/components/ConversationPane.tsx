@@ -29,6 +29,35 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const [err, setErr] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [staged, setStaged] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [taHeight, setTaHeight] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem("composer-height")) || 0;
+    } catch {
+      return 0;
+    }
+  });
+  // The grip above the box: drag up to grow, down to shrink; the size is remembered in this browser.
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = taRef.current?.offsetHeight ?? 60;
+    const move = (ev: MouseEvent) => setTaHeight(Math.max(60, Math.min(Math.round(window.innerHeight * 0.6), startH + (startY - ev.clientY))));
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      setTaHeight((h) => {
+        try {
+          localStorage.setItem("composer-height", String(h));
+        } catch {
+          /* per-browser convenience only */
+        }
+        return h;
+      });
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
   const bodyRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -104,8 +133,31 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const busy = turn.state !== "idle";
   const payerName = turn.payerUserId ? participantName(state, turn.payerUserId) : null;
 
+  const canDrop = consented && !replay && !meta.demo;
   return (
-    <div className="pane">
+    <div
+      className={"pane" + (dragOver ? " dropping" : "")}
+      onDragOver={(e) => {
+        if (!canDrop || !e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setDragOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setDragOver(false);
+      }}
+      onDrop={(e) => {
+        if (!canDrop) return;
+        e.preventDefault();
+        setDragOver(false);
+        const files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+        setStaged(files[0]!);
+        setErr(files.length > 1 ? "One file at a time; the first one is attached." : null);
+        taRef.current?.focus();
+      }}
+    >
       <div className="pane-head"><span style={{ whiteSpace: "nowrap" }}>AI lane</span><span className="grow" /><UsageStrip /><span style={{ whiteSpace: "nowrap", flex: "none" }}>{Object.keys(state.participants).length} participants</span></div>
       <div className={"pane-body" + (loading ? " loading" : "")} ref={bodyRef}>
         {loading && (
@@ -142,6 +194,15 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
                   </>
                 )}
                 {m.kind === "clarification" && <span style={{ color: AI_COLOR }}>AI asks</span>}
+                {m.kind === "clarification" && (() => {
+                  const q = Object.values(state.questions).find((x) => x.eventId === m.eventId);
+                  if (!q) return null;
+                  return (
+                    <button className="chip" style={{ cursor: "pointer", color: q.status === "open" ? "var(--accent)" : "var(--ok)" }} title={q.status === "open" ? "Answer it in the Questions tab; no AI turn needed" : q.status === "answered" ? `Answered: ${q.answer ?? ""}` : "Dropped"} onClick={() => requestTab("questions")}>
+                      {q.label} · {q.status === "open" ? "answer" : q.status}
+                    </button>
+                  );
+                })()}
                 {m.kind === "system" && <span>system</span>}
               </div>
               <div className="text">{m.intent === "compile" ? <em>asked the AI to compile the design document from the canvas</em> : m.text}</div>
@@ -179,10 +240,12 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
               {busy ? `${turn.state}${turn.queued ? ` · ${turn.queued} queued` : ""}` : "idle"}
               {typingNames.length > 0 && <span>· {typingNames.join(", ")} typing</span>}
             </div>
+            <div className="grip" onMouseDown={startResize} title="Drag up to make the box taller" />
             <textarea
               ref={taRef}
               value={text}
-              placeholder="Address the AI. Messages sent within ~1.5 s of each other are answered together."
+              style={taHeight ? { height: taHeight } : undefined}
+              placeholder="Address the AI. Messages sent within ~1.5 s of each other are answered together. Drop a file here to attach it."
               onChange={(e) => { setText(e.target.value); signalTyping("ai"); }}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
             />

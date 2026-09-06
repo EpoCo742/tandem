@@ -221,7 +221,7 @@ export const copilotProvider: ProviderAdapter = {
           for (const s of req.mcpServers) {
             const st = statuses.get(s.name);
             if (!st || st.status === "pending") req.onNote(`External tool server "${s.name}" did not finish connecting within 25 seconds; its tools are not available this turn.`);
-            else if (st.status === "connected") req.onNote(`External tool server "${s.name}" connected; ${s.tools.length} tools available this turn.`);
+            else if (st.status === "connected") console.log(`[tandem] turn ${req.turnId}: external tool server "${s.name}" connected; ${s.tools.length} tools available`);
             else if (st.status === "needs-auth") req.onNote(`External tool server "${s.name}" needs an OAuth login the runtime cannot complete here; register it as a stdio server through mcp-remote, or supply a valid Authorization header.`);
             else req.onNote(`External tool server "${s.name}" failed to connect${st.error ? `: ${st.error}` : ""}.`);
           }

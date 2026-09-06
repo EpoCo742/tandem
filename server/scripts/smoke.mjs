@@ -813,6 +813,24 @@ assert(settled.outcome === "confirmed" && /already confirmed/.test(await fails(a
 const mdAssumptions = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(/## Assumptions[\s\S]*A-01\*\* \[refuted\][\s\S]*A-02\*\* \[confirmed\]/.test(mdAssumptions), "the export lists the assumptions with their outcomes");
 
+// Open questions: the AI's clarifications and the group's own questions live in one register; an answer in the
+// tab needs no AI turn, an answer in chat is settled by the AI, and nobody is asked twice.
+const q1 = await alice.call("POST", `/api/v1/sessions/${sessionId}/questions`, { text: "Which region hosts the DR site?" });
+assert(/^Q-\d+$/.test(q1.label), `a question asked by hand takes the next label (${q1.label})`);
+const q1Res = await bob.call("POST", `/api/v1/sessions/${sessionId}/questions/${q1.questionId}/resolve`, { outcome: "answered", answer: "Frankfurt, same as production" });
+assert(q1Res.outcome === "answered" && /already answered/.test(await fails(alice.call("POST", `/api/v1/sessions/${sessionId}/questions/${q1.questionId}/resolve`, { outcome: "dropped" }))), "a question answered in the tab settles once, with no AI turn");
+const q2 = await alice.call("POST", `/api/v1/sessions/${sessionId}/questions`, { text: "Do we keep the legacy CSV feed?" });
+const qTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: `${q2.label}: yes, until the March cut-over.` });
+await waitFor(() => subA.events.some((e) => e.type === "question.resolved" && e.payload.questionId === q2.questionId), "the AI settles a question answered in chat");
+const qRes = subA.events.find((e) => e.type === "question.resolved" && e.payload.questionId === q2.questionId).payload;
+assert(qRes.outcome === "answered" && /March cut-over/.test(qRes.answer), "the answer is recorded as given");
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > qTurns, "question turn complete");
+const q3 = await alice.call("POST", `/api/v1/sessions/${sessionId}/questions`, { text: "Is the DR site still needed?" });
+assert((await alice.call("POST", `/api/v1/sessions/${sessionId}/questions/${q3.questionId}/resolve`, { outcome: "dropped" })).outcome === "dropped", "a question can be dropped as moot");
+const mdQuestions = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/## Questions[\s\S]*\[answered\] Which region hosts the DR site\? → Frankfurt, same as production[\s\S]*\[answered\] Do we keep the legacy CSV feed\? → yes, until the March cut-over[\s\S]*\[dropped\] Is the DR site still needed\?/.test(mdQuestions), "the export lists every question with its answer or outcome");
+
 // Contracts as cards: attached to a component, consumers derived from the model, a change flags them.
 const ctTurns = subA.events.filter((e) => e.type === "turn.completed").length;
 await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Contract for Service B: openapi 3.0.0, title Orders API, POST /orders creates an order, GET /orders/{id} reads one." });

@@ -129,6 +129,12 @@ export function exportMarkdown(s: SessionState): string {
     for (const a of assumptions) out.push(`- **${a.label}** [${a.status}] ${a.statement} — ${participantName(s, a.ownerUserId)}${a.revisitAt ? ` (revisit by ${a.revisitAt.slice(0, 10)})` : ""}${a.decisionId && s.decisions[a.decisionId] ? ` → ${s.decisions[a.decisionId]!.label}` : ""}${a.note ? `. ${a.note}` : ""}`);
     out.push("");
   }
+  const questions = Object.values(s.questions).sort((a, b) => a.label.localeCompare(b.label));
+  if (questions.length) {
+    out.push("## Questions", "", "Asked by the AI or by a participant; answered in the session or still open.", "");
+    for (const q of questions) out.push(`- **${q.label}** [${q.status}] ${q.text}${q.answer ? ` → ${q.answer}` : ""}${q.resolvedBy ? ` (${participantName(s, q.resolvedBy)})` : ""}`);
+    out.push("");
+  }
   // The same decisions as architecture decision records, one section each (the files are available separately).
   if (decisions.length) {
     out.push("## Decision records", "");

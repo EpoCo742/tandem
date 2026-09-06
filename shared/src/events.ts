@@ -101,7 +101,7 @@ export type Payloads = {
   "turn.started": { payerUserId: string; provider: string; modelRequested: string; batchEventIds: string[]; onBehalfOf: string };
   "turn.model_degraded": { requested: string; used: string; reason: string };
   "ai.message": { text: string; addressedTo: string[]; toolCallsCount: number; partial?: boolean; onBehalfOf: string; provider: string; model: string; payerUserId: string };
-  "ai.clarification": { question: string; addressedTo: string[]; onBehalfOf: string };
+  "ai.clarification": { question: string; addressedTo: string[]; onBehalfOf: string; questionId?: string; label?: string }; // also opens a question in the register (older events: id = event id)
   "proposal.created": {
     proposalId: string;
     artifactId: string;
@@ -153,6 +153,8 @@ export type Payloads = {
   };
   "assumption.recorded": { assumptionId: string; label: string; statement: string; ownerUserId: string; revisitAt?: string; evidence: string[]; about?: string[] }; // believed true, not decided; the owner revisits it
   "assumption.resolved": { assumptionId: string; outcome: "confirmed" | "refuted" | "decided"; decisionId?: string; note?: string }; // settled: held, did not hold, or became a decision
+  "question.raised": { questionId: string; label: string; text: string; addressedTo: string[] }; // a person asks the group; the AI asks through ai.clarification
+  "question.resolved": { questionId: string; outcome: "answered" | "dropped"; answer?: string }; // answered in the Questions tab or in chat, or dropped as moot
   "decision.voted": { decisionPointArtifactId: string; optionId: string };
   "decision.deadline_set": { decisionPointArtifactId: string; at: string };
   "decision.expired": { decisionPointArtifactId: string }; // the deadline passed without a majority

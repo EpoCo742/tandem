@@ -190,6 +190,12 @@ export const resolveAssumptionInput = z.object({
   evidence: z.array(z.string()).optional().describe("Ledger event ids of the messages that settled it"),
 });
 
+export const resolveQuestionInput = z.object({
+  questionId: z.string().describe("The question's id (or its Q-nn label) from the Open questions section"),
+  answer: z.string().describe("The answer as the person gave it, one or two sentences"),
+  evidence: z.array(z.string()).optional().describe("Ledger event ids of the messages that answered it"),
+});
+
 const constraintKind = z.enum(["must", "must_not", "target"]);
 const constraintCategory = z.enum(["latency", "availability", "data_residency", "security", "compliance", "budget", "platform", "capacity", "other"]);
 
@@ -344,6 +350,7 @@ export const toolSchemas = {
   upsert_deployment: upsertDeploymentInput,
   record_assumption: recordAssumptionInput,
   resolve_assumption: resolveAssumptionInput,
+  resolve_question: resolveQuestionInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -359,7 +366,8 @@ export const toolDescriptions: Record<ToolName, string> = {
     "Record a settled statement in the decision registry. Use status 'agreed' only when every listed participant stated or accepted it in the transcript; otherwise 'proposed'.",
   create_decision_point:
     "Raise a decision point when a directive contradicts an agreed decision or two participants disagree. Do not apply the contested change; list at least two options with trade-offs.",
-  ask_clarification: "Ask one or more participants a specific question before acting.",
+  ask_clarification: "Ask the people a specific question you cannot act without, or one the group should settle later. It is recorded as Q-nn in the Questions register, where people answer it; never repeat an open question in a later reply.",
+  resolve_question: "Mark an open question from the Open questions section as answered when someone's message answers it; pass the answer as they gave it.",
   read_artifact: "Read the full content of an artifact that is not included in the index.",
   pin_artifact: "Pin or unpin an artifact so its full content is always in context.",
   upsert_components:
@@ -394,7 +402,8 @@ export type ToolResult =
   | { status: "blocked_by_decision_point"; artifactId: string; decisionPointArtifactId: string }
   | { status: "invalid_content"; artifactId: string; message: string }
   | { status: "recorded"; decisionId: string; label: string }
-  | { status: "asked" }
+  | { status: "asked"; questionId: string; label: string }
+  | { status: "question_resolved"; questionId: string; label: string }
   | { status: "content"; artifactId: string; versionNo: number; content: unknown }
   | { status: "pinned"; artifactId: string; pinned: boolean }
   | { status: "model_updated"; artifactId: string; versionNo: number; components: number; relationships: number; unknown?: string[]; impact?: Record<string, string[]> }

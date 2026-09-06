@@ -37,6 +37,20 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
     lines.push("");
   }
 
+  // Questions live in a register so nobody has to ask twice: open ones with a rule not to repeat them, recent answers so they can be acted on.
+  const openQuestions = Object.values(state.questions).filter((q) => q.status === "open").sort((a, b) => a.label.localeCompare(b.label));
+  if (openQuestions.length) {
+    lines.push("## Open questions (already asked; people answer them in the Questions tab. Do not ask these again. When a message answers one, call resolve_question.)");
+    for (const q of openQuestions) lines.push(`- ${q.label} (id ${q.id}) ${q.text} — asked by ${q.askedBy ? participantName(state, q.askedBy) : "the AI"}${q.addressedTo.length ? ` for ${q.addressedTo.map((u) => participantName(state, u)).join(", ")}` : ""}`);
+    lines.push("");
+  }
+  const answered = Object.values(state.questions).filter((q) => q.status === "answered").sort((a, b) => (a.resolvedAt ?? "").localeCompare(b.resolvedAt ?? "")).slice(-8);
+  if (answered.length) {
+    lines.push("## Answered questions (act on these; do not ask again)");
+    for (const q of answered) lines.push(`- ${q.label} ${q.text} → ${q.answer ?? "(no answer given)"}${q.resolvedBy ? ` (${participantName(state, q.resolvedBy)})` : ""}`);
+    lines.push("");
+  }
+
   // A templated session carries its checklist so the model can steer toward what is missing.
   const checklist = completeness(state);
   if (checklist) {

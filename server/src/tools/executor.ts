@@ -1,5 +1,5 @@
 import { ulid } from "ulid";
-import { allAdrs, emptyModel, nextAssumptionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertDeployment, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
+import { allAdrs, emptyModel, nextAssumptionLabel, nextQuestionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertDeployment, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { AlternativesContent, ConstraintsContent, ContractContent, DecisionPointContent, SessionState } from "@tandem/shared";
 import { contractsOf } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
@@ -306,15 +306,27 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
     }),
 
     bind("ask_clarification", async (input) => {
+      const state = getState(scope.sessionId);
+      const questionId = ulid();
+      const label = nextQuestionLabel(state);
       appendEvent(scope.sessionId, {
         type: "ai.clarification",
         actorKind: "ai",
         actorUserId: scope.onBehalfOf,
         turnId: scope.turnId,
         causedBy: scope.batchEventIds,
-        payload: { question: input.question, addressedTo: input.addressedTo, onBehalfOf: scope.onBehalfOf },
+        payload: { question: input.question, addressedTo: input.addressedTo, onBehalfOf: scope.onBehalfOf, questionId, label },
       });
-      return { status: "asked" };
+      return { status: "asked", questionId, label };
+    }),
+
+    bind("resolve_question", async (input) => {
+      const state = getState(scope.sessionId);
+      const q = state.questions[input.questionId] ?? Object.values(state.questions).find((x) => x.label.toLowerCase() === input.questionId.toLowerCase());
+      if (!q) return { status: "error", message: `No question ${input.questionId}` };
+      if (q.status !== "open") return { status: "error", message: `${q.label} is already ${q.status}` };
+      appendEvent(scope.sessionId, { type: "question.resolved", actorKind: "ai", actorUserId: scope.onBehalfOf, turnId: scope.turnId, causedBy: input.evidence?.length ? input.evidence : scope.batchEventIds, payload: { questionId: q.id, outcome: "answered", answer: input.answer.trim().replace(/\.$/, "") } });
+      return { status: "question_resolved", questionId: q.id, label: q.label };
     }),
 
     // Read only, scoped to the person the turn acts for: their sessions plus everything published.

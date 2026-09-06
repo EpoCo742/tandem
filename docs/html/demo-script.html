@@ -44,7 +44,7 @@ strong{font-weight:600}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
 </style>
 <div class="page">
-<nav class="toc"><div class="k">Contents</div><a href="#the-built-in-demo">The built-in demo</a><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-1g-session-thumbnails-no-script">Stage 1g: session thumbnails (no script)</a><a href="#stage-1c-managing-sessions-no-script">Stage 1c: managing sessions (no script)</a><a href="#stage-1d-templates-no-script-or-template-integration">Stage 1d: templates (no script, or --template integration)</a><a href="#stage-1e-the-empty-canvas-no-script">Stage 1e: the empty canvas (no script)</a><a href="#stage-1b-as-is-from-code">Stage 1b: as-is from code</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-2b-the-model-is-the-truth">Stage 2b: the model is the truth</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-5b-threads-on-cards">Stage 5b: threads on cards</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-12a-usage-no-script">Stage 12a: usage (no script)</a><a href="#stage-12b-decisions-as-records">Stage 12b: decisions as records</a><a href="#stage-12d-constraints">Stage 12d: constraints</a><a href="#stage-2g-assumptions">Stage 2g: assumptions</a><a href="#stage-2f-contracts-as-cards">Stage 2f: contracts as cards</a><a href="#stage-2e-sequence-diagrams-from-the-model-no-ai-turn-needed">Stage 2e: sequence diagrams from the model (no AI turn needed)</a><a href="#stage-1f-import-an-existing-diagram-no-ai-turn">Stage 1f: import an existing diagram (no AI turn)</a><a href="#stage-12j-deployment-view">Stage 12j: deployment view</a><a href="#stage-12i-data-flow-classification">Stage 12i: data-flow classification</a><a href="#stage-12f-review-and-sign-off">Stage 12f: review and sign-off</a><a href="#stage-12g-publishing">Stage 12g: publishing</a><a href="#stage-12h-the-library">Stage 12h: the library</a><a href="#stage-12e-alternatives-side-by-side">Stage 12e: alternatives side by side</a><a href="#stage-12c-people-who-are-not-in-the-room">Stage 12c: people who are not in the room</a><a href="#stage-13-external-tools-mcp">Stage 13: external tools (MCP)</a><a href="#stage-13c-notifications-through-your-own-tools">Stage 13c: notifications through your own tools</a><a href="#stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</a><a href="#stage-2d-impact-no-script">Stage 2d: impact (no script)</a><a href="#stage-6b-replay-no-script">Stage 6b: replay (no script)</a><a href="#stage-14c-presentation-mode-no-script">Stage 14c: presentation mode (no script)</a><a href="#stage-14b-live-cursors-and-coloured-boundaries-no-script">Stage 14b: live cursors and coloured boundaries (no script)</a><a href="#stage-14d-readable-diagrams-no-script">Stage 14d: readable diagrams (no script)</a><a href="#stage-14a-change-glow-no-script">Stage 14a: change glow (no script)</a><a href="#stage-14-theme-and-canvas-grid-no-script">Stage 14: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
+<nav class="toc"><div class="k">Contents</div><a href="#the-built-in-demo">The built-in demo</a><a href="#two-ways-to-run-it">Two ways to run it</a><a href="#stage-1-setup">Stage 1: setup</a><a href="#stage-1g-session-thumbnails-no-script">Stage 1g: session thumbnails (no script)</a><a href="#stage-1c-managing-sessions-no-script">Stage 1c: managing sessions (no script)</a><a href="#stage-1d-templates-no-script-or-template-integration">Stage 1d: templates (no script, or --template integration)</a><a href="#stage-1e-the-empty-canvas-no-script">Stage 1e: the empty canvas (no script)</a><a href="#stage-1b-as-is-from-code">Stage 1b: as-is from code</a><a href="#stage-2-first-turn">Stage 2: first turn</a><a href="#stage-2b-the-model-is-the-truth">Stage 2b: the model is the truth</a><a href="#stage-3-proposal">Stage 3: proposal</a><a href="#stage-4-decision-point">Stage 4: decision point</a><a href="#stage-5-side-channel">Stage 5: side channel</a><a href="#stage-5b-threads-on-cards">Stage 5b: threads on cards</a><a href="#stage-6-history">Stage 6: history</a><a href="#stage-7-uploads-and-attachments">Stage 7: uploads and attachments</a><a href="#stage-7b-tidying-the-canvas-no-ai-turn">Stage 7b: tidying the canvas (no AI turn)</a><a href="#stage-8-compile">Stage 8: compile</a><a href="#stage-9-data-model">Stage 9: data model</a><a href="#stage-10-fork">Stage 10: fork</a><a href="#stage-11-export">Stage 11: export</a><a href="#stage-12-the-brief-long-sessions">Stage 12: the brief (long sessions)</a><a href="#stage-12a-usage-no-script">Stage 12a: usage (no script)</a><a href="#stage-12b-decisions-as-records">Stage 12b: decisions as records</a><a href="#stage-12d-constraints">Stage 12d: constraints</a><a href="#stage-2g-assumptions">Stage 2g: assumptions</a><a href="#stage-2h-open-questions">Stage 2h: open questions</a><a href="#stage-7c-the-composer-no-ai-turn">Stage 7c: the composer (no AI turn)</a><a href="#stage-2f-contracts-as-cards">Stage 2f: contracts as cards</a><a href="#stage-2e-sequence-diagrams-from-the-model-no-ai-turn-needed">Stage 2e: sequence diagrams from the model (no AI turn needed)</a><a href="#stage-1f-import-an-existing-diagram-no-ai-turn">Stage 1f: import an existing diagram (no AI turn)</a><a href="#stage-12j-deployment-view">Stage 12j: deployment view</a><a href="#stage-12i-data-flow-classification">Stage 12i: data-flow classification</a><a href="#stage-12f-review-and-sign-off">Stage 12f: review and sign-off</a><a href="#stage-12g-publishing">Stage 12g: publishing</a><a href="#stage-12h-the-library">Stage 12h: the library</a><a href="#stage-12e-alternatives-side-by-side">Stage 12e: alternatives side by side</a><a href="#stage-12c-people-who-are-not-in-the-room">Stage 12c: people who are not in the room</a><a href="#stage-13-external-tools-mcp">Stage 13: external tools (MCP)</a><a href="#stage-13c-notifications-through-your-own-tools">Stage 13c: notifications through your own tools</a><a href="#stage-13b-tidier-cards-no-script">Stage 13b: tidier cards (no script)</a><a href="#stage-2d-impact-no-script">Stage 2d: impact (no script)</a><a href="#stage-6b-replay-no-script">Stage 6b: replay (no script)</a><a href="#stage-14c-presentation-mode-no-script">Stage 14c: presentation mode (no script)</a><a href="#stage-14b-live-cursors-and-coloured-boundaries-no-script">Stage 14b: live cursors and coloured boundaries (no script)</a><a href="#stage-14d-readable-diagrams-no-script">Stage 14d: readable diagrams (no script)</a><a href="#stage-14a-change-glow-no-script">Stage 14a: change glow (no script)</a><a href="#stage-14-theme-and-canvas-grid-no-script">Stage 14: theme and canvas grid (no script)</a><a href="#what-the-fake-architect-reacts-to">What the fake architect reacts to</a><a href="#keeping-this-file-current">Keeping this file current</a></nav>
 <article>
 <div class="eyebrow"><span>Tandem design package · 07 · Demo script</span><span>2026-09-03</span></div>
 <h1>Tandem POC: Demo Script</h1>
@@ -55,7 +55,7 @@ strong{font-weight:600}
 <p>Every install carries a finished session, <strong>Demo: Order platform v1</strong>, on the home page under "See it working". Anyone signed in can open it as a viewer and <strong>Replay from the start</strong> to step through the whole timeline: two people and the AI, every kind of card, proposals, votes, threads, constraints and an exception, alternatives, review and sign-off, contracts, assumptions, deployment and a data-flow violation left open as the closing question. It cannot be changed, published, forked, renamed, archived or deleted, it is not in the digest, and only its design document is in the library.</p>
 <p>It is a fixture, <code>server/fixtures/demo-session.json</code>, captured from this script. To refresh it after the product changes:</p>
 <pre><code>cd server &amp;&amp; rm -rf data-demo &amp;&amp; PORT=3013 APP_URL=http://127.0.0.1:3013 DATA_DIR=./data-demo TANDEM_PROVIDER=fake TANDEM_DEV_AUTH=1 TANDEM_DEMO=0 npx tsx src/index.ts
-node server/scripts/demo.mjs --url http://127.0.0.1:3013 --order setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,contract,sequence,deployment,flow
+node server/scripts/demo.mjs --url http://127.0.0.1:3013 --order setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,questions,contract,sequence,deployment,flow
 node server/scripts/export-demo-fixture.mjs --db server/data-demo/tandem.db --session &lt;id printed by demo.mjs&gt;
 </code></pre>
 <p>The order matters: the revert goes back to the first commit, so the order platform is modelled before anything else, and the as-is capture comes after it so it becomes a baseline rather than the model. The server loads a new fixture version at the next start and replaces the old demo session. <code>TANDEM_DEMO=0</code> leaves the demo out.</p>
@@ -404,7 +404,7 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 <tr>
 <td>Anyone</td>
-<td><strong>tidy</strong> in the canvas corner packs every card into three columns by its real size so nothing overlaps; everyone gets the new layout. New cards land in the shortest column and are re-packed once measured, so a fresh session (the demo included) opens clean.</td>
+<td><strong>tidy</strong> in the canvas corner packs every card by its real size into as many columns as fill the screen's shape (a few tall diagrams spread sideways rather than stacking into a strip), so nothing overlaps; everyone gets the new layout. New cards land in the shortest column and are re-packed once measured, so a fresh session (the demo included) opens clean.</td>
 </tr>
 <tr>
 <td>Bob</td>
@@ -624,6 +624,55 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </table></div>
 <p>Fake architect: records A-01 for Bob; the contradiction settles it as "did not hold" with a system line in the lane. The Decisions tab has an Assumptions section with "held" and "did not hold" buttons and a field to add one by hand with a revisit date. A real model gets <code>record_assumption</code> and <code>resolve_assumption</code> with a rule to use them.</p>
 <p>Point at: the digest entry "Your assumption A-02 is due a look" once its date passes; the Assumptions section of the export.</p>
+<h2 id="stage-2h-open-questions">Stage 2h: open questions</h2>
+<p>Feature: what the AI or a participant still needs answered lives in a <strong>Questions</strong> tab instead of being repeated at the end of every reply. The AI's clarifications land there as Q-01, Q-02, … (with an "answer" chip on the lane message); anyone can ask the group. Answering in the tab writes a ledger event and reaches the AI in its next prompt, no turn spent; an answer typed in chat ("Q-01: yes, until March") is settled by the AI. The prompt lists the open questions with a rule never to ask them again, and the recent answers to act on.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alice</td>
+<td><strong>Questions</strong> tab, "Ask the group…": <code>Do we keep the legacy CSV feed after the cut-over?</code> → Q-01, a system line in the lane.</td>
+</tr>
+<tr>
+<td>Bob</td>
+<td>In the lane: <code>Q-01: yes, until March; the warehouse still reads it.</code> The AI settles Q-01 with that answer.</td>
+</tr>
+<tr>
+<td>Alice</td>
+<td>Asks <code>Which region hosts the DR site?</code> → Q-02.</td>
+</tr>
+<tr>
+<td>Bob</td>
+<td>Questions tab, answers <code>Frankfurt, same as production</code>. No AI turn; the answer is in the next prompt. <strong>drop</strong> marks a question moot.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Point at: the badge on the tab while something is open; the design document's "Open questions" section listing them; the export's Questions section with every answer.</p>
+<h2 id="stage-7c-the-composer-no-ai-turn">Stage 7c: the composer (no AI turn)</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anyone</td>
+<td>Drags a file from the desktop onto the AI lane: "drop to attach" appears, the file is staged in the composer exactly as with <strong>Attach file</strong>.</td>
+</tr>
+<tr>
+<td>Anyone</td>
+<td>Drags the grip above the message box upward: the box grows upward, where the eye expects; the size is remembered in this browser.</td>
+</tr>
+</tbody>
+</table></div>
+<p>External tool servers that connect normally no longer announce themselves in the lane each turn; only a server that fails, times out or needs a login gets a line.</p>
 <h2 id="stage-2f-contracts-as-cards">Stage 2f: contracts as cards</h2>
 <p>Feature: an API or event contract (OpenAPI, AsyncAPI, a JSON schema, GraphQL, proto or Markdown) is a <strong>contract</strong> card attached to the relationship it governs or the component that exposes it. The model says who provides and who consumes it; when the contract changes after the model last changed, every consumer row on the Architecture model card shows "contract changed" until the model moves again.</p>
 <div class="table-wrap"><table>

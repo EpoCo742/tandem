@@ -75,6 +75,7 @@ function buildDesignDoc(
   const notes = artifacts.filter((a) => a.type === "markdown");
   const sources = artifacts.filter((a) => a.type === "source");
   const open = allDecisions.filter((d) => d.status === "proposed" || d.status === "contested");
+  const openQuestions = [...prompt.matchAll(/^- (Q-\d+) \(id \S+\) (.+?) — asked by /gm)].map((m) => ({ label: m[1]!, text: m[2]! }));
   const md: string[] = [];
   md.push(`# ${title}: design document`, "", "## Overview", "", `Designed collaboratively by ${participants.join(", ") || "the participants"}. The canvas holds ${diagrams.length} diagram(s), ${models.length} data model(s), ${notes.length} note(s) and ${sources.length} source document(s); the registry records ${allDecisions.length} decision(s), ${allDecisions.filter((d) => d.status === "agreed").length} agreed.`, "");
   md.push("## Architecture", "");
@@ -104,8 +105,9 @@ function buildDesignDoc(
   for (const d of allDecisions) md.push(`- **${d.label}** [${d.status}] ${d.statement}${d.by ? ` — ${d.by}` : ""}${d.supersedes ? ` (supersedes ${d.supersedes})` : ""}`);
   if (!allDecisions.length) md.push("No decisions recorded.");
   md.push("", "## Open questions", "");
-  if (!open.length) md.push("None: every recorded decision is agreed or superseded.");
+  if (!open.length && !openQuestions.length) md.push("None: every recorded decision is agreed or superseded.");
   for (const d of open) md.push(`- ${d.label} is ${d.status}: ${d.statement}`);
+  for (const q of openQuestions) md.push(`- ${q.label} (open question): ${q.text}`);
   md.push("");
   const sections = [
     { id: "overview", heading: "Overview", derivedFrom: [requestEventId] },
@@ -467,6 +469,19 @@ export const fakeProvider: ProviderAdapter = {
       }
       await emit(`Placed ${comp.name} on ${nodeName!.trim()}${region ? ` (${region.trim().toUpperCase()})` : ""} in ${env}; the Deployment view shows it. Placement now drives the residency and security checks for ${comp.name}.`);
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
+    // 0q. "Q-03: Frankfurt" answers an open question from the register.
+    const answerMsg = batch.map((m) => ({ m, x: m.text.match(/^(Q-\d+)\s*[:\-–]\s*(.+)$/i) })).find((x) => x.x);
+    if (answerMsg) {
+      const section = req.context.prompt.match(/## Open questions[^\n]*\n([\s\S]*?)\n\n/);
+      const hit = [...(section?.[1] ?? "").matchAll(/^- (Q-\d+) \(id (\S+)\) /gm)].find((m) => m[1]!.toLowerCase() === answerMsg.x![1]!.toLowerCase());
+      if (hit) {
+        const answer = answerMsg.x![2]!.replace(/[.]$/, "");
+        const r = (await call("resolve_question", { questionId: hit[2]!, answer, evidence: [answerMsg.m.eventId] })) as { status: string; label?: string };
+        await emit(r.status === "question_resolved" ? `${r.label} is answered, per ${answerMsg.m.speaker}: ${answer}.` : `Could not settle ${answerMsg.x![1]}: ${r.status}.`);
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
     }
 
     // 0p. Assumptions: "We assume X" records one for the speaker; "Actually X is not …" settles the
