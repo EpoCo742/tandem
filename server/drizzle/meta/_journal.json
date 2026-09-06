@@ -57,6 +57,13 @@
       "when": 1788666465241,
       "tag": "0007_fair_crystal",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788666760292,
+      "tag": "0008_tiresome_bushwacker",
+      "breakpoints": true
     }
   ]
 }

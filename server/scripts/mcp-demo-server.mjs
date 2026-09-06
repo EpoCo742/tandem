@@ -73,6 +73,22 @@ server.registerTool(
 );
 
 server.registerTool(
+  "slack_post_message",
+  {
+    title: "Post a Slack message",
+    description: "Post a message to a Slack channel. Returns the message timestamp.",
+    inputSchema: { channel: z.string().describe("Channel name, e.g. #architecture"), text: z.string() },
+    annotations: { readOnlyHint: false, destructiveHint: false },
+  },
+  async ({ channel, text }) => {
+    const msgs = read("slack.json");
+    const ts = `${Date.now() / 1000}`;
+    write("slack.json", [...msgs, { channel, text, ts }]);
+    return { content: [{ type: "text", text: `Posted to ${channel} (ts ${ts})` }] };
+  },
+);
+
+server.registerTool(
   "confluence_publish_page",
   {
     title: "Publish a Confluence page",

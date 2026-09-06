@@ -483,6 +483,17 @@ Nothing to approve this time: the call is pre-approved for that space and runs a
 
 Point at: nothing ran; the AI says so; the **History** tab lists every external action with who directed it, who decided, and the result, and the export carries the same list under "External actions". On a real seat the Copilot runtime connects to the same servers and every MCP write goes through the same gate.
 
+## Stage 13c: notifications through your own tools
+
+Feature: under **credentials → Notifications**, pick one of your MCP servers, a tool that sends (Slack, Teams, mail), a target (a channel) and which events: a decision point raised, a proposal waiting on you, your sign-off requested, a document approved, a mention, a data flow breaking a constraint. Setting the rule is the approval, so sends are not gated again; each send is logged on the rule, with **test** to try it. You never hear about your own actions.
+
+| Who | Does |
+|---|---|
+| Alice | Notifications: server **atlassian**, tool **slack_post_message**, target `{"channel": "#architecture"}`, all events. **test**. |
+| Bob | "@alice can you look at the cache before the deadline?" |
+
+Point at: the message in the demo Slack (`data/mcp-demo/slack.json` in the demo server's directory) with the session title and a link; Bob, with no rule, hears nothing; the rule's "last sent" line.
+
 ## Stage 13b: tidier cards (no script)
 
 Uploaded source cards start folded to one line (▾ opens them, double-click too). While someone has a card open in the editor, everyone else sees a "Name editing" chip on it; it is a courtesy, not a lock, and the version check on save remains the guard.

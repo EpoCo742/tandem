@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type CredentialView, type McpServerView } from "../api";
 import { TopBar } from "../components/TopBar";
+import { NotificationRules } from "../components/NotificationRules";
 
 export function Settings() {
   const [data, setData] = useState<{ credentials: CredentialView[]; providers: string[]; defaultProvider: string } | null>(null);
@@ -232,6 +233,7 @@ function McpServers() {
           <button className="danger" onClick={() => api("DELETE", `/api/v1/mcp-servers/${s.id}`).then(load)}>Remove</button>
         </div>
       ))}
+      <NotificationRules servers={servers} />
     </>
   );
 }

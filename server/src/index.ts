@@ -14,6 +14,8 @@ import { registerSessionRoutes } from "./routes/sessions.js";
 import { registerMcpRoutes } from "./routes/mcp.js";
 import { registerLibraryRoutes } from "./routes/library.js";
 import { publishedDocument } from "./publish.js";
+import { registerNotificationRoutes } from "./routes/notifications.js";
+import { startNotifier } from "./notify.js";
 import { rehydrateDeadlines } from "./async.js";
 import { registerLedgerSocket } from "./ws.js";
 import { registerCollabSocket, hocuspocus } from "./collab.js";
@@ -36,6 +38,8 @@ async function main() {
   await registerSessionRoutes(app);
   await registerMcpRoutes(app);
   await registerLibraryRoutes(app);
+  await registerNotificationRoutes(app);
+  startNotifier();
   await registerUploadRoutes(app);
   await registerLedgerSocket(app);
   await registerCollabSocket(app);

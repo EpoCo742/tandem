@@ -251,7 +251,7 @@ const modelId = model.payload.artifactId;
 const versionsBeforeAuto = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === modelId).length;
 const autoEdit = await bob.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${modelId}/versions`, { content: { ...model.payload.content, entities: [...model.payload.content.entities, { name: "audit_log", fields: [{ name: "id", type: "uuid", pk: true }], derivedFrom: [] }] }, rationale: "Add audit log" });
 assert(autoEdit.status === "pending_approval", "cross-owner edit of the data model is a proposal");
-await waitFor(() => subA.events.some((e) => e.type === "proposal.approved" && e.actorKind === "system" && e.payload.proposalId === autoEdit.proposalId), "auto-apply after timeout", 8000);
+await waitFor(() => subA.events.some((e) => e.type === "proposal.approved" && e.actorKind === "system" && e.payload.proposalId === autoEdit.proposalId) && subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === modelId).length > versionsBeforeAuto, "auto-apply after timeout", 8000);
 assert(subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === modelId).length === versionsBeforeAuto + 1, "auto-applied proposal produced a new version");
 
 // Speaker mode: the speaker's own credential pays; without one the session falls back to another participant's.
@@ -443,14 +443,28 @@ const mcp = await alice.call("POST", "/api/v1/mcp-servers", {
   name: "atlassian",
   config: { transport: "stdio", command: process.execPath, args: [fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url))], env: { MCP_DEMO_DIR: demoDir } },
 });
-assert(mcp.status === "ok" && mcp.tools.length === 6, `demo MCP server registered and probed: ${mcp.tools.map((t) => t.name + (t.readOnly ? "" : "*")).join(", ")}`);
+assert(mcp.status === "ok" && mcp.tools.length === 7, `demo MCP server registered and probed: ${mcp.tools.map((t) => t.name + (t.readOnly ? "" : "*")).join(", ")}`);
+
+// Notifications: Alice asks to be told through her Slack tool; Bob's mention and proposal reach it; Bob has no rule and nothing of his own is sent.
+assert(/read-only/.test(await fails(alice.call("POST", "/api/v1/notifications", { mcpServerId: mcp.id, toolName: "confluence_search", target: {}, events: ["mention"] }))), "a read-only tool cannot carry notifications");
+const rule = await alice.call("POST", "/api/v1/notifications", { mcpServerId: mcp.id, toolName: "slack_post_message", target: { channel: "#architecture" }, events: ["mention", "proposal", "decision_point", "signoff", "approved", "violation"] });
+assert(rule.id && rule.serverName === "atlassian" && rule.events.length === 6, "alice set a notification rule on her Slack tool");
+const testSend = await alice.call("POST", `/api/v1/notifications/${rule.id}/test`);
+assert(testSend.ok === true && /Posted to #architecture/.test(testSend.text), "the test message went through the tool");
+await bob.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "@alice can you look at the cache before the deadline?", mode: "note" });
+await waitFor(() => { try { return JSON.parse(fs.readFileSync(`${demoDir}/slack.json`, "utf8")).some((m) => /mentions|can you look at the cache/.test(m.text) && /Order platform v1/.test(m.text)); } catch { return false; } }, "mention delivered to Slack", 8000);
+const slack = JSON.parse(fs.readFileSync(`${demoDir}/slack.json`, "utf8"));
+assert(slack.every((m) => m.channel === "#architecture") && slack.some((m) => /\/s\//.test(m.text)), "notifications name the session and link to it");
+const rulesNow = (await alice.call("GET", "/api/v1/notifications")).rules;
+assert(rulesNow[0].lastSentAt && !rulesNow[0].lastError, "the rule logs its last send");
+assert((await bob.call("GET", "/api/v1/notifications")).rules.length === 0, "rules are per person");
 assert(mcp.tools.find((t) => t.name === "repo_tree").readOnly === true && mcp.tools.find((t) => t.name === "repo_file").readOnly === true, "the repository tools are read-only");
 assert(mcp.tools.find((t) => t.name === "confluence_search").readOnly === true && mcp.tools.find((t) => t.name === "confluence_publish_page").readOnly === false, "read-only annotation is carried through");
 assert(!("config" in mcp) && !JSON.stringify(mcp).includes(demoDir), "the server config never comes back to the client");
 const imported = await alice.call("POST", "/api/v1/mcp-servers/import", {
   json: JSON.stringify({ servers: { "atlassian-import": { type: "stdio", command: process.execPath, args: [fileURLToPath(new URL("./mcp-demo-server.mjs", import.meta.url))], env: { MCP_DEMO_DIR: demoDir }, gallery: true, version: "1.0" } } }),
 });
-assert(imported.results.length === 1 && imported.results[0].status === "ok" && imported.results[0].tools.length === 6, "a pasted VS Code mcp.json registers and tests its servers");
+assert(imported.results.length === 1 && imported.results[0].status === "ok" && imported.results[0].tools.length === 7, "a pasted VS Code mcp.json registers and tests its servers");
 const badImport = await alice.call("POST", "/api/v1/mcp-servers/import", { json: JSON.stringify({ servers: { x: { type: "http", url: "https://example.invalid/mcp", headers: { Authorization: "Bearer ${input:token}" } } } }) }).catch((e) => e.message);
 assert(String(badImport).includes("placeholders"), "editor input placeholders are refused with a clear message");
 await alice.call("DELETE", `/api/v1/mcp-servers/${imported.results[0].id}`);
@@ -787,6 +801,7 @@ await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Actu
 await waitFor(() => subA.events.some((e) => e.type === "assumption.resolved"), "assumption settled by a contradiction");
 const asRes = subA.events.find((e) => e.type === "assumption.resolved").payload;
 assert(asRes.assumptionId === asEv.payload.assumptionId && asRes.outcome === "refuted", "the contradiction refuted A-01");
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length >= asTurns + 2, "contradiction turn complete");
 const byHand = await alice.call("POST", `/api/v1/sessions/${sessionId}/assumptions`, { statement: "Order volume stays under 10k per day", revisitAt: "2020-01-01" });
 assert(byHand.label === "A-02", "an assumption can be added by hand and takes the next label");
 const aliceDigestRevisit = (await alice.call("GET", "/api/v1/digest")).sessions.find((s) => s.sessionId === sessionId);

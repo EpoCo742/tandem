@@ -143,6 +143,21 @@ export const publicationVersions = sqliteTable(
   (t) => [index("publication_versions_pub_idx").on(t.publicationId)],
 );
 
+// Where a person wants to be told when something waits on them: one of their MCP servers, a
+// tool that sends, a target, and which events. Setting the rule is the approval.
+export const notificationRules = sqliteTable("notification_rules", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  mcpServerId: text("mcp_server_id").notNull(),
+  toolName: text("tool_name").notNull(),
+  target: text("target").notNull(), // JSON: extra arguments for the tool, e.g. {"channel": "#architecture"}
+  events: text("events").notNull(), // JSON NotifyEvent[]
+  enabled: integer("enabled").notNull().default(1),
+  createdAt: text("created_at").notNull(),
+  lastSentAt: text("last_sent_at"),
+  lastError: text("last_error"),
+});
+
 export const yjsDocuments = sqliteTable("yjs_documents", {
   name: text("name").primaryKey(),
   state: blob("state", { mode: "buffer" }).notNull(),

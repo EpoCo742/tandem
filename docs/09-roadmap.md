@@ -4,7 +4,7 @@ Plan of record from 2026-09-05. Everything built so far is listed in `05-poc-pla
 
 ## Where the product stands
 
-Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger. Publishing shipped the same day: a design document gets a public page at a stable address with a frozen, numbered copy per version and the signatures on each; approval publishes on its own while the page is live; the owner can unpublish and restore. C1, the organisation library, and C2, templates, shipped with it (see below). Phases D (rigour) and E (presence) were added the same day as the next plan; B4 notifications is deferred to the end of it.
+Housekeeping shipped 2026-09-05: sessions can be renamed, archived (read only, out of the digest, reversible) and deleted (everything goes, forks are kept), owner only, with the changes in the ledger. Publishing shipped the same day: a design document gets a public page at a stable address with a frozen, numbered copy per version and the signatures on each; approval publishes on its own while the page is live; the owner can unpublish and restore. C1, the organisation library, and C2, templates, shipped with it (see below). Phases D (rigour) and E (presence) were added the same day and shipped the same day, item by item with smoke coverage, and B4 notifications closed the plan. Every item in the order table below is shipped; what is left is the carried-over production work (sandboxed MCP servers, GitHub App, M4) and the "not done" notes under each item.
 
 The POC does the moment of collaboration well: two to five people in one AI conversation, turns batched and attributed, a governed canvas with proposals and decision points, versions and forks, a compiled design document, per-person AI credentials and per-person external tools with gated writes, a running brief for long sessions, and an export with provenance.
 
@@ -109,6 +109,8 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 **What.** Events that matter (decision point raised, proposal waiting on you, document approved) go out through a person's registered Slack or Teams MCP tool, governed like any outbound write but pre-approvable per channel.
 
 **Effort.** Two days. Depends on the MCP work already shipped and on B1 for the digest.
+
+**Status (2026-09-05): shipped.** `notification_rules` per person (MCP server, write tool, target JSON, events, enabled, last sent, last error); a bus-wide listener maps ledger events to recipients and texts (decision point raised, proposal waiting on you, sign-off requested, document approved, mention, flow violation; never the actor) and calls the person's tool directly, since setting the rule is the approval; routes to list, add, pause, test and remove rules; a Notifications section under credentials; the demo MCP server gains `slack_post_message`. Not done: batching several events into one message, and quiet hours.
 
 ---
 
@@ -337,7 +339,7 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 | 24 | D2 Deployment view | 4 | A1, D1 |
 | 25 | D8 Import from existing notation | 4 | A1, A5 |
 | 26 | E6 Session thumbnails | 1 | — |
-| 27 | B4 Notifications | 2 | B1 |
+| 27 | B4 Notifications (shipped) | 2 | B1 |
 
 Roughly eight working weeks for one engineer with Claude Code driving, in shippable slices, for items 1 to 11; items 12 to 27 add about seven more. Each item adds its stage to `07-demo-script.md` and its assertions to the smoke test before it is called done.
 

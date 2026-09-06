@@ -11,6 +11,12 @@ export type BusMessage = { kind: "event"; event: AnyLedgerEvent } | { kind: "eph
 export const bus = {
   publish(sessionId: string, msg: BusMessage) {
     emitter.emit(`session:${sessionId}`, msg);
+    emitter.emit("all", msg);
+  },
+  /** Every session's traffic, for cross-session listeners such as notifications. */
+  subscribeAll(handler: (msg: BusMessage) => void): () => void {
+    emitter.on("all", handler);
+    return () => emitter.off("all", handler);
   },
   subscribe(sessionId: string, handler: (msg: BusMessage) => void): () => void {
     const key = `session:${sessionId}`;
