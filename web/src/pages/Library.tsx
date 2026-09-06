@@ -107,7 +107,7 @@ function Hit({ h, targets, onOpen }: { h: LibraryHit; targets: SessionRow[]; onO
         <span style={{ fontWeight: 600, flex: 1 }}>{h.title}</span>
         {h.isPublic && <span className="chip" title="From a session you are not in; visible because it published a document">published</span>}
         <span className="mono">{new Date(h.updatedAt).toLocaleDateString()}</span>
-        {h.kind !== "document" && targets.length > 0 && !done && (
+        {h.kind !== "document" && !done && (
           <button className="icon" onClick={(e) => { e.stopPropagation(); setChoosing((c) => !c); }} title="Copy into one of your sessions, no AI turn; the origin stays attached">copy into…</button>
         )}
       </div>
@@ -116,7 +116,12 @@ function Hit({ h, targets, onOpen }: { h: LibraryHit; targets: SessionRow[]; onO
         {h.sessionTitle}
         {h.people.length > 0 && <> · {h.kind === "decision" ? "agreed by" : h.kind === "constraint" ? "set by" : "signed by"} {h.people.join(", ")}</>}
       </div>
-      {choosing && (
+      {choosing && targets.length === 0 && (
+        <div className="consent" style={{ marginTop: 8, fontSize: 12.5 }} onClick={(e) => e.stopPropagation()}>
+          No other session to copy into: this is the only one you own or edit. Create a session on the home page, or open a session and use its <b>Library</b> tab to search and copy from there.
+        </div>
+      )}
+      {choosing && targets.length > 0 && (
         <div className="row" style={{ marginTop: 8, gap: 6 }} onClick={(e) => e.stopPropagation()}>
           <select value={chosen} onChange={(e) => setTarget(e.target.value)} style={{ width: "auto", flex: 1 }}>
             {targets.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}

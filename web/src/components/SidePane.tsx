@@ -4,10 +4,11 @@ import remarkGfm from "remark-gfm";
 import { participantName, pendingProposals, contentText, describeAnchor, describeTarget, targetOf, completeness, AI_COLOR, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
+import { LibraryPanel } from "./LibraryPanel";
 import { signalTyping } from "../ws";
 import { promotionStates } from "../threadState";
 
-type Tab = "side" | "proposals" | "decisions" | "history" | "sources" | "brief" | "checklist";
+type Tab = "side" | "proposals" | "decisions" | "history" | "sources" | "brief" | "checklist" | "library";
 
 export function SidePane({ sessionId }: { sessionId: string }) {
   const state = useStore((s) => s.state);
@@ -52,11 +53,13 @@ export function SidePane({ sessionId }: { sessionId: string }) {
         <button className={tab === "sources" ? "active" : ""} onClick={() => setTab("sources")}>Sources</button>
         <button className={tab === "brief" ? "active" : ""} onClick={() => setTab("brief")}>Brief</button>
         {state.template && <button className={tab === "checklist" ? "active" : ""} onClick={() => setTab("checklist")}>Checklist</button>}
+        <button className={tab === "library" ? "active" : ""} onClick={() => setTab("library")} title="Search other sessions and copy decisions, components and constraints here">Library</button>
       </div>
       {tab === "side" && <SideChannel sessionId={sessionId} />}
       {tab === "proposals" && <Proposals sessionId={sessionId} proposals={pending} />}
       {tab === "decisions" && <Decisions />}
       {tab === "checklist" && <Checklist />}
+      {tab === "library" && <LibraryPanel sessionId={sessionId} />}
       {tab === "history" && <History sessionId={sessionId} />}
       {tab === "sources" && <Sources sessionId={sessionId} />}
       {tab === "brief" && <Brief sessionId={sessionId} />}

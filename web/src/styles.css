@@ -123,6 +123,8 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .check.done .mark { color: var(--ok); }
 .check.todo .mark { color: var(--ink-3); }
 
+.lib-hit { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+
 /* library and published pages */
 .library .hit { cursor: pointer; padding: 12px 14px; }
 .library .hit:hover { background: var(--panel-2); }

@@ -343,7 +343,7 @@ Feature: **library** in the top bar searches decisions, components, constraints 
 |---|---|
 | Alice | Top bar, **library**. Types "Kafka": decisions from this session with who agreed, the Kafka component, and the published document. Clicks the component: the session opens on the Architecture model card. |
 | Dave (not in the session) | Logs in, opens the library, searches "Kafka": only the published document and the decisions of sessions that published; nothing from unpublished sessions. |
-| Alice | On a decision hit, **copy into…**, picks a session, **Copy**: it arrives there as a proposed decision with "from Order platform v1" in the Decisions tab, no AI turn. A component or a constraint copies the same way through the usual governance (someone else's card there makes it a proposal). |
+| Alice | In any session, side pane **Library** tab: search "Kafka", **copy here** on a hit. Same thing from the library page: on a decision hit, **copy into…**, picks a session, **Copy**: it arrives there as a proposed decision with "from Order platform v1" in the Decisions tab, no AI turn. A component or a constraint copies the same way through the usual governance (someone else's card there makes it a proposal). |
 | Bob | In a second session, says "What did earlier sessions decide about Kafka? Pull in the first one." |
 
 Fake architect: searches the library (leaving out the current session), replies "Earlier sessions on Kafka: D-01 … (decision in "Order platform v1", agreed by Alice, Bob)", and records the first decision here as proposed with a "from Order platform v1" link in the Decisions tab. A real model gets the same tool and the same rule: cite, never invent precedent, and copy with `importedFrom`.
