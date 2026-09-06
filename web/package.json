@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hocuspocus/provider": "^4.6.0",
+    "@mermaid-js/layout-elk": "^0.2.3",
     "@tandem/shared": "workspace:*",
     "@xyflow/react": "^12.11.6",
     "mermaid": "^11.17.2",

@@ -25,6 +25,30 @@ describe("modelToMermaid", () => {
   });
 });
 
+describe("view rendering", () => {
+  it("styles every kind, lays nodes out by layer, and picks the direction from the shape", () => {
+    let m = upsertComponents(emptyModel(), [
+      { id: "db", name: "Postgres", kind: "database" },
+      { id: "api", name: "Orders API", kind: "service" },
+      { id: "web", name: "Web app", kind: "ui" },
+      { id: "cust", name: "Customer", kind: "person" },
+    ], []);
+    m = upsertRelationships(m, [{ from: "cust", to: "web", kind: "uses" }, { from: "web", to: "api", kind: "calls" }, { from: "api", to: "db", kind: "writes", dataClasses: ["pii"] }], []).model;
+    const src = modelToMermaid(m, { kind: "container" });
+    expect(src.startsWith("flowchart TB")).toBe(true); // four layers
+    expect(src).toContain("classDef svc");
+    expect(src).toContain(':::person');
+    expect(src).toContain(':::db');
+    expect(src.indexOf("n_cust")).toBeLessThan(src.indexOf("n_web"));
+    expect(src.indexOf("n_web")).toBeLessThan(src.indexOf("n_api"));
+    expect(src.indexOf("n_api")).toBeLessThan(src.indexOf("n_db"));
+    expect(src).toContain('|"writes [PII]"|');
+    expect(modelToMermaid(m, { kind: "container", direction: "LR" }).startsWith("flowchart LR")).toBe(true);
+    const two = upsertComponents(emptyModel(), [{ id: "a", name: "A", kind: "service" }, { id: "b", name: "B", kind: "service" }], []);
+    expect(modelToMermaid(two, { kind: "container" }).startsWith("flowchart LR")).toBe(true); // a short chain
+  });
+});
+
 describe("diffModels", () => {
   it("reports added, removed, changed and unchanged components and relationships between two moments", () => {
     const before = { components: [{ id: "a", name: "A", kind: "service" as const, derivedFrom: [] }, { id: "b", name: "B", kind: "service" as const, derivedFrom: [] }], relationships: [{ id: "a-calls-b", from: "a", to: "b", kind: "calls" as const, derivedFrom: [] }], boundaries: [] };

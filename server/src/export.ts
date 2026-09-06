@@ -1,4 +1,4 @@
-import { allAdrs, contentText, contractsOf, dataModelMarkdown, describeAnchor, liveArtifacts, modelDiff, modelToMermaid, participantName, threads, type AlternativesContent, type ArchModelContent, type ConstraintsContent, type ContractContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { allAdrs, contentText, contractsOf, dataModelMarkdown, legendText, mermaidLegend, describeAnchor, liveArtifacts, modelDiff, modelToMermaid, participantName, threads, type AlternativesContent, type ArchModelContent, type ConstraintsContent, type ContractContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 
 function modelMarkdown(m: ArchModelContent): string[] {
   const out: string[] = [];
@@ -63,7 +63,12 @@ export function exportMarkdown(s: SessionState): string {
     if (a.type === "mermaid") out.push("```mermaid", contentText(a.type, v.content), "```", "");
     else if (a.type === "view") {
       const vc = v.content as ViewContent;
-      if (model) out.push("```mermaid", modelToMermaid(model, vc), "```", "");
+      if (model) {
+        const src = modelToMermaid(model, vc);
+        out.push("```mermaid", src, "```", "");
+        const legend = legendText(mermaidLegend(src));
+        if (legend) out.push(`*${legend}*`, "");
+      }
       else out.push("*(view without an architecture model)*", "");
       if (vc.note) out.push(`*${vc.note}*`, "");
     } else if (a.type === "alternatives") {

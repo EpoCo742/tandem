@@ -13,3 +13,4 @@ export * from "./impact.js";
 export * from "./flows.js";
 export * from "./contracts.js";
 export * from "./notation.js";
+export * from "./legend.js";

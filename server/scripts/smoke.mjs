@@ -878,6 +878,14 @@ assert(demoLib.hits.some((h) => h.sessionId === demoRow.id && h.kind === "docume
 assert((await dave.call("GET", `/api/v1/library?q=Kafka&kind=component`)).hits.every((h) => h.sessionId !== demoRow.id) && (await dave.call("GET", `/api/v1/library?q=Kafka&kind=decision`)).hits.every((h) => h.sessionId !== demoRow.id), "the demo's components and decisions stay out of the library");
 assert(!(await dave.call("GET", "/api/v1/digest")).sessions.some((s) => s.sessionId === demoRow.id), "the demo is not in the digest");
 
+// Diagram polish: generated views carry kind styles and a legend in the export; the direction is a stored choice.
+const mdViews = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/classDef svc/.test(mdViews) && /:::svc/.test(mdViews) && /\*Legend: .*rectangle = service/.test(mdViews), "views are styled by kind and the export carries a legend under them");
+const containerView = (await alice.call("GET", `/api/v1/sessions/${sessionId}/events`)).filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "view").map((e) => e.payload).find((p) => p.title === "System architecture");
+const turned = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${containerView.artifactId}/versions`, { content: { ...containerView.content, direction: "LR" }, rationale: "left to right" });
+assert(turned.status === "applied" || turned.status === "pending_approval", `a view's direction is an ordinary edit (${turned.status})`);
+if (turned.status === "applied") assert(/flowchart LR/.test(await alice.call("GET", `/api/v1/sessions/${sessionId}/export`)), "the chosen direction is honoured in the export");
+
 // Thumbnails: a client stores a small SVG of the canvas; the session list carries it.
 const thumbOk = await alice.call("PUT", `/api/v1/sessions/${sessionId}/thumbnail`, { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"><rect x="0" y="0" width="40" height="30" fill="#3FB4C3"/></svg>' });
 assert(thumbOk.ok === true && (await alice.call("GET", "/api/v1/sessions")).find((s) => s.id === sessionId).thumbnail.startsWith("<svg"), "a canvas thumbnail is stored and listed");

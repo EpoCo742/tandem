@@ -298,6 +298,10 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 
 ---
 
+## Readable diagrams (added 2026-09-06)
+
+Generated views now render through Mermaid's ELK layout (orthogonal edges, balanced layers; dagre as a fallback per diagram), declare nodes in reading order by kind with invisible bridges between unconnected layers, pick top-down or left-right from the model's shape with a per-view override, style every kind the same way on every diagram, keep edge labels short, and carry a legend (derived from the diagram source, so it works on cards, the published page, presentation mode and the Markdown export). The system prompt gained rules for the AI's hand-drawn Mermaid. Not done: manual node placement, which would need views drawn with React Flow instead of Mermaid.
+
 ## Built-in demo (added 2026-09-05)
 
 A complete session shipped as a fixture and loaded at start on every install: read only for everyone, replayable from the first event, never published, forked or deleted, out of the digest, and present in the library only through its design document. Captured from `demo.mjs` with the publish and fork stages skipped; refreshed by re-running the seeder and `export-demo-fixture.mjs` (see `07-demo-script.md`). `TANDEM_DEMO=0` disables it.

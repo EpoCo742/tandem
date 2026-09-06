@@ -6,6 +6,7 @@ import { api } from "../api";
 import { navigate } from "../App";
 import { TopBar } from "../components/TopBar";
 import { Mermaid } from "../components/Mermaid";
+import { MermaidLegend } from "../components/MermaidLegend";
 import { useStore } from "../state/store";
 
 // Diagrams enlarge on click; the enlarged copy renders the same source at full width.
@@ -16,6 +17,7 @@ function ZoomableDiagram({ source }: { source: string }) {
       <div className="pub-diagram" onClick={() => setOpen(true)} title="Click to enlarge">
         <Mermaid source={source} />
       </div>
+      <MermaidLegend source={source} />
       {open && createPortal(
         <div className="modal-bg" onClick={() => setOpen(false)}>
           <div className="modal wide diagram-full" onClick={(e) => e.stopPropagation()}>

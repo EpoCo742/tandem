@@ -538,6 +538,12 @@ Feature: each person's pointer and selected card show on the canvas in their col
 
 Point at: Bob's pointer moving on Alice's screen and the System architecture card outlined in his colour when he clicks it; the Data Tier boundary drawn in the same blue on the container view, the component view and the as-is diff.
 
+## Stage 14d: readable diagrams (no script)
+
+Feature: generated views are laid out by the ELK engine (orthogonal edges, even layers) with dagre as a fallback; nodes are declared in reading order (people, interfaces, services, plumbing, stores) so layers come out as layers; every kind has one shape and colour on every diagram; edge labels stay short with data classes in brackets; a legend under each view, on the published page and in the export explains the shapes, the boundary tints and the edge styles. **direction** on a view card picks top-down, left-right, or automatic (top-down when the model has layers, left-right for a short chain). The AI's own Mermaid follows rules for size, order and labels.
+
+Point at: the System architecture view before and after (open the demo and compare with the replay's early frames); the legend; the direction buttons.
+
 ## Stage 14a: change glow (no script)
 
 Feature: a card lights up for a moment when its version changes, and the rows that changed on the model or constraints tables glow a little longer. A card changed since you last looked at the session carries a **new** chip and an accent edge until you touch it.

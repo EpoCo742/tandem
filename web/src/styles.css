@@ -140,6 +140,12 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .empty-state { background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 14px 16px; width: min(560px, 80vw); margin-top: 40px; display: flex; flex-direction: column; gap: 6px; }
 .empty-state button { text-align: left; font-size: 13px; }
 
+/* legend under generated diagrams */
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .03em; color: var(--ink-3); }
+.legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.legend-swatch { display: inline-block; width: 14px; height: 10px; border: 1.5px solid; box-sizing: border-box; }
+.legend-edge::before { content: "—"; margin-right: 2px; }
+
 /* the lane while a session's ledger replays: one spinner, then everything at once */
 .pane-body.loading > :not(.lane-loading) { display: none; }
 .lane-loading { display: flex; align-items: center; justify-content: center; gap: 10px; height: 100%; min-height: 160px; color: var(--ink-3); }

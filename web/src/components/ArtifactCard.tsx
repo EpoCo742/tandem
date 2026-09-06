@@ -15,6 +15,7 @@ import { ReviewPanel } from "./ReviewPanel";
 import { PublishPanel } from "./PublishPanel";
 import { ImpactPanel } from "./ImpactPanel";
 import { ImportModel } from "./ImportModel";
+import { MermaidLegend } from "./MermaidLegend";
 
 // Render ```mermaid fences inside Markdown cards as diagrams instead of code.
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
@@ -302,6 +303,23 @@ function ConstraintsTable({ content }: { content: ConstraintsContent }) {
   );
 }
 
+// "top to bottom" or "left to right" for this view; stored on the view as an ordinary edit.
+function DirectionToggle({ content }: { content: ViewContent }) {
+  const meta = useStore((s) => s.meta);
+  const state = useStore((s) => s.state);
+  const artifact = Object.values(state.artifacts).find((a) => a.type === "view" && !a.deleted && a.current.content === content);
+  if (!meta || !artifact) return null;
+  const set = (direction: "TB" | "LR" | undefined) => api("POST", `/api/v1/sessions/${meta.id}/artifacts/${artifact.id}/versions`, { content: { ...content, direction }, rationale: direction ? `Drawn ${direction === "TB" ? "top to bottom" : "left to right"}` : "Direction chosen automatically" }).catch(() => undefined);
+  return (
+    <div className="row" style={{ gap: 4, marginTop: 4 }}>
+      <span className="mono">direction</span>
+      {(["auto", "TB", "LR"] as const).map((d) => (
+        <button key={d} className={"icon" + ((content.direction ?? "auto") === d ? " primary" : "")} onClick={() => set(d === "auto" ? undefined : d)} title={d === "auto" ? "Let the shape of the model decide" : d === "TB" ? "Top to bottom" : "Left to right"}>{d === "auto" ? "auto" : d === "TB" ? "top-down" : "left-right"}</button>
+      ))}
+    </div>
+  );
+}
+
 // A view card draws itself from the session's architecture model, so it never goes stale.
 function ModelView({ content }: { content: ViewContent }) {
   const state = useStore((s) => s.state);
@@ -312,7 +330,8 @@ function ModelView({ content }: { content: ViewContent }) {
     <div>
       <div className="mono" style={{ marginBottom: 6 }}>{content.kind === "diff" ? "as-is vs to-be" : `${content.kind} view`}{focusName ? ` ${content.kind === "sequence" ? "from" : "of"} ${focusName}` : ""}{content.kind === "deployment" ? ` · ${content.environment ?? model.deployment?.environments[0] ?? "production"}` : ""} · {content.kind === "sequence" ? `${content.depth ?? 3} hops` : content.kind === "deployment" ? `${model.deployment?.nodes.length ?? 0} nodes` : `${model.components.length} components`}</div>
       {content.kind === "diff" && !model.asIs && <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>No as-is baseline yet. Ask the AI to draw the current architecture of a repository, or attach its docker-compose.yml.</div>}
-      <Mermaid source={modelToMermaid(model, content, { violating: new Set(violationsOf(state).map((v) => v.relationshipId)) })} />
+      {(() => { const src = modelToMermaid(model, content, { violating: new Set(violationsOf(state).map((v) => v.relationshipId)) }); return <><Mermaid source={src} /><MermaidLegend source={src} /></>; })()}
+      {(content.kind === "container" || content.kind === "context" || content.kind === "component" || content.kind === "diff") && <DirectionToggle content={content} />}
       {content.kind === "diff" && model.asIs && (() => { const d = modelDiff(model)!; return <div className="mono" style={{ marginTop: 6, fontSize: 11 }}><span style={{ color: "var(--ok)" }}>+{d.added.length} added</span> · <span style={{ color: "var(--warn)" }}>−{d.removed.length} removed</span> · <span style={{ color: "var(--accent)" }}>~{d.changed.length} changed</span> · {d.same.length} unchanged · as-is from {model.asIs.source}</div>; })()}
       {content.note && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{content.note}</div>}
     </div>

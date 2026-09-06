@@ -129,6 +129,7 @@ export interface ViewContent {
   focus?: string; // component id for a component view, or the starting component of a sequence view
   depth?: number; // sequence view: how many hops to follow from the start (default 3)
   environment?: string; // deployment view: which environment to draw (default the first)
+  direction?: "TB" | "LR"; // flowchart direction; chosen from the shape of the model when unset
   note?: string; // caption shown under the diagram
   sections: Section[];
 }
@@ -166,21 +167,70 @@ function shape(c: ModelComponent): string {
   switch (c.kind) {
     case "database":
     case "storage":
-      return `[("${n}")]`;
+      return `[("${n}")]:::db`;
     case "queue":
-      return `[["${n}"]]`;
+      return `[["${n}"]]:::q`;
     case "external":
-      return `[/"${n}"/]`;
+      return `[/"${n}"/]:::ext`;
     case "person":
-      return `(["${n}"])`;
+      return `(["${n}"]):::person`;
     case "ui":
-      return `("${n}")`;
+      return `("${n}"):::ui`;
     case "function":
-      return `>"${n}"]`;
+      return `>"${n}"]:::fn`;
     default:
-      return `["${n}"]`;
+      return `["${n}"]:::svc`;
   }
 }
+
+// One look per kind on every diagram. Light fills with dark text read on both themes.
+const KIND_CLASSDEFS = [
+  "  classDef svc fill:#eaf2fb,stroke:#2f7fd4,color:#1a2128",
+  "  classDef db fill:#f3eefa,stroke:#8e44ad,color:#1a2128",
+  "  classDef q fill:#fff4e5,stroke:#c26b1f,color:#1a2128",
+  "  classDef ext fill:#f4f6f8,stroke:#7c8893,stroke-dasharray:4 3,color:#1a2128",
+  "  classDef person fill:#e8f6ee,stroke:#2e9e5b,color:#1a2128",
+  "  classDef ui fill:#e6f7f9,stroke:#178e9e,color:#1a2128",
+  "  classDef fn fill:#fbf3e6,stroke:#b7950b,color:#1a2128",
+];
+
+// Reading order, top to bottom: people, then what they touch, then what does the work, then
+// the plumbing and the stores. Declaring nodes in this order (and pinning layers that no edge
+// connects) is what makes the layout engine draw layers instead of a tangle.
+const LAYER: Record<ComponentKind, number> = { person: 0, ui: 1, service: 2, function: 2, external: 3, queue: 3, database: 4, storage: 4, other: 2 };
+const layerOf = (c: ModelComponent) => LAYER[c.kind] ?? 2;
+const byLayer = (a: ModelComponent, b: ModelComponent) => layerOf(a) - layerOf(b) || a.name.localeCompare(b.name);
+
+/** Top to bottom when the model has layers, left to right when it is a short chain. */
+export function chooseDirection(components: ModelComponent[], relationships: ModelRelationship[], preferred?: "TB" | "LR"): "TB" | "LR" {
+  if (preferred) return preferred;
+  const layers = new Set(components.map(layerOf)).size;
+  if (layers >= 3) return "TB";
+  if (components.length <= 4) return "LR";
+  // Many nodes on one or two layers: a chain reads left to right, a fan reads top to bottom.
+  const fanOut = Math.max(0, ...components.map((c) => relationships.filter((r) => r.from === c.id).length));
+  return fanOut >= 3 ? "TB" : "LR";
+}
+
+// Invisible edges between consecutive layers that no real edge joins, so the engine keeps them apart.
+function layerBridges(components: ModelComponent[], relationships: ModelRelationship[]): string[] {
+  const present = [...new Set(components.map(layerOf))].sort((a, b) => a - b);
+  const out: string[] = [];
+  for (let i = 0; i + 1 < present.length; i++) {
+    const upper = components.filter((c) => layerOf(c) === present[i]);
+    const lower = components.filter((c) => layerOf(c) === present[i + 1]);
+    const joined = relationships.some((r) => (upper.some((c) => c.id === r.from) && lower.some((c) => c.id === r.to)) || (lower.some((c) => c.id === r.from) && upper.some((c) => c.id === r.to)));
+    if (!joined && upper[0] && lower[0]) out.push(`  ${mermaidId(upper[0].id)} ~~~ ${mermaidId(lower[0].id)}`);
+  }
+  return out;
+}
+
+const edgeLabel = (r: ModelRelationship) => {
+  const carries = (r.dataClasses ?? []).filter((c) => c !== "internal" && c !== "public");
+  const verb = r.label ?? VERB[r.kind]; // people's own labels are kept whole; the prompt asks the AI to keep them short
+  const tags = carries.map((c) => (c === "pii" ? "PII" : c)).filter((t) => !new RegExp(`\\b${t}\\b`, "i").test(verb)); // no "[PII]" after a label that already says PII
+  return `${verb}${tags.length ? ` [${tags.join(", ")}]` : ""}`;
+};
 
 /**
  * Render a view of the model as Mermaid.
@@ -188,10 +238,10 @@ function shape(c: ModelComponent): string {
  * - container: every component, grouped by boundary.
  * - component: the focus component and its direct neighbours.
  */
-export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, "kind" | "focus"> & { depth?: number; environment?: string }, opts: { violating?: ReadonlySet<string> } = {}): string {
-  const lines: string[] = ["flowchart LR"];
+export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, "kind" | "focus"> & { depth?: number; environment?: string; direction?: "TB" | "LR" }, opts: { violating?: ReadonlySet<string> } = {}): string {
   const comps = new Map(model.components.map((c) => [c.id, c]));
   if (model.components.length === 0) return "flowchart LR\n  empty[\"No components yet\"]";
+  const lines: string[] = [`flowchart ${chooseDirection(model.components, model.relationships, view.direction)}`, ...KIND_CLASSDEFS];
 
   if (view.kind === "context") {
     const systems = model.boundaries.filter((b) => (b.kind ?? "system") === "system");
@@ -205,7 +255,7 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
       const members = model.components.filter((c) => c.boundary === b.id);
       if (members.length) lines.push(`  b_${mermaidId(b.id)}["${quote(b.name)}\n${members.length} component${members.length === 1 ? "" : "s"}"]`, boundaryStyle(model, b));
     }
-    for (const c of model.components) if (!c.boundary || !systems.some((s) => s.id === c.boundary)) lines.push(`  ${mermaidId(c.id)}${shape(c)}`);
+    for (const c of [...model.components].sort(byLayer)) if (!c.boundary || !systems.some((s) => s.id === c.boundary)) lines.push(`  ${mermaidId(c.id)}${shape(c)}`);
     const seen = new Set<string>();
     for (const r of model.relationships) {
       const a = nodeFor(r.from);
@@ -214,7 +264,7 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
       const key = `${a}|${b}|${r.kind}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      lines.push(`  ${a} -->|"${quote(r.label ?? VERB[r.kind])}"| ${b}`);
+      lines.push(`  ${a} -->|"${quote(edgeLabel(r))}"| ${b}`);
     }
     return lines.join("\n");
   }
@@ -231,29 +281,30 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
       if (r.to === view.focus) include.add(r.from);
     }
   }
+  const shown = model.components.filter((c) => include.has(c.id)).sort(byLayer);
   const byBoundary = new Map<string | undefined, ModelComponent[]>();
-  for (const c of model.components) {
-    if (!include.has(c.id)) continue;
+  for (const c of shown) {
     const list = byBoundary.get(c.boundary) ?? [];
     list.push(c);
     byBoundary.set(c.boundary, list);
   }
-  for (const [bid, list] of byBoundary) {
+  // Groups in the order of their topmost member; loose components first when they sit higher.
+  const groups = [...byBoundary.entries()].sort((a, b) => layerOf(a[1][0]!) - layerOf(b[1][0]!));
+  for (const [bid, list] of groups) {
     const b = bid ? model.boundaries.find((x) => x.id === bid) : undefined;
     if (b) lines.push(`  subgraph b_${mermaidId(b.id)}["${quote(b.name)}"]`);
     for (const c of list) lines.push(`  ${b ? "  " : ""}${mermaidId(c.id)}${shape(c)}`);
     if (b) lines.push("  end", boundaryStyle(model, b));
   }
+  const rels = model.relationships.filter((r) => include.has(r.from) && include.has(r.to));
   let edge = 0;
   const bad: number[] = [];
-  for (const r of model.relationships) {
-    if (!include.has(r.from) || !include.has(r.to)) continue;
-    const carries = (r.dataClasses ?? []).filter((c) => c !== "internal" && c !== "public");
-    const label = `${r.label ?? VERB[r.kind]}${carries.length ? ` [${carries.map((c) => (c === "pii" ? "PII" : c)).join(", ")}]` : ""}`;
-    lines.push(`  ${mermaidId(r.from)} -->|"${quote(label)}"| ${mermaidId(r.to)}`);
+  for (const r of rels) {
+    lines.push(`  ${mermaidId(r.from)} -->|"${quote(edgeLabel(r))}"| ${mermaidId(r.to)}`);
     if (opts.violating?.has(r.id)) bad.push(edge);
     edge += 1;
   }
+  lines.push(...layerBridges(shown, rels));
   for (const i of bad) lines.push(`  linkStyle ${i} stroke:#c0392b,stroke-width:3px`);
   if (view.kind === "component" && view.focus) lines.push(`  style ${mermaidId(view.focus)} stroke-width:3px`);
   return lines.join("\n");
@@ -270,7 +321,7 @@ function diffToMermaid(model: ArchModelContent): string {
 export function compareMermaid(before: ModelShape, after: ModelShape): string {
   const d = diffModels(before, after);
   const model = after;
-  const lines = ["flowchart LR", "  classDef added stroke:#2e9e5b,stroke-width:3px", "  classDef removed stroke:#c0392b,stroke-dasharray:5 5,color:#c0392b", "  classDef changed stroke:#d4890a,stroke-width:3px", "  classDef same stroke:#8a949e,color:#8a949e"];
+  const lines = [`flowchart ${chooseDirection(after.components, after.relationships)}`, "  classDef added stroke:#2e9e5b,stroke-width:3px", "  classDef removed stroke:#c0392b,stroke-dasharray:5 5,color:#c0392b", "  classDef changed stroke:#d4890a,stroke-width:3px", "  classDef same stroke:#8a949e,color:#8a949e"];
   const all = new Map<string, { c: ModelComponent; status: "added" | "removed" | "changed" | "same" }>();
   for (const c of d.added) all.set(c.id, { c, status: "added" });
   for (const c of d.removed) all.set(c.id, { c, status: "removed" });
@@ -282,7 +333,7 @@ export function compareMermaid(before: ModelShape, after: ModelShape): string {
   for (const [bid, list] of byBoundary) {
     const b = bid ? boundaries.find((x) => x.id === bid) : undefined;
     if (b) lines.push(`  subgraph b_${mermaidId(b.id)}["${quote(b.name)}"]`);
-    for (const e of list) lines.push(`  ${b ? "  " : ""}${mermaidId(e.c.id)}${shape(e.c)}:::${e.status}`);
+    for (const e of [...list].sort((x, y) => byLayer(x.c, y.c))) lines.push(`  ${b ? "  " : ""}${mermaidId(e.c.id)}${shape(e.c).replace(/:::\w+$/, "")}:::${e.status}`);
     if (b) lines.push("  end", boundaryStyle({ boundaries }, b));
   }
   const addedIds = new Set(d.addedRels.map((r) => r.id));
@@ -346,7 +397,7 @@ export function deploymentMermaid(model: ArchModelContent, environment?: string,
   if (!d || d.nodes.length === 0) return "flowchart TB\n  empty[\"No deployment recorded yet: say where things run\"]";
   const env = environment && d.environments.includes(environment) ? environment : d.environments[0]!;
   const placed = d.placements[env] ?? {};
-  const lines = [`flowchart TB`, `  %% environment: ${env}`];
+  const lines = [`flowchart TB`, `  %% environment: ${env}`, ...KIND_CLASSDEFS];
   const children = (parent: string | undefined) => d.nodes.filter((n) => (n.parent ?? undefined) === parent);
   const compsOn = (nodeId: string) => model.components.filter((c) => placed[c.id] === nodeId);
   const emitNode = (n: DeploymentNode, indent: string) => {
