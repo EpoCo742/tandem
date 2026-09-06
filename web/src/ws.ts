@@ -1,4 +1,4 @@
-import type { ClientMessage, WireMessage } from "@tandem/shared";
+import type { AnyLedgerEvent, ClientMessage, WireMessage } from "@tandem/shared";
 import { useStore } from "./state/store";
 
 // Ledger socket: subscribe from the last seq we have, replay, then live.
@@ -6,6 +6,9 @@ import { useStore } from "./state/store";
 let socket: WebSocket | null = null;
 let currentSession: string | null = null;
 let retry = 0;
+// Events that arrive during a replay are held and applied together when the server says the
+// replay is done, so a long session lands in one render instead of scrolling past event by event.
+let pending: AnyLedgerEvent[] | null = null;
 
 export function connectLedger(sessionId: string) {
   currentSession = sessionId;
@@ -27,14 +30,27 @@ function open() {
     retry = 0;
     useStore.getState().setConnected(true);
     const fromSeq = useStore.getState().state.lastSeq;
+    pending = [];
+    if (fromSeq === 0) useStore.getState().setLoading(true);
     send({ t: "subscribe", sessionId: currentSession!, fromSeq });
   };
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data) as WireMessage;
     const s = useStore.getState();
-    if (m.t === "event") s.applyEvent(m.event);
-    else if (m.t === "ephemeral") s.applyEphemeral(m.event);
-    else if (m.t === "error") console.warn("ledger:", m.message);
+    if (m.t === "event") {
+      if (pending) pending.push(m.event);
+      else s.applyEvent(m.event);
+    } else if (m.t === "replay_done") {
+      const batch = pending ?? [];
+      pending = null;
+      s.applyEvents(batch);
+      s.setLoading(false);
+    } else if (m.t === "ephemeral") s.applyEphemeral(m.event);
+    else if (m.t === "error") {
+      console.warn("ledger:", m.message);
+      pending = null;
+      s.setLoading(false);
+    }
   };
   ws.onclose = () => {
     useStore.getState().setConnected(false);

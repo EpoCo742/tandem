@@ -21,6 +21,9 @@ interface Store {
   state: SessionState;
   reset: (sessionId: string) => void;
   applyEvent: (ev: AnyLedgerEvent) => void;
+  applyEvents: (evs: AnyLedgerEvent[]) => void; // the initial replay lands in one render, not one per event
+  loading: boolean; // true from opening a session until its ledger has replayed
+  setLoading: (l: boolean) => void;
   applyEphemeral: (ev: EphemeralEvent) => void;
   streaming: { turnId: string; text: string } | null;
   toolProgress: string | null;
@@ -67,7 +70,7 @@ export const useStore = create<Store>((set, get) => ({
   acknowledged: {},
   acknowledge: (artifactId) => { if (!get().acknowledged[artifactId]) set({ acknowledged: { ...get().acknowledged, [artifactId]: true } }); },
   state: emptyState(""),
-  reset: (sessionId) => set({ state: emptyState(sessionId), gone: false, replay: null, streaming: null, toolProgress: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
+  reset: (sessionId) => set({ state: emptyState(sessionId), gone: false, replay: null, loading: true, streaming: null, toolProgress: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
   replay: null,
   setReplay: (seq) => {
     const cur = get();
@@ -75,6 +78,17 @@ export const useStore = create<Store>((set, get) => ({
     if (seq === null) { set({ replay: null, state: live }); return; }
     const clamped = Math.max(1, Math.min(live.lastSeq, seq));
     set({ replay: { seq: clamped, live }, state: reduceUpTo(live.id, Object.values(live.eventsById), clamped), highlight: [] });
+  },
+  loading: true,
+  setLoading: (loading) => set({ loading }),
+  applyEvents: (evs) => {
+    if (evs.length === 0) return;
+    const replaying = get().replay;
+    if (replaying) {
+      set({ replay: { ...replaying, live: evs.reduce((s, ev) => reduce(s, ev), replaying.live) } });
+      return;
+    }
+    set({ state: evs.reduce((s, ev) => reduce(s, ev), get().state), streaming: null, toolProgress: null });
   },
   applyEvent: (ev) => {
     const replaying = get().replay;

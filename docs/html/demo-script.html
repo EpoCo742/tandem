@@ -55,10 +55,10 @@ strong{font-weight:600}
 <p>Every install carries a finished session, <strong>Demo: Order platform v1</strong>, on the home page under "See it working". Anyone signed in can open it as a viewer and <strong>Replay from the start</strong> to step through the whole timeline: two people and the AI, every kind of card, proposals, votes, threads, constraints and an exception, alternatives, review and sign-off, contracts, assumptions, deployment and a data-flow violation left open as the closing question. It cannot be changed, published, forked, renamed, archived or deleted, it is not in the digest, and only its design document is in the library.</p>
 <p>It is a fixture, <code>server/fixtures/demo-session.json</code>, captured from this script. To refresh it after the product changes:</p>
 <pre><code>cd server &amp;&amp; rm -rf data-demo &amp;&amp; PORT=3013 APP_URL=http://127.0.0.1:3013 DATA_DIR=./data-demo TANDEM_PROVIDER=fake TANDEM_DEV_AUTH=1 TANDEM_DEMO=0 npx tsx src/index.ts
-node server/scripts/demo.mjs --url http://127.0.0.1:3013 --skip publish,fork,export
+node server/scripts/demo.mjs --url http://127.0.0.1:3013 --order setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,contract,sequence,deployment,flow
 node server/scripts/export-demo-fixture.mjs --db server/data-demo/tandem.db --session &lt;id printed by demo.mjs&gt;
 </code></pre>
-<p>The server loads a new fixture version at the next start and replaces the old demo session. <code>TANDEM_DEMO=0</code> leaves the demo out.</p>
+<p>The order matters: the revert goes back to the first commit, so the order platform is modelled before anything else, and the as-is capture comes after it so it becomes a baseline rather than the model. The server loads a new fixture version at the next start and replaces the old demo session. <code>TANDEM_DEMO=0</code> leaves the demo out.</p>
 <h2 id="two-ways-to-run-it">Two ways to run it</h2>
 <p><strong>By hand.</strong> Alice in a normal browser window, Bob in a private window (or via <code>bob.mjs</code> below). Type the quoted lines exactly; the fake architect keys off specific words (see the trigger table at the end).</p>
 <p><strong>Seeded.</strong> With a dev-auth server running (<code>TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake</code>):</p>

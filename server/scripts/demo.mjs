@@ -20,6 +20,10 @@ const BASE = opt("url", process.env.TANDEM_URL ?? "http://localhost:3000");
 const TITLE = opt("title", "Order platform v1");
 const TEMPLATE = opt("template", ""); // new_service | integration | data_migration | platform_change; blank keeps the script's numbering
 const SKIP = new Set((opt("skip", "") || "").split(",").map((s) => s.trim()).filter(Boolean)); // stages to leave out, e.g. --skip publish,fork
+// --order a,b,c runs exactly these stages in this order (the fixture uses it so the order platform
+// survives the revert and the as-is capture becomes a baseline instead of the model).
+const ORDER = (opt("order", "") || "").split(",").map((s) => s.trim()).filter(Boolean);
+export const FIXTURE_ORDER = "setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,contract,sequence,deployment,flow";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function client(name, handle, displayName) {
@@ -288,10 +292,11 @@ if (args.includes("--list") || args.includes("-h") || args.includes("--help")) {
 
 const until = opt("until", STAGES[STAGES.length - 1][0]);
 const stop = STAGES.findIndex(([n], i) => n === until || String(i + 1) === until);
-if (stop < 0) {
+if (stop < 0 && ORDER.length === 0) {
   console.error(`Unknown stage "${until}". Run with --list.`);
   process.exit(1);
 }
+const plan = ORDER.length ? ORDER.map((name) => STAGES.find(([n]) => n === name) ?? (() => { console.error(`Unknown stage "${name}" in --order`); process.exit(1); })()) : STAGES.slice(0, stop + 1);
 
 const health = await alice.call("GET", "/api/health").catch(() => null);
 if (!health?.ok || !health.devAuth) {
@@ -299,8 +304,8 @@ if (!health?.ok || !health.devAuth) {
   process.exit(1);
 }
 
-for (let i = 0; i <= stop; i++) {
-  const [name, what, run] = STAGES[i];
+for (let i = 0; i < plan.length; i++) {
+  const [name, what, run] = plan[i];
   if (SKIP.has(name)) {
     console.log(`\n${i + 1}. ${name}: skipped`);
     continue;
@@ -309,8 +314,8 @@ for (let i = 0; i <= stop; i++) {
   await run();
 }
 
-console.log(`\nDone through "${STAGES[stop][0]}".`);
+console.log(`\nDone through "${plan[plan.length - 1][0]}".`);
 console.log(`Open ${BASE}/s/${ctx.sessionId} and log in as "alice".`);
 if (ctx.forkId) console.log(`Fork: ${BASE}/s/${ctx.forkId}`);
-if (stop + 1 < STAGES.length) console.log(`Next stage by hand: ${STAGES[stop + 1][0]} (see docs/07-demo-script.md).`);
+if (ORDER.length === 0 && stop + 1 < STAGES.length) console.log(`Next stage by hand: ${STAGES[stop + 1][0]} (see docs/07-demo-script.md).`);
 console.log(`Bob from the CLI: node server/scripts/bob.mjs say ${ctx.sessionId} "..."`);

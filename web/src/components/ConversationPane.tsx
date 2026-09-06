@@ -16,6 +16,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const setMeta = useStore((s) => s.setMeta);
   const [text, setText] = useState("");
   const replay = useStore((s) => s.replay);
+  const loading = useStore((s) => s.loading);
   const composerDraft = useStore((s) => s.composerDraft);
   const setComposerDraft = useStore((s) => s.setComposerDraft);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -55,10 +56,11 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const requestTab = useStore((s) => s.requestTab);
   const setFocusArtifact = useStore((s) => s.setFocusArtifact);
 
+  // Stay at the bottom as messages arrive; after the initial load, land there in one jump.
   useEffect(() => {
     const el = bodyRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [rows.length, streaming?.text]);
+    if (el && !loading) el.scrollTop = el.scrollHeight;
+  }, [rows.length, streaming?.text, loading]);
 
   useEffect(() => {
     if (highlight.length === 0) return;
@@ -105,7 +107,13 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   return (
     <div className="pane">
       <div className="pane-head"><span style={{ whiteSpace: "nowrap" }}>AI lane</span><span className="grow" /><UsageStrip /><span style={{ whiteSpace: "nowrap", flex: "none" }}>{Object.keys(state.participants).length} participants</span></div>
-      <div className="pane-body" ref={bodyRef}>
+      <div className={"pane-body" + (loading ? " loading" : "")} ref={bodyRef}>
+        {loading && (
+          <div className="lane-loading">
+            <span className="spinner" aria-hidden="true" />
+            <span className="mono">loading the conversation…</span>
+          </div>
+        )}
         {rows.map((row) => {
           if (row.kind === "call") return <ExternalCallCard key={row.c.id} call={row.c} sessionId={sessionId} myId={myId} onOpen={() => requestTab("proposals")} />;
           if (row.kind === "proposal") return <ProposalCard key={row.p.id} proposal={row.p} sessionId={sessionId} myId={myId} onOpen={() => requestTab("proposals")} />;

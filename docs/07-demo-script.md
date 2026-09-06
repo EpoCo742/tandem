@@ -12,11 +12,11 @@ It is a fixture, `server/fixtures/demo-session.json`, captured from this script.
 
 ```
 cd server && rm -rf data-demo && PORT=3013 APP_URL=http://127.0.0.1:3013 DATA_DIR=./data-demo TANDEM_PROVIDER=fake TANDEM_DEV_AUTH=1 TANDEM_DEMO=0 npx tsx src/index.ts
-node server/scripts/demo.mjs --url http://127.0.0.1:3013 --skip publish,fork,export
+node server/scripts/demo.mjs --url http://127.0.0.1:3013 --order setup,first-turn,proposal,decision-point,side-channel,threads,history,as-is,uploads,compile,data-model,review,alternatives,constraints,assumptions,contract,sequence,deployment,flow
 node server/scripts/export-demo-fixture.mjs --db server/data-demo/tandem.db --session <id printed by demo.mjs>
 ```
 
-The server loads a new fixture version at the next start and replaces the old demo session. `TANDEM_DEMO=0` leaves the demo out.
+The order matters: the revert goes back to the first commit, so the order platform is modelled before anything else, and the as-is capture comes after it so it becomes a baseline rather than the model. The server loads a new fixture version at the next start and replaces the old demo session. `TANDEM_DEMO=0` leaves the demo out.
 
 ## Two ways to run it
 

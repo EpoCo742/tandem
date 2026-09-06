@@ -159,7 +159,7 @@ export function Session({ sessionId }: { sessionId: string }) {
       <ReplayBar />
       {demo && !replay && (
         <div className="archived-banner">
-          This is the built-in demo: a complete session, read only for everyone. <a href="#" onClick={(e) => { e.preventDefault(); setReplay(1); }}>Replay it from the first event</a> to see how three people and the AI built it, or start a session of your own from the home page.
+          This is the built-in demo: a complete session, read only for everyone. <a href="#" onClick={(e) => { e.preventDefault(); setReplay(1); }}>Replay it from the first event</a> to see how two people and the AI built it, or start a session of your own from the home page.
         </div>
       )}
       {archived && !replay && (

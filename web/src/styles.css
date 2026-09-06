@@ -140,6 +140,13 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .empty-state { background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 14px 16px; width: min(560px, 80vw); margin-top: 40px; display: flex; flex-direction: column; gap: 6px; }
 .empty-state button { text-align: left; font-size: 13px; }
 
+/* the lane while a session's ledger replays: one spinner, then everything at once */
+.pane-body.loading > :not(.lane-loading) { display: none; }
+.lane-loading { display: flex; align-items: center; justify-content: center; gap: 10px; height: 100%; min-height: 160px; color: var(--ink-3); }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; border-top-color: var(--line); } }
+
 /* live cursors: other people's pointers on the canvas, in their colour */
 .live-cursor { position: absolute; left: 0; top: 0; pointer-events: none; display: flex; align-items: flex-start; gap: 2px; transition: transform 80ms linear; z-index: 20; }
 .live-cursor-name { font-family: var(--mono); font-size: 10px; color: #fff; padding: 1px 5px; border-radius: 3px; margin-top: 10px; white-space: nowrap; }
