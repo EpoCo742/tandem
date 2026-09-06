@@ -94,10 +94,20 @@ export function reindexSession(sessionId: string) {
   reindexTx(sessionId, rowsFor(sessionId, getState(sessionId), s.title), seq);
 }
 
+// Bump when what a row holds changes (its link, title or body shape): every session is reindexed once,
+// even those whose ledger has not moved. Kept as a sentinel row so no migration is needed.
+const INDEX_FORMAT = 2;
+const FORMAT_KEY = "__format__";
+
 /** Bring every session's index up to its ledger head. Cheap when nothing moved: one small query per session. */
 export function ensureIndexed() {
   const sessions = db.select({ id: schema.sessions.id }).from(schema.sessions).all();
-  const indexed = new Map(sqlite.prepare(`select session_id, indexed_seq from library_index_state`).all().map((r) => [(r as { session_id: string }).session_id, (r as { indexed_seq: number }).indexed_seq]));
+  const format = sqlite.prepare(`select indexed_seq from library_index_state where session_id = ?`).get(FORMAT_KEY) as { indexed_seq: number } | undefined;
+  if ((format?.indexed_seq ?? 0) !== INDEX_FORMAT) {
+    sqlite.prepare(`delete from library_index_state`).run();
+    sqlite.prepare(`insert into library_index_state (session_id, indexed_seq, indexed_at) values (?, ?, ?)`).run(FORMAT_KEY, INDEX_FORMAT, now());
+  }
+  const indexed = new Map(sqlite.prepare(`select session_id, indexed_seq from library_index_state where session_id <> ?`).all(FORMAT_KEY).map((r) => [(r as { session_id: string }).session_id, (r as { indexed_seq: number }).indexed_seq]));
   for (const { id } of sessions) {
     const { seq } = stmts().maxSeq.get(id) as { seq: number };
     if ((indexed.get(id) ?? -1) < seq) reindexSession(id);
