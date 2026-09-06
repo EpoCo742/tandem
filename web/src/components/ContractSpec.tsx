@@ -13,6 +13,7 @@ export function ContractSpec({ spec }: { spec: ContractSpecModel }) {
         {spec.title && <b>{spec.title}</b>}
         {spec.version && <span className="chip" style={{ color: "var(--ink-3)" }}>v{spec.version}</span>}
         <span className="mono">{spec.kind === "openapi" ? `${spec.count} endpoint${spec.count === 1 ? "" : "s"}` : `${spec.count} channel${spec.count === 1 ? "" : "s"}`}</span>
+        {spec.kind === "openapi" && spec.servers.map((s) => <span key={s} className="mono" title="Server">{s}</span>)}
       </div>
       {spec.kind === "openapi" &&
         spec.groups.map((g) => (
