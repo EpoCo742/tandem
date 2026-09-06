@@ -434,7 +434,7 @@ Feature: **library** in the top bar searches decisions, components, constraints 
 
 Fake architect: searches the library (leaving out the current session), replies "Earlier sessions on Kafka: D-01 … (decision in "Order platform v1", agreed by Alice, Bob)", and records the first decision here as proposed with a "from Order platform v1" link in the Decisions tab. A real model gets the same tool and the same rule: cite, never invent precedent, and copy with `importedFrom`.
 
-Point at: attribution on every hit; the "from …" chip on copied decisions, components and constraints; the AI turn used one read-only search.
+Point at: attribution on every hit; the "from …" chip on copied decisions, components and constraints; the AI turn used one read-only search. A document hit opens the document as a page (contents, versions, status, print); **read** on any Design document card opens the same page.
 
 ## Stage 12e: alternatives side by side
 
@@ -529,7 +529,7 @@ Point at: the reducer is pure and the ledger complete, so this is a fold, not a 
 
 ## Stage 14c: presentation mode (no script)
 
-Feature: **Present** in the top bar walks through the cards one per screen, in an order you set, with the decision log (and assumptions) as the closing screen. Arrow keys, space or a click move; Esc leaves. **arrange** chooses which cards are shown and in what order; the order lives in the shared layout document, so everyone presenting this session gets the same sequence, and nothing is written to the ledger.
+Feature: **Present** in the top bar walks through the cards one per screen, in an order you set, with the decision log (and assumptions) as the closing screen. Arrow keys, space or a click move; Esc leaves. **contents** (or C) lists every slide with its number and type to jump straight to one; **arrange** chooses which cards are shown and in what order; the order lives in the shared layout document, so everyone presenting this session gets the same sequence, and nothing is written to the ledger.
 
 Point at: presenting the design to people who were not in the session, straight from the canvas; the diagrams render full width.
 

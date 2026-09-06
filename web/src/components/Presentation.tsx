@@ -30,6 +30,7 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
   const [ids, setIds] = useState<string[]>(() => order.toArray());
   const [i, setI] = useState(0);
   const [arranging, setArranging] = useState(false);
+  const [contents, setContents] = useState(false);
 
   useEffect(() => {
     const read = () => setIds(order.toArray());
@@ -54,6 +55,7 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
       if (e.key === "ArrowLeft" || e.key === "PageUp") setI((x) => Math.max(0, x - 1));
       if (e.key === "Home") setI(0);
       if (e.key === "End") setI(total - 1);
+      if (e.key === "c" || e.key === "C") setContents((v) => !v);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -91,7 +93,8 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
         <span className="mono">{state.title}</span>
         <span className="mono">{at + 1} / {total}</span>
         <span className="grow" />
-        <button className="icon" onClick={() => setArranging((v) => !v)} title="Choose which cards are shown and in what order (shared with everyone presenting this session)">{arranging ? "done" : "arrange"}</button>
+        <button className={"icon" + (contents ? " primary" : "")} onClick={() => { setContents((v) => !v); setArranging(false); }} title="Jump to a slide (C)">contents</button>
+        <button className="icon" onClick={() => { setArranging((v) => !v); setContents(false); }} title="Choose which cards are shown and in what order (shared with everyone presenting this session)">{arranging ? "done" : "arrange"}</button>
         <button className="icon" onClick={onClose} title="Leave presentation (Esc)">exit</button>
       </div>
       <div className="present-body" onClick={(e) => e.stopPropagation()}>
@@ -127,9 +130,26 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
       </div>
       <div className="present-nav" onClick={(e) => e.stopPropagation()}>
         <button onClick={() => setI((x) => Math.max(0, x - 1))} disabled={at === 0}>◀ previous</button>
-        <span className="mono">← → to move · Esc to leave</span>
+        <span className="mono">← → to move · C for contents · Esc to leave</span>
         <button onClick={() => setI((x) => Math.min(total - 1, x + 1))} disabled={at === total - 1}>next ▶</button>
       </div>
+      {contents && (
+        <div className="present-arrange present-contents" onClick={(e) => e.stopPropagation()}>
+          <div className="mono" style={{ marginBottom: 6 }}>contents · {total} slides</div>
+          {slides.map((s, k) => (
+            <div key={s.id} className={"present-item present-toc-item" + (k === at ? " current" : "")} onClick={() => { setI(k); setContents(false); }} title={s.title}>
+              <span className="mono" style={{ width: 22 }}>{k + 1}</span>
+              <span className="chip" style={{ color: AI_COLOR, fontSize: 10 }}>{s.type.replace("_", " ")}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
+            </div>
+          ))}
+          <div className={"present-item present-toc-item" + (at === total - 1 ? " current" : "")} onClick={() => { setI(total - 1); setContents(false); }}>
+            <span className="mono" style={{ width: 22 }}>{total}</span>
+            <span className="chip" style={{ fontSize: 10 }}>closing</span>
+            <span style={{ flex: 1 }}>Decisions{assumptions.length ? " and assumptions" : ""}</span>
+          </div>
+        </div>
+      )}
       {arranging && (
         <div className="present-arrange" onClick={(e) => e.stopPropagation()}>
           <div className="row" style={{ marginBottom: 6 }}>

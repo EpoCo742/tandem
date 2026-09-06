@@ -14,6 +14,7 @@ import { AlternativesView } from "./AlternativesView";
 import { ReviewPanel } from "./ReviewPanel";
 import { PublishPanel } from "./PublishPanel";
 import { ImpactPanel } from "./ImpactPanel";
+import { navigate } from "../App";
 import { ImportModel } from "./ImportModel";
 import { MermaidLegend } from "./MermaidLegend";
 
@@ -191,6 +192,11 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
             }}
           >
             download .md
+          </button>
+        )}
+        {a.type === "design_doc" && (
+          <button title="Read this document as a page: contents, versions, status, print" onClick={() => navigate(`/s/${sessionId}/doc/${a.id}`)}>
+            read
           </button>
         )}
         {!isDp && a.type !== "source" && <button onClick={() => setEditing(true)} disabled={Boolean(a.blockedByDecisionPoint)}>edit</button>}

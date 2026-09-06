@@ -32,7 +32,7 @@ function rowsFor(sessionId: string, state: SessionState, sessionTitle: string): 
   const out: Row[] = [];
   if (isDemoSession(sessionId)) {
     const doc = Object.values(state.artifacts).find((a) => a.type === "design_doc" && !a.deleted);
-    if (doc) out.push({ kind: "document", sessionId, refId: doc.id, title: `${doc.title} (demo)`, body: contentText(doc.type, doc.current.content).slice(0, 60_000), people: "", sessionTitle, isPublic: 1, updatedAt: doc.current.createdAt, link: `/s/${sessionId}`, artifactId: doc.id });
+    if (doc) out.push({ kind: "document", sessionId, refId: doc.id, title: `${doc.title} (demo)`, body: contentText(doc.type, doc.current.content).slice(0, 60_000), people: "", sessionTitle, isPublic: 1, updatedAt: doc.current.createdAt, link: `/s/${sessionId}/doc/${doc.id}`, artifactId: doc.id });
     return out;
   }
   const pubs = livePublications(sessionId);

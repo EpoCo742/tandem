@@ -24,7 +24,7 @@ import { requestReview, signOff, withdrawReview } from "../review.js";
 import { publishDocument, revokePublication } from "../publish.js";
 import { importFromLibrary } from "../importer.js";
 import { demoSessionId, demoViewer, isDemoSession } from "../demo.js";
-import { impactLines, impactOf, contractsOf, nextAssumptionLabel, parseNotation, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts } from "@tandem/shared";
+import { impactLines, impactOf, contractsOf, nextAssumptionLabel, parseNotation, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts, contentText, participantName } from "@tandem/shared";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -722,6 +722,30 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const me = participantOr403(req.params.id, user.id);
     if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot refresh the brief" });
     return maybeCompact(req.params.id, { force: true });
+  });
+
+  app.get<{ Params: { id: string; artifactId: string }; Querystring: { v?: string } }>("/api/v1/sessions/:id/artifacts/:artifactId", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    participantOr403(req.params.id, user.id);
+    const state = getState(req.params.id);
+    const a = state.artifacts[req.params.artifactId];
+    if (!a || a.deleted) return reply.code(404).send({ error: "no such card" });
+    const want = Number(req.query.v) || a.current.versionNo;
+    const v = a.versions.find((x) => x.versionNo === want) ?? a.current;
+    const markdown = a.type === "design_doc" || a.type === "markdown" ? (v.content as { markdown?: string }).markdown ?? "" : contentText(a.type, v.content);
+    const review = state.reviews[a.id];
+    const pub = db.select({ slug: schema.publications.slug, revokedAt: schema.publications.revokedAt }).from(schema.publications).where(and(eq(schema.publications.sessionId, req.params.id), eq(schema.publications.artifactId, a.id))).get();
+    const session = db.select({ demo: schema.sessions.demo }).from(schema.sessions).where(eq(schema.sessions.id, req.params.id)).get();
+    return {
+      sessionId: req.params.id,
+      sessionTitle: state.title,
+      demo: (session?.demo ?? 0) > 0,
+      artifact: { id: a.id, title: a.title, type: a.type, versionNo: v.versionNo, authorName: `${v.authorKind === "ai" ? "AI for " : ""}${participantName(state, v.authorUserId)}`, createdAt: v.createdAt, markdown },
+      versions: a.versions.map((x) => ({ versionNo: x.versionNo, authorName: `${x.authorKind === "ai" ? "AI for " : ""}${participantName(state, x.authorUserId)}`, createdAt: x.createdAt })),
+      review: review ? { status: review.status, approvedVersionNo: review.approvedVersionNo, signerNames: review.status === "approved" ? review.reviewers.map((u) => participantName(state, u)) : [], decisionLabel: review.decisionId ? state.decisions[review.decisionId]?.label : undefined } : null,
+      published: pub && !pub.revokedAt ? { slug: pub.slug } : null,
+    };
   });
 
   app.get<{ Params: { id: string } }>("/api/v1/sessions/:id/adrs", async (req, reply) => {

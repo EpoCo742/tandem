@@ -35,7 +35,7 @@ function ZoomableDiagram({ source }: { source: string }) {
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const textOf = (children: React.ReactNode): string => (Array.isArray(children) ? children.map(textOf).join("") : typeof children === "string" || typeof children === "number" ? String(children) : children && typeof children === "object" && "props" in children ? textOf((children as { props: { children?: React.ReactNode } }).props.children) : "");
 
-const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
+export const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   code({ className, children }) {
     const text = String(children).replace(/\n$/, "");
     if (className === "language-mermaid") return <ZoomableDiagram source={text} />;
@@ -45,7 +45,7 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   h2: ({ children }) => <h2 id={slug(textOf(children))}>{children}</h2>,
   h3: ({ children }) => <h3 id={slug(textOf(children))}>{children}</h3>,
 };
-const withoutComments = (md: string) => md.replace(/<!--[\s\S]*?-->\n?/g, "");
+export const withoutComments = (md: string) => md.replace(/<!--[\s\S]*?-->\n?/g, "");
 
 interface Approval { decisionLabel: string; signers: string[]; signerNames: string[] }
 interface VersionRow { no: number; docVersionNo: number; publishedAt: string; publishedBy: string; note: string | null; approval: Approval | null }

@@ -9,6 +9,7 @@ import { Vote } from "./pages/Vote";
 import { Login } from "./pages/Login";
 import { Published } from "./pages/Published";
 import { Library } from "./pages/Library";
+import { Document } from "./pages/Document";
 
 function usePath() {
   const [path, setPath] = useState(location.pathname);
@@ -48,6 +49,8 @@ export function App() {
   if (join) return <Join token={join[1]!} />;
   const vote = path.match(/^\/s\/([^/]+)\/vote\/([^/]+)/);
   if (vote) return <Vote sessionId={vote[1]!} artifactId={vote[2]!} />;
+  const docPage = path.match(/^\/s\/([^/]+)\/doc\/([^/]+)/);
+  if (docPage) return <Document sessionId={docPage[1]!} artifactId={docPage[2]!} />;
   const session = path.match(/^\/s\/([^/]+)/);
   if (session) return <Session sessionId={session[1]!} />;
   if (path.startsWith("/settings")) return <Settings />;

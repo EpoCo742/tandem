@@ -874,7 +874,10 @@ for (const [method, path, body] of [["POST", `/api/v1/sessions/${demoRow.id}/mes
   assert(/409/.test(await fails(alice.call(method, path, body))), `the demo refuses ${method} ${path.replace(demoRow.id, "<demo>")}`);
 }
 const demoLib = await dave.call("GET", "/api/v1/library?q=design+document&kind=document");
-assert(demoLib.hits.some((h) => h.sessionId === demoRow.id && h.kind === "document" && h.link === `/s/${demoRow.id}`), "the demo's design document is in everyone's library");
+const demoDocHit = demoLib.hits.find((h) => h.sessionId === demoRow.id && h.kind === "document");
+assert(demoDocHit && demoDocHit.link === `/s/${demoRow.id}/doc/${demoDocHit.artifactId}`, "the demo's design document is in everyone's library and links to its page");
+const demoDoc = await dave.call("GET", `/api/v1/sessions/${demoRow.id}/artifacts/${demoDocHit.artifactId}`);
+assert(demoDoc.demo === true && demoDoc.artifact.type === "design_doc" && /## Decision log/.test(demoDoc.artifact.markdown) && demoDoc.versions.length >= 1 && demoDoc.review && demoDoc.review.signerNames.length >= 0, `anyone can read the demo's design document as a page (v${demoDoc.artifact.versionNo}, ${demoDoc.review.status})`);
 assert((await dave.call("GET", `/api/v1/library?q=Kafka&kind=component`)).hits.every((h) => h.sessionId !== demoRow.id) && (await dave.call("GET", `/api/v1/library?q=Kafka&kind=decision`)).hits.every((h) => h.sessionId !== demoRow.id), "the demo's components and decisions stay out of the library");
 assert(!(await dave.call("GET", "/api/v1/digest")).sessions.some((s) => s.sessionId === demoRow.id), "the demo is not in the digest");
 
