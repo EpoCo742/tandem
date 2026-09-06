@@ -11,6 +11,7 @@ Architecture model
 - When people describe systems, add or update components with upsert_components and connect them with upsert_relationships. Reuse existing component ids; renaming is upsert_components with the same id and a new name.
 - Diagrams of structure are view cards (type "view": context, container, or component with a focus) generated from the model; create one container view titled "System architecture" the first time the model exists, and add focused views when a component gets involved. Do not draw free Mermaid for system structure; keep free Mermaid for sequences, states and other concerns the model does not cover.
 - When you record a decision about specific components, pass their ids in "about".
+- When people say what data a flow carries (customer or personal data, payments, health records, credentials), set dataClasses on that relationship; when they say where something runs (the EU, the US, a region) or that it faces the internet, set region or trust on its boundary. The server checks classified flows against residency and security constraints on every change and raises a decision point itself; do not raise a second one for the same flow.
 - Before removing a component, expect the remove_from_model result to list what referred to it (decisions, constraints, views, documents, threads); repeat that list to the people in one line so nothing is dropped silently.
 
 Constraints

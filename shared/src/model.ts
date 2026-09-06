@@ -1,5 +1,6 @@
 import type { Section } from "./artifacts.js";
 import type { ImportedFrom } from "./library.js";
+import type { DataClass, Trust } from "./flows.js";
 
 // The architecture model: one per session, the source of truth for structure. Diagrams are
 // views generated from it, so a rename in the model shows up in every view, and decisions,
@@ -26,6 +27,7 @@ export interface ModelRelationship {
   to: string;
   kind: RelationshipKind;
   label?: string;
+  dataClasses?: DataClass[]; // what the flow carries; residency and security constraints are checked against this
   derivedFrom: string[];
 }
 
@@ -34,6 +36,8 @@ export interface ModelBoundary {
   name: string;
   kind?: "system" | "team" | "zone" | "other";
   color?: string; // hex; chosen from the palette by position when unset, so every view agrees
+  region?: string; // where it runs: EU, US, UK, ... (free text is canonicalised for checks)
+  trust?: Trust; // public (internet-facing), internal, restricted
 }
 
 /** Boundary tints, distinct from the participant palette and legible on both themes. */
@@ -163,7 +167,7 @@ function shape(c: ModelComponent): string {
  * - container: every component, grouped by boundary.
  * - component: the focus component and its direct neighbours.
  */
-export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, "kind" | "focus">): string {
+export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, "kind" | "focus">, opts: { violating?: ReadonlySet<string> } = {}): string {
   const lines: string[] = ["flowchart LR"];
   const comps = new Map(model.components.map((c) => [c.id, c]));
   if (model.components.length === 0) return "flowchart LR\n  empty[\"No components yet\"]";
@@ -217,10 +221,17 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
     for (const c of list) lines.push(`  ${b ? "  " : ""}${mermaidId(c.id)}${shape(c)}`);
     if (b) lines.push("  end", boundaryStyle(model, b));
   }
+  let edge = 0;
+  const bad: number[] = [];
   for (const r of model.relationships) {
     if (!include.has(r.from) || !include.has(r.to)) continue;
-    lines.push(`  ${mermaidId(r.from)} -->|"${quote(r.label ?? VERB[r.kind])}"| ${mermaidId(r.to)}`);
+    const carries = (r.dataClasses ?? []).filter((c) => c !== "internal" && c !== "public");
+    const label = `${r.label ?? VERB[r.kind]}${carries.length ? ` [${carries.map((c) => (c === "pii" ? "PII" : c)).join(", ")}]` : ""}`;
+    lines.push(`  ${mermaidId(r.from)} -->|"${quote(label)}"| ${mermaidId(r.to)}`);
+    if (opts.violating?.has(r.id)) bad.push(edge);
+    edge += 1;
   }
+  for (const i of bad) lines.push(`  linkStyle ${i} stroke:#c0392b,stroke-width:3px`);
   if (view.kind === "component" && view.focus) lines.push(`  style ${mermaidId(view.focus)} stroke-width:3px`);
   return lines.join("\n");
 }
@@ -270,11 +281,11 @@ export function modelToText(model: ArchModelContent): string {
   for (const c of model.components) out.push(`- ${c.id}: ${c.name} (${c.kind}${c.technology ? `, ${c.technology}` : ""}${c.boundary ? `, in ${bname(c.boundary)}` : ""})${c.description ? ` — ${c.description}` : ""}`);
   if (!model.components.length) out.push("- (none)");
   out.push("Relationships:");
-  for (const r of model.relationships) out.push(`- ${r.from} ${VERB[r.kind]} ${r.to}${r.label ? ` (${r.label})` : ""}`);
+  for (const r of model.relationships) out.push(`- ${r.from} ${VERB[r.kind]} ${r.to}${r.label ? ` (${r.label})` : ""}${r.dataClasses?.length ? ` [carries: ${r.dataClasses.join(", ")}]` : ""}`);
   if (!model.relationships.length) out.push("- (none)");
   if (model.boundaries.length) {
     out.push("Boundaries:");
-    for (const b of model.boundaries) out.push(`- ${b.id}: ${b.name}${b.kind ? ` (${b.kind})` : ""}`);
+    for (const b of model.boundaries) out.push(`- ${b.id}: ${b.name}${b.kind ? ` (${b.kind})` : ""}${b.region ? `, region ${b.region}` : ""}${b.trust ? `, trust ${b.trust}` : ""}`);
   }
   return out.join("\n");
 }
@@ -282,12 +293,12 @@ export function modelToText(model: ArchModelContent): string {
 /** Merge components into the model by id; a component with an existing id is updated (rename, re-kind), others are added. */
 export type IncomingComponent = Omit<ModelComponent, "id" | "derivedFrom"> & { id?: string; derivedFrom?: string[] };
 
-export function upsertBoundaries(model: ArchModelContent, incoming: { id: string; name?: string; kind?: ModelBoundary["kind"]; color?: string }[]): ArchModelContent {
+export function upsertBoundaries(model: ArchModelContent, incoming: { id: string; name?: string; kind?: ModelBoundary["kind"]; color?: string; region?: string; trust?: Trust }[]): ArchModelContent {
   const boundaries = [...model.boundaries];
   for (const raw of incoming) {
     const i = boundaries.findIndex((b) => b.id === raw.id);
     const base: ModelBoundary = i >= 0 ? boundaries[i]! : { id: raw.id, name: raw.name ?? raw.id.replace(/[-_]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()), kind: raw.kind ?? "system" };
-    const next: ModelBoundary = { ...base, ...(raw.name ? { name: raw.name } : {}), ...(raw.kind ? { kind: raw.kind } : {}), ...(raw.color ? { color: raw.color } : {}) };
+    const next: ModelBoundary = { ...base, ...(raw.name ? { name: raw.name } : {}), ...(raw.kind ? { kind: raw.kind } : {}), ...(raw.color ? { color: raw.color } : {}), ...(raw.region ? { region: raw.region } : {}), ...(raw.trust ? { trust: raw.trust } : {}) };
     if (i >= 0) boundaries[i] = next;
     else boundaries.push(next);
   }
@@ -308,7 +319,7 @@ export function upsertComponents(model: ArchModelContent, incoming: IncomingComp
   return { ...model, components, boundaries };
 }
 
-export function upsertRelationships(model: ArchModelContent, incoming: { from: string; to: string; kind: RelationshipKind; label?: string }[], derivedFrom: string[]): { model: ArchModelContent; unknown: string[] } {
+export function upsertRelationships(model: ArchModelContent, incoming: { from: string; to: string; kind: RelationshipKind; label?: string; dataClasses?: DataClass[] }[], derivedFrom: string[]): { model: ArchModelContent; unknown: string[] } {
   const ids = new Set(model.components.map((c) => c.id));
   const relationships = [...model.relationships];
   const unknown: string[] = [];
@@ -318,7 +329,7 @@ export function upsertRelationships(model: ArchModelContent, incoming: { from: s
     if (!ids.has(r.from) || !ids.has(r.to)) continue;
     const id = relationshipId(r.from, r.kind, r.to);
     const i = relationships.findIndex((x) => x.id === id);
-    const next: ModelRelationship = { id, from: r.from, to: r.to, kind: r.kind, label: r.label, derivedFrom: [...new Set([...(i >= 0 ? relationships[i]!.derivedFrom : []), ...derivedFrom])] };
+    const next: ModelRelationship = { id, from: r.from, to: r.to, kind: r.kind, label: r.label, dataClasses: r.dataClasses, derivedFrom: [...new Set([...(i >= 0 ? relationships[i]!.derivedFrom : []), ...derivedFrom])] };
     if (i >= 0) relationships[i] = { ...relationships[i]!, ...stripUndefined(next) };
     else relationships.push(next);
   }

@@ -295,6 +295,13 @@ export function reduce(state: SessionState, ev: AnyLedgerEvent): SessionState {
       s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${who} published ${title} v${p.docVersionNo} as version ${p.publicationVersionNo} of its public page${p.approved ? ` (approved, ${p.approved.decisionLabel})` : " (not signed off)"}`, turnId: ev.turnId, createdAt: ev.createdAt }];
       return s;
     }
+    case "flow.violation": {
+      const p = ev.payload as Payloads["flow.violation"];
+      const who = ev.actorUserId ? s.participants[ev.actorUserId]?.name ?? "someone" : "The AI";
+      const ids = [...new Set(p.violations.map((v) => v.constraintId))].join(", ");
+      s.messages = [...s.messages, { eventId: ev.id, seq: ev.seq, kind: "system", userId: null, text: `${who}'s change breaks ${ids}: ${p.violations.map((v) => v.reason).join("; ")}.${p.decisionPointArtifactId ? " A decision point was raised: keep the constraint, make an exception, or amend it. The model is blocked until it is resolved." : ""}`, turnId: ev.turnId, createdAt: ev.createdAt }];
+      return s;
+    }
     case "doc.unpublished": {
       const p = ev.payload as Payloads["doc.unpublished"];
       const cur = s.publications[p.artifactId];

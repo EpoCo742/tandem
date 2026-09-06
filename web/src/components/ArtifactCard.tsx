@@ -5,7 +5,7 @@ const ChangedRowsContext = createContext<Set<string>>(EMPTY_SET);
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, boundaryColor, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
+import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, boundaryColor, violationsOf, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -144,6 +144,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
         {a.blockedByDecisionPoint && <span className="chip" style={{ color: "var(--warn)" }} title="blocked until the decision point resolves">blocked</span>}
         {a.type === "design_doc" && (() => { const r = state.reviews[a.id]; const st = r?.status ?? "draft"; return <span className={"chip status-" + st} title={st === "approved" ? `Approved at v${r?.approvedVersionNo}` : st === "in_review" ? `${Object.keys(r?.signoffs ?? {}).length} of ${r?.reviewers.length ?? 0} signed` : "Draft; not yet reviewed"}>{st === "in_review" ? "in review" : st}</span>; })()}
         {pending > 0 && <span className="chip accent">{pending} pending</span>}
+        {a.type === "arch_model" && (() => { const n = violationsOf(state).length; return n ? <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }} title="Classified flows that break a residency or security constraint; see the relationships below">{n} flow violation{n === 1 ? "" : "s"}</span> : null; })()}
         {editors.map((u) => <span key={u.userId} className="chip solid" style={{ background: u.color }} title={`${u.name} has this card open in the editor`}>{u.name} editing</span>)}
         {selectors.filter((u) => !editors.some((e) => e.userId === u.userId)).map((u) => <span key={u.userId} className="chip" style={{ color: u.color, borderColor: u.color }} title={`${u.name} has this card selected`}>{u.name}</span>)}
         {a.type === "source" && <button className="icon nodrag" style={{ padding: "0 5px" }} title={open ? "Fold this upload" : "Show the uploaded content"} onClick={() => setOpen((o) => !o)}>{open ? "▴" : "▾"}</button>}
@@ -309,7 +310,7 @@ function ModelView({ content }: { content: ViewContent }) {
     <div>
       <div className="mono" style={{ marginBottom: 6 }}>{content.kind === "diff" ? "as-is vs to-be" : `${content.kind} view`}{focusName ? ` of ${focusName}` : ""} · {model.components.length} components</div>
       {content.kind === "diff" && !model.asIs && <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>No as-is baseline yet. Ask the AI to draw the current architecture of a repository, or attach its docker-compose.yml.</div>}
-      <Mermaid source={modelToMermaid(model, content)} />
+      <Mermaid source={modelToMermaid(model, content, { violating: new Set(violationsOf(state).map((v) => v.relationshipId)) })} />
       {content.kind === "diff" && model.asIs && (() => { const d = modelDiff(model)!; return <div className="mono" style={{ marginTop: 6, fontSize: 11 }}><span style={{ color: "var(--ok)" }}>+{d.added.length} added</span> · <span style={{ color: "var(--warn)" }}>−{d.removed.length} removed</span> · <span style={{ color: "var(--accent)" }}>~{d.changed.length} changed</span> · {d.same.length} unchanged · as-is from {model.asIs.source}</div>; })()}
       {content.note && <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>{content.note}</div>}
     </div>
@@ -320,6 +321,7 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
   const changedRows = useContext(ChangedRowsContext);
   const [impactOf, setImpactOf] = useState<string | null>(null);
   const state = useStore((s) => s.state);
+  const violations = violationsOf(state);
   const focus = useStore((s) => s.focusComponentId);
   const setFocus = useStore((s) => s.setFocusComponent);
   const setThreadTarget = useStore((s) => s.setThreadTarget);
@@ -362,7 +364,16 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
       </table>
       {content.relationships.length > 0 && (
         <div className="mono" style={{ lineHeight: 1.6 }}>
-          {content.relationships.map((r) => <div key={r.id}>{name(r.from)} <span className="muted">{r.kind.replace("_", " ")}</span> {name(r.to)}{r.label ? <span className="muted"> ({r.label})</span> : null}</div>)}
+          {content.relationships.map((r) => {
+            const bad = violations.filter((v) => v.relationshipId === r.id);
+            return (
+              <div key={r.id}>
+                {name(r.from)} <span className="muted">{r.kind.replace("_", " ")}</span> {name(r.to)}{r.label ? <span className="muted"> ({r.label})</span> : null}
+                {(r.dataClasses ?? []).map((c) => <span key={c} className="chip" style={{ marginLeft: 5, color: c === "internal" || c === "public" ? "var(--ink-3)" : "var(--accent)" }} title="What this flow carries">{c === "pii" ? "PII" : c}</span>)}
+                {bad.map((v) => <span key={v.constraintId} className="chip" style={{ marginLeft: 5, color: "var(--warn)", borderColor: "var(--warn)" }} title={v.reason}>breaks {v.constraintId}</span>)}
+              </div>
+            );
+          })}
         </div>
       )}
       {content.boundaries.length > 0 && <BoundaryLegend artifactId={artifactId} content={content} />}
@@ -391,9 +402,11 @@ function BoundaryLegend({ artifactId, content }: { artifactId: string; content: 
       {content.boundaries.map((b) => {
         const c = boundaryColor(content, b.id);
         return (
-          <label key={b.id} className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }} title={`${b.name} (${b.kind ?? "system"}); click the swatch to change its tint in every view`}>
+          <label key={b.id} className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }} title={`${b.name} (${b.kind ?? "system"}${b.region ? `, region ${b.region}` : ""}${b.trust ? `, ${b.trust} trust` : ""}); click the swatch to change its tint in every view`}>
             <input type="color" value={c} onChange={(e) => void recolor(b.id, e.target.value)} style={{ width: 16, height: 16, padding: 0, border: "none", background: "transparent" }} />
             <span style={{ color: c }}>{b.name}</span>
+            {b.region && <span className="muted">{b.region}</span>}
+            {b.trust === "public" && <span style={{ color: "var(--warn)" }}>public</span>}
           </label>
         );
       })}

@@ -442,6 +442,30 @@ export const fakeProvider: ProviderAdapter = {
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
+    // 0l. A classified flow: "Service A sends customer PII to Analytics in the US". Components,
+    //     a region boundary for the destination, and a relationship carrying the class. The
+    //     server's flow check does the rest (no decision point from here).
+    const flow = batch.map((m) => ({ m, x: m.text.match(/^(.+?) (?:sends?|ships?|exports?|streams?|copies|copy|replicates?) (?:(?:the |its |our )?(customer|personal|payment|card|health|patient)?\s*(?:pii|data|records|details|credentials)) to (.+?)(?: in (?:the )?([A-Za-z ]+?))?[.!]?$/i) })).find((x) => x.x);
+    if (flow) {
+      const [, fromName, cls, toName, region] = flow.x!;
+      const dataClass = /payment|card/i.test(cls ?? "") ? "payment" : /health|patient/i.test(cls ?? "") ? "health" : /credential/i.test(flow.m.text) ? "credentials" : "pii";
+      const fromId = slugId(fromName!.trim());
+      const toId = slugId(toName!.trim());
+      const boundaryId = region ? `region-${slugId(region.trim())}` : undefined;
+      await call("upsert_components", {
+        components: [
+          { id: fromId, name: fromName!.trim(), kind: "service" },
+          { id: toId, name: toName!.trim(), kind: region ? "external" : "service", ...(boundaryId ? { boundary: boundaryId } : {}) },
+        ],
+        ...(boundaryId ? { boundaries: [{ id: boundaryId, name: `${region!.trim().toUpperCase()} region`, kind: "zone", region: region!.trim() }] } : {}),
+        derivedFrom: [flow.m.eventId],
+        rationale: `Flow described by ${flow.m.speaker}`,
+      });
+      const r = (await call("upsert_relationships", { relationships: [{ from: fromId, to: toId, kind: "writes", label: dataClass === "pii" ? "PII" : dataClass, dataClasses: [dataClass] }], derivedFrom: [flow.m.eventId], rationale: `Flow described by ${flow.m.speaker}` })) as { status: string };
+      await emit(r.status === "model_updated" ? `Recorded ${fromName!.trim()} → ${toName!.trim()} carrying ${dataClass === "pii" ? "PII" : dataClass}${region ? ` into the ${region.trim().toUpperCase()} region` : ""}. The flow check runs against the constraints on every change.` : `Could not record the flow: ${r.status}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
     // 0k. "What's missing?" answers from the design checklist the prompt carries for templated sessions.
     const gap = batch.find((m) => /\b(what('s| is| are)? ?(still )?(missing|left|remaining|open)|how complete|checklist|what remains)\b/i.test(m.text));
     if (gap) {

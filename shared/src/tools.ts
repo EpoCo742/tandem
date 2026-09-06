@@ -102,7 +102,7 @@ export const upsertComponentsInput = z.object({
     )
     .min(1),
   boundaries: z
-    .array(z.object({ id: z.string(), name: z.string().optional(), kind: z.enum(["system", "team", "zone", "other"]).optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().describe("Hex tint used in every view; omit to keep the palette colour") }))
+    .array(z.object({ id: z.string(), name: z.string().optional(), kind: z.enum(["system", "team", "zone", "other"]).optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().describe("Hex tint used in every view; omit to keep the palette colour"), region: z.string().optional().describe("Where it runs: EU, US, UK, DE, ... Residency constraints check flows against it"), trust: z.enum(["public", "internal", "restricted"]).optional().describe("public = internet-facing; security constraints check sensitive flows against it") }))
     .optional()
     .describe("Boundaries to add or update (name, kind, colour); components reference them by id"),
   derivedFrom: z.array(z.string()).describe("Ledger event ids of the messages that motivated this"),
@@ -117,6 +117,7 @@ export const upsertRelationshipsInput = z.object({
         to: z.string().describe("Component id"),
         kind: relationshipKind,
         label: z.string().optional().describe("e.g. 'OrderPlaced', 'REST', 'nightly batch'"),
+        dataClasses: z.array(z.enum(["pii", "payment", "health", "credentials", "confidential", "internal", "public"])).optional().describe("What the flow carries. Residency and security constraints are checked against this on every change, so classify whenever people say what data moves"),
       }),
     )
     .min(1),

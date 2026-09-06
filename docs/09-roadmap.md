@@ -146,6 +146,8 @@ Added 2026-09-05. Phase D deepens the model so more of governance becomes determ
 
 **Effort.** Four days. Depends on A1, A3.
 
+**Status (2026-09-05): shipped.** `dataClasses` on relationships, `region` and `trust` on boundaries (tools and hand edits alike); `checkFlows` in shared maps data residency and compliance constraints that name a region, and security constraints that speak of public exposure, to rules over classified flows; `applyVersion` in governance diffs violations before and after every model or constraints change and records `flow.violation` (a system line in the lane) plus, under hybrid, a system-raised decision point naming the constraint that blocks the model, one per constraint at a time. Views draw violating edges in red with the data classes on the label; the model card shows a violation count and per-relationship chips; the offline provider records "X sends customer PII to Y in the US". This is the deterministic form of the parked hand-edit constraint check for residency and security; other categories still rely on the AI.
+
 ### D2. Deployment view
 
 **What.** A second layer under the model: environments, regions, zones and nodes (a cluster, a VM, a managed service), with components placed on them. A generated deployment view (C4 level 4) per environment. Capacity, availability and residency constraints check against placement (a database outside the EU, a single node for a component with an availability constraint).

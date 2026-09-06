@@ -302,6 +302,19 @@ Fake architect: a constraint belongs to whoever set it, whatever card it sits on
 
 Point at: the Constraints card's "set by" column and the message link; the export's constraints table with the exception against its constraint; the compiled design document's Constraints section.
 
+## Stage 12i: data-flow classification
+
+Feature: relationships carry what data they move (PII, payment, health, credentials, confidential, internal, public); boundaries carry a region (EU, US, ...) and a trust level (public, internal, restricted). Residency and security constraints are checked on the server on every model change, by hand or by the AI, with no AI turn. A new violation puts a system line in the lane and, under the hybrid policy, raises a decision point (keep, exception, amend) that blocks the model.
+
+| Who | Says |
+|---|---|
+| Alice | "No customer data must leave the EU." (C-01, as in stage 12d) |
+| Bob | "Service A sends customer PII to Analytics in the US." |
+
+Fake architect: adds Analytics in a "US region" boundary and a Service A → Analytics flow carrying PII; then the server, not the AI, posts "Bob's change breaks C-01: PII flows from Service A to Analytics (US); C-01 keeps it in EU. A decision point was raised". The view draws the offending edge in red with "[PII]" on its label; the Architecture model card shows "1 flow violation" and "breaks C-01" on the relationship. A real model gets the same tools (dataClasses on relationships, region and trust on boundaries) and a rule to classify whenever people say what data moves or where things run.
+
+Point at: no tokens were spent on the check; a hand edit of the model JSON that adds a classified flow trips the same check.
+
 ## Stage 12f: review and sign-off
 
 Feature: a **reviewer** role (invite "as reviewer") that can comment, vote, sign off and propose, but whose edits never land without approval. The design document has a status: draft, in review, approved. Approval is by named sign-offs and is recorded as a decision agreed by the signers. Any change to the canvas after approval moves the document back to draft with a note of what changed.

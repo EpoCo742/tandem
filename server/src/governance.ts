@@ -3,6 +3,8 @@ import { ulid } from "ulid";
 import type { ArtifactType, Policy, ProposalOp, Provenance, Risk } from "@tandem/shared";
 import { contentProblem, provenanceOf, type SessionState } from "@tandem/shared";
 import { appendEvent, getState } from "./ledger.js";
+import { violationsOf } from "@tandem/shared";
+import { enforceFlows } from "./flows.js";
 import { config } from "./config.js";
 
 // Risk classification, the policy gate, proposals, application, commits, revert.
@@ -141,6 +143,15 @@ export function requestChange(req: ChangeRequest): ChangeOutcome {
 }
 
 function applyVersion(req: ChangeRequest & { artifactId: string; proposalId: string | null; provenance: Provenance[] }): ChangeOutcome {
+  // Model and constraints changes are checked for classified flows that now break a constraint.
+  const watched = req.artifactType === "arch_model" || req.artifactType === "constraints";
+  const before = watched ? violationsOf(getState(req.sessionId)) : [];
+  const outcome = applyVersionInner(req);
+  if (watched && outcome.status === "applied") enforceFlows(req.sessionId, before, req.actorUserId, req.artifactId);
+  return outcome;
+}
+
+function applyVersionInner(req: ChangeRequest & { artifactId: string; proposalId: string | null; provenance: Provenance[] }): ChangeOutcome {
   const state = getState(req.sessionId);
   const existing = state.artifacts[req.artifactId];
   const versionNo = existing ? existing.current.versionNo + 1 : 1;

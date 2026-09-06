@@ -777,6 +777,24 @@ const tplFork = await alice.call("POST", `/api/v1/sessions/${tpl.id}/fork`, {});
 assert((await alice.call("GET", `/api/v1/sessions/${tplFork.id}`)).template === "integration", "a fork keeps the template");
 subT.ws.close();
 
+// Data-flow classification: a classified flow into another region breaks the residency constraint
+// on the server side, with no AI turn: a system line in the lane and a decision point that blocks the model.
+const subF = subscribe(alice, sessionId);
+await subF.ready;
+const flowTurns = subF.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Service A sends customer PII to Analytics in the US." });
+await waitFor(() => subF.events.filter((e) => e.type === "turn.completed").length > flowTurns, "classified flow turn");
+const flowModel = subF.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "arch_model").pop().payload.content;
+const piiRel = flowModel.relationships.find((r) => r.dataClasses?.includes("pii"));
+assert(piiRel && flowModel.boundaries.some((b) => b.region && /us/i.test(b.region)), "the AI recorded the flow with its data class and the destination's region");
+const violationEv = subF.events.find((e) => e.type === "flow.violation");
+assert(violationEv && violationEv.payload.violations.some((v) => v.constraintId === "C-01" && v.relationshipId === piiRel.id) && violationEv.payload.decisionPointArtifactId, "the server flagged the flow against C-01 and raised a decision point without an AI turn");
+const flowDpEv = subF.events.find((e) => e.type === "artifact.applied" && e.payload.artifactId === violationEv.payload.decisionPointArtifactId);
+assert(flowDpEv.actorKind === "system" && flowDpEv.payload.content.violatesConstraintIds.includes("C-01") && flowDpEv.payload.content.blocksArtifactIds.length === 1, "the decision point names C-01, is system-raised, and blocks the model");
+const flowState = (await alice.call("GET", `/api/v1/sessions/${sessionId}/events`)).filter((e) => e.type === "flow.violation").length;
+assert(flowState === 1, "one violation event for one new violation");
+subF.ws.close();
+
 // Export.
 const md = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
 assert(typeof md === "string" && md.includes("## Decision log") && md.includes("<!-- artifact"), "markdown export carries provenance comments");

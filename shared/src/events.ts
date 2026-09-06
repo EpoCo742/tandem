@@ -1,4 +1,5 @@
 import type { ImportedFrom } from "./library.js";
+import type { Violation } from "./flows.js";
 
 // Ledger event catalogue. Every persisted change in a session is one of these.
 // Wire shape is identical on the server, over WebSocket, and in the client reducer.
@@ -85,6 +86,7 @@ export type Payloads = {
   "session.archived": { archived: boolean }; // the owner closed the session (read only) or reopened it
   "doc.published": { publicationId: string; artifactId: string; slug: string; docVersionNo: number; publicationVersionNo: number; approved: { decisionLabel: string; signers: string[] } | null; note?: string }; // a frozen copy of the design document went on its public page
   "doc.unpublished": { publicationId: string; artifactId: string; slug: string }; // the public page was taken down
+  "flow.violation": { artifactId: string; violations: Violation[]; decisionPointArtifactId?: string }; // a model or constraints change made a classified flow break a residency or security constraint
   "participant.joined": { role: Role; name: string; color: string; avatarUrl?: string };
   "participant.left": Record<string, never>;
   "participant.consented": { providers: string[] };
