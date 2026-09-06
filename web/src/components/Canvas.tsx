@@ -79,28 +79,36 @@ function ArtifactNode({ data, selected }: NodeProps<ArtNode>) {
 
 const nodeTypes = { artifact: ArtifactNode };
 
-// Default slots: three columns, and a wide card (alternatives side by side) takes two of them
-// so it never lands under its neighbour.
+// Cards are packed into three columns like a masonry wall: each card goes to the column with
+// the least height so far, a wide card (alternatives side by side) takes the two neighbouring
+// columns, and nothing sits on top of anything. Heights are estimated per type until the cards
+// are on screen and measured, after which the same packing runs once more with real sizes.
 const WIDE_TYPES = new Set<Artifact["type"]>(["alternatives"]);
-function defaultPositions(artifacts: Artifact[]): Map<string, { x: number; y: number }> {
-  const cols = 3;
+const COL_W = 460;
+const GAP = 40;
+const ORIGIN = 40;
+const HEIGHT_GUESS: Partial<Record<Artifact["type"], number>> = { arch_model: 520, view: 470, mermaid: 440, design_doc: 520, markdown: 300, data_model: 440, constraints: 360, alternatives: 520, decision_point: 470, contract: 400, source: 110, code: 380 };
+
+function pack(items: { id: string; wide: boolean; h: number }[]): Map<string, { x: number; y: number }> {
+  const heights = [ORIGIN, ORIGIN, ORIGIN];
   const out = new Map<string, { x: number; y: number }>();
-  let col = 0;
-  let row = 0;
-  for (const a of artifacts) {
-    const span = WIDE_TYPES.has(a.type) ? 2 : 1;
-    if (col + span > cols) {
-      col = 0;
-      row += 1;
-    }
-    out.set(a.id, { x: 40 + col * 460, y: 40 + row * 380 });
-    col += span;
-    if (col >= cols) {
-      col = 0;
-      row += 1;
+  for (const it of items) {
+    if (it.wide) {
+      const pairs = [0, 1].map((c) => ({ c, y: Math.max(heights[c]!, heights[c + 1]!) }));
+      const best = pairs.reduce((a, b) => (b.y < a.y ? b : a));
+      out.set(it.id, { x: ORIGIN + best.c * COL_W, y: best.y });
+      heights[best.c] = heights[best.c + 1] = best.y + it.h + GAP;
+    } else {
+      const c = heights.indexOf(Math.min(...heights));
+      out.set(it.id, { x: ORIGIN + c * COL_W, y: heights[c]! });
+      heights[c] = heights[c]! + it.h + GAP;
     }
   }
   return out;
+}
+
+function defaultPositions(artifacts: Artifact[]): Map<string, { x: number; y: number }> {
+  return pack(artifacts.map((a) => ({ id: a.id, wide: WIDE_TYPES.has(a.type), h: HEIGHT_GUESS[a.type] ?? 400 })));
 }
 
 const GRID_LABEL: Record<GridStyle, string> = { dots: "grid: dots", lines: "grid: lines", off: "grid: off" };
@@ -221,12 +229,17 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
     };
   }, [collab]);
 
-  // Give every new artifact a slot; the first client to notice writes it.
+  // Give every new artifact a slot; the first client to notice writes it. Cards that got a
+  // guessed slot are re-packed once they have been measured, so estimates never leave overlaps.
+  const guessed = useRef(new Set<string>());
   useEffect(() => {
     if (!synced) return;
     const defaults = defaultPositions(artifacts);
     for (const a of artifacts) {
-      if (!collab.nodes.has(a.id)) collab.nodes.set(a.id, defaults.get(a.id)!);
+      if (!collab.nodes.has(a.id)) {
+        collab.nodes.set(a.id, defaults.get(a.id)!);
+        guessed.current.add(a.id);
+      }
     }
   }, [artifacts, collab, synced]);
 
@@ -244,6 +257,35 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
   useEffect(() => {
     setNodes((prev) => mergeNodes(prev, artifacts, layout, sessionId, resetSize));
   }, [artifacts, layout, sessionId, resetSize]);
+
+  // Pack every card with its real size, in canvas order, and write the result to the shared layout.
+  const tidy = useCallback(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const items = artifacts.map((a) => {
+      const n = byId.get(a.id);
+      const l = collab.nodes.get(a.id);
+      const h = n?.height ?? n?.measured?.height ?? HEIGHT_GUESS[a.type] ?? 400;
+      const w = n?.width ?? n?.measured?.width ?? 420;
+      return { id: a.id, wide: WIDE_TYPES.has(a.type) || w > COL_W, h, keep: l };
+    });
+    const placed = pack(items);
+    collab.doc.transact(() => {
+      for (const it of items) {
+        const p = placed.get(it.id)!;
+        collab.nodes.set(it.id, { ...(it.keep ?? {}), x: p.x, y: p.y });
+      }
+    });
+    setTimeout(() => void flow.fitView({ padding: 0.15, maxZoom: 1, duration: animMs() }), 50);
+  }, [nodes, artifacts, collab, flow]);
+
+  // Guessed slots become measured ones once every card has a size.
+  useEffect(() => {
+    if (guessed.current.size === 0 || nodes.length === 0) return;
+    if (!nodes.every((n) => n.measured?.height)) return;
+    if (![...guessed.current].every((id) => nodes.some((n) => n.id === id))) return;
+    guessed.current.clear();
+    tidy();
+  }, [nodes, tidy]);
 
   // Drag end and resize end both arrive here as node changes; write them to the shared layout.
   const onNodesChange = useCallback(
@@ -330,6 +372,9 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
       <Panel position="top-right" className="canvas-tools">
         <button className="icon" onClick={() => void flow.fitView({ padding: 0.15, duration: animMs() })} title="Fit every card in view">
           fit
+        </button>
+        <button className="icon" onClick={tidy} title="Pack the cards into columns with their real sizes so nothing overlaps; everyone gets the new layout">
+          tidy
         </button>
         <button className="icon" onClick={cycleGrid} title="Cycle the canvas backdrop: dots, lines, off">
           {GRID_LABEL[grid]}

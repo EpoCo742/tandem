@@ -219,6 +219,7 @@ Feature: resizable cards, full-size view, delete under the same governance as ed
 |---|---|
 | Anyone | Clicks a card, drags a corner handle. The diagram scales with the card. Everyone sees the new size; it survives a reload. |
 | Anyone | Clicks the &#x2922; button on a card header to open it full size; **fit** in the canvas corner brings every card back into view. Zoom now goes to 4x. |
+| Anyone | **tidy** in the canvas corner packs every card into three columns by its real size so nothing overlaps; everyone gets the new layout. New cards land in the shortest column and are re-packed once measured, so a fresh session (the demo included) opens clean. |
 | Bob | **delete** on his own Markdown source card, then **confirm delete**. It goes at once: removing work that only you wrote is tidying. |
 | Bob | **delete** on Alice's `.mmd` card. It becomes a proposal for Alice, because someone else's work is involved. |
 
