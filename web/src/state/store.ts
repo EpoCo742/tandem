@@ -34,6 +34,8 @@ interface Store {
   selections: Record<string, PresenceUser[]>; // artifactId -> who has it selected
   setSelections: (s: Record<string, PresenceUser[]>) => void;
   presenceMode: PresenceMode; // see others and be seen; hide me; hide others
+  composerDraft: string | null; // text another part of the UI wants in the AI composer (a starter prompt)
+  setComposerDraft: (t: string | null) => void;
   setPresenceMode: (sessionId: string, m: PresenceMode) => void;
   setEditing: (e: Record<string, PresenceUser[]>) => void;
   highlight: string[];
@@ -121,6 +123,8 @@ export const useStore = create<Store>((set, get) => ({
   selections: {},
   setSelections: (selections) => set({ selections }),
   presenceMode: "all",
+  composerDraft: null,
+  setComposerDraft: (composerDraft) => set({ composerDraft }),
   setPresenceMode: (sessionId, presenceMode) => {
     try { localStorage.setItem(`tandem.presence.${sessionId}`, presenceMode); } catch { /* storage may be blocked */ }
     set({ presenceMode });

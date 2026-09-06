@@ -16,6 +16,15 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const setMeta = useStore((s) => s.setMeta);
   const [text, setText] = useState("");
   const replay = useStore((s) => s.replay);
+  const composerDraft = useStore((s) => s.composerDraft);
+  const setComposerDraft = useStore((s) => s.setComposerDraft);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (composerDraft === null) return;
+    setText(composerDraft);
+    setComposerDraft(null);
+    taRef.current?.focus();
+  }, [composerDraft, setComposerDraft]);
   const [err, setErr] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [staged, setStaged] = useState<File | null>(null);
@@ -163,6 +172,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
               {typingNames.length > 0 && <span>· {typingNames.join(", ")} typing</span>}
             </div>
             <textarea
+              ref={taRef}
               value={text}
               placeholder="Address the AI. Messages sent within ~1.5 s of each other are answered together."
               onChange={(e) => { setText(e.target.value); signalTyping("ai"); }}

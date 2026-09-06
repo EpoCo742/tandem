@@ -15,7 +15,7 @@ import {
   type NodeProps,
   type NodeChange,
 } from "@xyflow/react";
-import { liveArtifacts, type Artifact } from "@tandem/shared";
+import { liveArtifacts, completeness, BLANK_STARTERS, TEMPLATES, isTemplateId, type Artifact } from "@tandem/shared";
 import { setCursor, setSelectedArtifact, type Collab, type Layout } from "../collab";
 import { useStore } from "../state/store";
 import { usePrefs, type GridStyle } from "../state/prefs";
@@ -141,6 +141,7 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
   const flow = useReactFlow();
   const cursors = useStore((s) => s.cursors);
   const presenceMode = useStore((s) => s.presenceMode);
+  const setComposerDraft = useStore((s) => s.setComposerDraft);
 
   // My pointer, in flow coordinates, a few times a second; others draw it in my colour.
   const lastSent = useRef(0);
@@ -267,6 +268,25 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
           color={palette.grid}
         />
       )}
+      {artifacts.filter((a) => a.type !== "constraints").length === 0 && (() => {
+        const t = state.template && isTemplateId(state.template) ? TEMPLATES[state.template] : null;
+        const c = completeness(state);
+        const starters = t?.starters ?? BLANK_STARTERS;
+        return (
+          <Panel position="top-center" className="empty-state">
+            <div className="mono">{t ? `${t.name}: start here` : "Start here"}</div>
+            <p className="muted" style={{ margin: "4px 0 8px", fontSize: 12.5 }}>{t ? t.summary : "Describe the systems involved, state the limits, and the AI builds the model, the views and the decision registry as you go. Everything it does is attributed and governed."}</p>
+            {starters.map((s) => (
+              <button key={s} onClick={() => setComposerDraft(s)} title="Put this in the AI composer; edit it before sending">{s}</button>
+            ))}
+            {c && (
+              <div className="mono" style={{ marginTop: 8, fontSize: 11 }}>
+                the checklist wants first: {c.items.filter((i) => !i.done).slice(0, 3).map((i) => i.title).join(" · ")}
+              </div>
+            )}
+          </Panel>
+        );
+      })()}
       <Panel position="top-right" className="canvas-tools">
         <button className="icon" onClick={() => void flow.fitView({ padding: 0.15, duration: animMs() })} title="Fit every card in view">
           fit

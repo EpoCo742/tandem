@@ -442,6 +442,22 @@ export const fakeProvider: ProviderAdapter = {
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
+    // 0n. "Draw a sequence diagram for Service A": a sequence view from that component (or the first with outgoing flows).
+    const seqReq = batch.find((m) => /\bsequence diagram\b/i.test(m.text));
+    if (seqReq) {
+      const modelArt = artifacts.find((a) => a.type === "arch_model");
+      const cur = modelArt ? ((await call("read_artifact", { artifactId: modelArt.id })) as { content?: ArchModelContent }).content : undefined;
+      if (!cur || cur.relationships.length === 0) {
+        await emit("There is no flow in the model to draw yet. Describe who calls whom first.");
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const named = cur.components.find((c) => new RegExp(`\\b${c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(seqReq.text));
+      const start = named ?? cur.components.find((c) => cur.relationships.some((r) => r.from === c.id))!;
+      const r = (await call("create_artifact", { type: "view", title: `Sequence from ${start.name}`, content: { kind: "sequence", focus: start.id, depth: 3, sections: [{ id: "body", derivedFrom: [seqReq.eventId] }] }, rationale: `Sequence diagram requested by ${seqReq.speaker}`, summary: `Sequence view from ${start.name}` })) as { status: string };
+      await emit(r.status === "applied" ? `Drew the sequence from ${start.name} as a view of the model; it follows the relationships up to three hops and redraws when the model changes.` : `Could not create the sequence view: ${r.status}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
     // 0l. A classified flow: "Service A sends customer PII to Analytics in the US". Components,
     //     a region boundary for the destination, and a relationship carrying the class. The
     //     server's flow check does the rest (no decision point from here).

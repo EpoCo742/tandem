@@ -777,6 +777,17 @@ const tplFork = await alice.call("POST", `/api/v1/sessions/${tpl.id}/fork`, {});
 assert((await alice.call("GET", `/api/v1/sessions/${tplFork.id}`)).template === "integration", "a fork keeps the template");
 subT.ws.close();
 
+// Sequence diagrams from the model: a view kind that follows the relationships from a start.
+const seqTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Draw a sequence diagram for Service A." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > seqTurns, "sequence turn");
+const seqView = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "view").pop().payload;
+assert(seqView.content.kind === "sequence" && seqView.content.focus === "service-a" && /Sequence from Service A/.test(seqView.title), "the AI created a sequence view starting at Service A");
+const seqByHand = await bob.call("POST", `/api/v1/sessions/${sessionId}/artifacts`, { type: "view", title: "Sequence from Service B", content: { kind: "sequence", focus: "service-b", depth: 2, sections: [{ id: "body", derivedFrom: [] }] } });
+assert(seqByHand.status === "applied", "a sequence view can be created by hand with no AI turn");
+const mdSeq = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/sequenceDiagram[\s\S]*participant n_service_a as Service A/.test(mdSeq), "the export renders the sequence view as Mermaid from the model");
+
 // Data-flow classification: a classified flow into another region breaks the residency constraint
 // on the server side, with no AI turn: a system line in the lane and a decision point that blocks the model.
 const subF = subscribe(alice, sessionId);

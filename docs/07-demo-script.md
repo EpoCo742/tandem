@@ -71,6 +71,10 @@ Fake architect: answers from the checklist: "Integration between systems design,
 
 Point at: the seeded constraints are ordinary constraints (amend or drop them like any other); a fork keeps the template; blank sessions have no checklist and nothing changes for them.
 
+## Stage 1e: the empty canvas (no script)
+
+Feature: an empty canvas suggests where to start. A templated session shows its kind, three starter prompts in the order the checklist wants them, and the first three open checklist items; a blank session shows three example prompts. Clicking a starter puts it in the AI composer to edit before sending. The panel goes once the first card exists.
+
 ## Stage 1b: as-is from code
 
 Feature: with a read-only repository tool registered (a GitHub MCP server, or the demo server's `repo_tree` / `repo_file`), "draw the current architecture of repository X" reads the repository's manifests, never its source, and records the result as the model's **as-is** baseline. When the model is empty it becomes the model; from then on the model is the target state and an **As-is vs to-be** view shows added (green), removed (dashed red), changed (amber) and unchanged (grey) components.
@@ -301,6 +305,12 @@ Fake architect: refuses to change the model and raises a decision point "Keep C-
 Fake architect: a constraint belongs to whoever set it, whatever card it sits on. An exception, an amendment or a removal of someone else's constraint is proposed to that person and the AI says so ("proposed to Alice, who set it"). The approved exception appears as **C-02** with an "exception to C-01" chip, and C-01 shows "C-02 excepted".
 
 Point at: the Constraints card's "set by" column and the message link; the export's constraints table with the exception against its constraint; the compiled design document's Constraints section.
+
+## Stage 2e: sequence diagrams from the model (no AI turn needed)
+
+Feature: a **sequence** view kind. **sequence from** on the Architecture model card picks a starting component and generates the sequence diagram from the relationships (three hops), as a view card that redraws when the model changes. "Draw a sequence diagram for Service A" does the same through the AI.
+
+Point at: the arrows follow the relationship kinds (publish and write are asynchronous, subscribe and read are dashed replies) and carry the data classes; the integration template's checklist ticks "Sequence diagram" either way.
 
 ## Stage 12i: data-flow classification
 

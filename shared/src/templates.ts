@@ -40,7 +40,15 @@ export interface SessionTemplate {
   seedConstraints: SeedConstraint[];
   checklist: ChecklistItem[];
   guidance: string; // one paragraph for the AI about what a whole design of this kind covers
+  starters: string[]; // first prompts an empty canvas suggests, in the order the checklist wants them
 }
+
+/** What an empty blank session suggests. */
+export const BLANK_STARTERS = [
+  "Service A publishes an OrderPlaced event to Kafka; Service B subscribes and writes to Postgres.",
+  "No customer data must leave the EU.",
+  "Draft the data model from what we have said so far.",
+];
 
 const common = {
   model: (min = 2): ChecklistItem => ({ id: "model", title: "Architecture model", hint: `Describe the systems involved; the model needs at least ${min} components`, check: { kind: "model", minComponents: min } }),
@@ -73,6 +81,7 @@ export const TEMPLATES: Record<TemplateId, SessionTemplate> = {
       common.doc(),
       common.approved(),
     ],
+    starters: ["The new service is called Billing; it is called by Checkout and writes invoices to Postgres.", "p95 latency for invoice creation must stay under 300 ms.", "Draft the data model and an API contract card for Billing."],
     guidance: "A new service is whole when its place among existing systems is modelled, its data and API are written down, its operational shape (deployment, health, logs, metrics, recovery) is described, and the constraints it must meet are recorded before the decisions that depend on them.",
   },
   integration: {
@@ -87,7 +96,7 @@ export const TEMPLATES: Record<TemplateId, SessionTemplate> = {
       common.asIs(),
       { id: "model", title: "Model with an external system", hint: "Model both sides; at least one component is an external system", check: { kind: "model", minComponents: 2, requireKind: "external" } },
       common.view(),
-      common.card("sequence", "Sequence diagram", "Ask for a sequence diagram of the main exchange", "sequence|flow|exchange", ["mermaid"], "sequenceDiagram"),
+      { id: "sequence", title: "Sequence diagram", hint: "Ask for a sequence diagram of the main exchange, or pick 'sequence from' on the Architecture model card", check: { kind: "artifact", types: ["mermaid", "view"], contentMatch: 'sequenceDiagram|"kind":"sequence"' } },
       common.card("contract", "Contract or schema", "The payloads, events or API shapes exchanged (title it contract, schema, payload or events)", "contract|schema|payload|event|message"),
       common.card("failure", "Failure handling", "What happens on timeout, duplicate, out-of-order or partial failure (title it failure, retry or resilience)", "failure|retry|resilien|idempot|timeout|error"),
       common.constraints(1),
@@ -95,6 +104,7 @@ export const TEMPLATES: Record<TemplateId, SessionTemplate> = {
       common.doc(),
       common.approved(),
     ],
+    starters: ["Draw the current architecture of repository <name>.", "Orders calls the external Payment gateway over REST; the gateway sends payment data back as webhooks.", "Draw a sequence diagram for Orders."],
     guidance: "An integration is whole when the existing systems on both sides are modelled as they are, the contract between them is written down, the main sequence is drawn, and every failure mode (timeouts, duplicates, ordering, partial failure) has a stated handling before the decisions are recorded.",
   },
   data_migration: {
@@ -116,6 +126,7 @@ export const TEMPLATES: Record<TemplateId, SessionTemplate> = {
       common.doc(),
       common.approved(),
     ],
+    starters: ["The source is the legacy Orders database in Oracle; the target is Postgres in the EU.", "Draft the target data model: orders, order lines, customers.", "Write the cutover plan as phases with a rollback at each."],
     guidance: "A data migration is whole when the source is captured as-is, the target model and the field mapping are written down, the cutover has ordered steps with checks, every phase has a rollback, and the data residency and reconciliation constraints are recorded before decisions are taken.",
   },
   platform_change: {
@@ -138,6 +149,7 @@ export const TEMPLATES: Record<TemplateId, SessionTemplate> = {
       common.doc(),
       common.approved(),
     ],
+    starters: ["Draw the current architecture of repository <name>.", "Total run cost must stay under the current budget.", "Explore alternatives for the message bus."],
     guidance: "A platform change is whole when the current platform is captured as-is, at least two alternatives are compared on the same constraints and one is chosen by the group, the target model and view reflect the choice, and the rollout has phases with rollback points and a budget constraint on record.",
   },
 };

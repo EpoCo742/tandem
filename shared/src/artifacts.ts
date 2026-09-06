@@ -189,7 +189,7 @@ export function contentText(type: string, content: unknown): string {
     }
     case "view": {
       const v = content as ViewContent;
-      return `${v.kind === "diff" ? "as-is vs to-be" : v.kind} view${v.focus ? ` of ${v.focus}` : ""}${v.note ? `: ${v.note}` : ""} (rendered from the architecture model)`;
+      return `${v.kind === "diff" ? "as-is vs to-be" : v.kind} view${v.focus ? ` ${v.kind === "sequence" ? "from" : "of"} ${v.focus}` : ""}${v.note ? `: ${v.note}` : ""} (rendered from the architecture model)`;
     }
     default:
       return JSON.stringify(content);

@@ -56,8 +56,9 @@ export const dataModelContentSchema = z.object({
 });
 
 export const viewContentSchema = z.object({
-  kind: z.enum(["context", "container", "component"]),
-  focus: z.string().optional().describe("Component id, for a component view"),
+  kind: z.enum(["context", "container", "component", "sequence"]),
+  focus: z.string().optional().describe("Component id: the subject of a component view, or the starting component of a sequence view"),
+  depth: z.number().int().min(1).max(6).optional().describe("Sequence view: hops to follow from the start (default 3)"),
   note: z.string().optional().describe("Caption under the diagram"),
   sections: z.array(sectionSchema),
 });

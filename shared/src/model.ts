@@ -8,7 +8,7 @@ import type { DataClass, Trust } from "./flows.js";
 
 export type ComponentKind = "service" | "database" | "queue" | "external" | "ui" | "person" | "storage" | "function" | "other";
 export type RelationshipKind = "calls" | "publishes" | "subscribes" | "reads" | "writes" | "uses" | "depends_on";
-export type ViewKind = "context" | "container" | "component" | "diff";
+export type ViewKind = "context" | "container" | "component" | "diff" | "sequence";
 
 export interface ModelComponent {
   id: string; // stable slug, e.g. "service-a"
@@ -107,7 +107,8 @@ export function modelDiff(model: ArchModelContent): ModelDiff | null {
 
 export interface ViewContent {
   kind: ViewKind;
-  focus?: string; // component id for a component view
+  focus?: string; // component id for a component view, or the starting component of a sequence view
+  depth?: number; // sequence view: how many hops to follow from the start (default 3)
   note?: string; // caption shown under the diagram
   sections: Section[];
 }
@@ -167,7 +168,7 @@ function shape(c: ModelComponent): string {
  * - container: every component, grouped by boundary.
  * - component: the focus component and its direct neighbours.
  */
-export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, "kind" | "focus">, opts: { violating?: ReadonlySet<string> } = {}): string {
+export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, "kind" | "focus"> & { depth?: number }, opts: { violating?: ReadonlySet<string> } = {}): string {
   const lines: string[] = ["flowchart LR"];
   const comps = new Map(model.components.map((c) => [c.id, c]));
   if (model.components.length === 0) return "flowchart LR\n  empty[\"No components yet\"]";
@@ -199,6 +200,7 @@ export function modelToMermaid(model: ArchModelContent, view: Pick<ViewContent, 
   }
 
   if (view.kind === "diff") return diffToMermaid(model);
+  if (view.kind === "sequence") return sequenceMermaid(model, view.focus, view.depth);
 
   let include = new Set(model.components.map((c) => c.id));
   if (view.kind === "component" && view.focus && comps.has(view.focus)) {
@@ -265,6 +267,49 @@ export function compareMermaid(before: ModelShape, after: ModelShape): string {
   const addedIds = new Set(d.addedRels.map((r) => r.id));
   for (const r of model.relationships) lines.push(`  ${mermaidId(r.from)} ${addedIds.has(r.id) ? "==>" : "-->"}|"${quote(r.label ?? VERB[r.kind])}"| ${mermaidId(r.to)}`);
   for (const r of d.removedRels) if (all.has(r.from) && all.has(r.to)) lines.push(`  ${mermaidId(r.from)} -.->|"${quote(r.label ?? VERB[r.kind])}"| ${mermaidId(r.to)}`);
+  return lines.join("\n");
+}
+
+/** The relationships reachable from a start component by following outgoing edges, breadth first, in the order a request would take. */
+export function pathFrom(model: Pick<ArchModelContent, "components" | "relationships">, start: string, depth = 3): ModelRelationship[] {
+  const out: ModelRelationship[] = [];
+  const seenRel = new Set<string>();
+  let frontier = [start];
+  const visited = new Set<string>([start]);
+  for (let hop = 0; hop < depth && frontier.length; hop++) {
+    const next: string[] = [];
+    for (const from of frontier) {
+      for (const r of model.relationships) {
+        if (r.from !== from || seenRel.has(r.id)) continue;
+        seenRel.add(r.id);
+        out.push(r);
+        if (!visited.has(r.to)) {
+          visited.add(r.to);
+          next.push(r.to);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return out;
+}
+
+/** A sequence diagram generated from the model: participants are the components on the path, messages follow the relationships. */
+export function sequenceMermaid(model: Pick<ArchModelContent, "components" | "relationships">, start: string | undefined, depth = 3): string {
+  const first = start && model.components.some((c) => c.id === start) ? start : model.components.find((c) => model.relationships.some((r) => r.from === c.id))?.id;
+  if (!first) return "sequenceDiagram\n  Note over nobody: no relationships in the model yet";
+  const path = pathFrom(model, first, depth);
+  const name = (id: string) => model.components.find((c) => c.id === id)?.name ?? id;
+  const ids: string[] = [first];
+  for (const r of path) for (const id of [r.from, r.to]) if (!ids.includes(id)) ids.push(id);
+  const lines = ["sequenceDiagram"];
+  for (const id of ids) lines.push(`  participant ${mermaidId(id)} as ${quote(name(id))}`);
+  if (path.length === 0) lines.push(`  Note over ${mermaidId(first)}: no outgoing relationships`);
+  for (const r of path) {
+    const arrow = r.kind === "publishes" || r.kind === "writes" ? "-)" : r.kind === "subscribes" || r.kind === "reads" ? "-->>" : "->>";
+    const carries = (r.dataClasses ?? []).filter((c) => c !== "internal" && c !== "public");
+    lines.push(`  ${mermaidId(r.from)}${arrow}${mermaidId(r.to)}: ${quote(r.label ?? VERB[r.kind])}${carries.length ? ` [${carries.map((c) => (c === "pii" ? "PII" : c)).join(", ")}]` : ""}`);
+  }
   return lines.join("\n");
 }
 

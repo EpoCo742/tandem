@@ -117,6 +117,10 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 
 .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
 
+/* empty canvas: starter prompts per template */
+.empty-state { background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 14px 16px; width: min(560px, 80vw); margin-top: 40px; display: flex; flex-direction: column; gap: 6px; }
+.empty-state button { text-align: left; font-size: 13px; }
+
 /* live cursors: other people's pointers on the canvas, in their colour */
 .live-cursor { position: absolute; left: 0; top: 0; pointer-events: none; display: flex; align-items: flex-start; gap: 2px; transition: transform 80ms linear; z-index: 20; }
 .live-cursor-name { font-family: var(--mono); font-size: 10px; color: #fff; padding: 1px 5px; border-radius: 3px; margin-top: 10px; white-space: nowrap; }

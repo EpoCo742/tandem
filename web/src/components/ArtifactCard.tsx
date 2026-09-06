@@ -308,7 +308,7 @@ function ModelView({ content }: { content: ViewContent }) {
   const focusName = content.focus ? model.components.find((c) => c.id === content.focus)?.name : undefined;
   return (
     <div>
-      <div className="mono" style={{ marginBottom: 6 }}>{content.kind === "diff" ? "as-is vs to-be" : `${content.kind} view`}{focusName ? ` of ${focusName}` : ""} · {model.components.length} components</div>
+      <div className="mono" style={{ marginBottom: 6 }}>{content.kind === "diff" ? "as-is vs to-be" : `${content.kind} view`}{focusName ? ` ${content.kind === "sequence" ? "from" : "of"} ${focusName}` : ""} · {content.kind === "sequence" ? `${content.depth ?? 3} hops` : `${model.components.length} components`}</div>
       {content.kind === "diff" && !model.asIs && <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>No as-is baseline yet. Ask the AI to draw the current architecture of a repository, or attach its docker-compose.yml.</div>}
       <Mermaid source={modelToMermaid(model, content, { violating: new Set(violationsOf(state).map((v) => v.relationshipId)) })} />
       {content.kind === "diff" && model.asIs && (() => { const d = modelDiff(model)!; return <div className="mono" style={{ marginTop: 6, fontSize: 11 }}><span style={{ color: "var(--ok)" }}>+{d.added.length} added</span> · <span style={{ color: "var(--warn)" }}>−{d.removed.length} removed</span> · <span style={{ color: "var(--accent)" }}>~{d.changed.length} changed</span> · {d.same.length} unchanged · as-is from {model.asIs.source}</div>; })()}
@@ -377,8 +377,37 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
         </div>
       )}
       {content.boundaries.length > 0 && <BoundaryLegend artifactId={artifactId} content={content} />}
+      {content.relationships.length > 0 && <SequenceFrom content={content} />}
       <CompareVersions artifactId={artifactId} current={content} />
       {impactOf && <ImpactPanel componentId={impactOf} onClose={() => setImpactOf(null)} />}
+    </div>
+  );
+}
+
+// "Sequence from Service A": a sequence view generated from the model's relationships, no AI turn.
+function SequenceFrom({ content }: { content: ArchModelContent }) {
+  const meta = useStore((s) => s.meta);
+  const [msg, setMsg] = useState<string | null>(null);
+  const starts = content.components.filter((c) => content.relationships.some((r) => r.from === c.id));
+  if (!meta || starts.length === 0) return null;
+  async function create(id: string) {
+    const c = content.components.find((x) => x.id === id)!;
+    setMsg(null);
+    try {
+      const r = await api<{ status: string; approvers?: string[] }>("POST", `/api/v1/sessions/${meta!.id}/artifacts`, { type: "view", title: `Sequence from ${c.name}`, content: { kind: "sequence", focus: id, depth: 3, sections: [{ id: "body", derivedFrom: [] }] }, summary: `Sequence view from ${c.name}` });
+      setMsg(r.status === "applied" ? `Added "Sequence from ${c.name}" to the canvas.` : `Sequence view ${r.status.replace(/_/g, " ")}.`);
+    } catch (e) {
+      setMsg((e as Error).message);
+    }
+  }
+  return (
+    <div className="row" style={{ gap: 6, marginTop: 6 }}>
+      <span className="mono">sequence from</span>
+      <select defaultValue="" onChange={(e) => { if (e.target.value) { void create(e.target.value); e.target.value = ""; } }} style={{ width: "auto", padding: "0 4px", fontSize: 10.5 }} title="Generate a sequence diagram that follows the relationships from this component; it redraws when the model changes">
+        <option value="">choose a component</option>
+        {starts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+      {msg && <span className="muted" style={{ fontSize: 11 }}>{msg}</span>}
     </div>
   );
 }

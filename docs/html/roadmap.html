@@ -149,6 +149,7 @@ strong{font-weight:600}
 <p><strong>What.</strong> Choose a starting component and a path through the relationships, and get the sequence diagram deterministically. Stored as a view (kind <code>sequence</code>) so it regenerates when the model changes, like the other views.</p>
 <p><strong>Design.</strong> <code>pathsFrom(model, start, depth)</code> and <code>sequenceMermaid(model, path)</code> in shared; a picker on the model card; the AI gets the same through a <code>create_view</code> kind instead of drawing free Mermaid; the integration template's sequence item accepts either.</p>
 <p><strong>Effort.</strong> Two days. Depends on A1.</p>
+<p><strong>Status (2026-09-05): shipped.</strong> <code>pathFrom</code> and <code>sequenceMermaid</code> in shared; view kind <code>sequence</code> with <code>focus</code> as the start and <code>depth</code>; "sequence from" picker on the model card creates the view by hand; the offline provider answers "draw a sequence diagram for X"; the prompt prefers the view over hand-drawn sequence Mermaid; the integration template's checklist accepts either; exports render it from the model. Choosing an explicit path (instead of breadth-first from a start) was not done.</p>
 <h3>D7. Assumptions register</h3>
 <p><strong>What.</strong> Things believed true but not decided, each with an owner and a revisit date, separate from decisions. The AI records "we assume …" statements here, flags a later message that contradicts one, and offers to turn it into a decision or a decision point. Decisions gain an optional revisit date too, and the digest lists what is due.</p>
 <p><strong>Design.</strong> <code>assumption.recorded</code>, <code>assumption.resolved</code> events; <code>state.assumptions</code>; <code>record_assumption</code> tool and a prompt rule; the Decisions tab gets an Assumptions section; the export and the design document get a section; the digest's waiting list gets "assumptions to revisit".</p>
@@ -191,6 +192,7 @@ strong{font-weight:600}
 <p><strong>What.</strong> A blank templated canvas suggests the first prompt and shows the checklist's first three items as the plan: "Start by describing the systems involved; then state the limits; then ask for the data model". Blank sessions get a lighter version: three example prompts.</p>
 <p><strong>Design.</strong> A <code>starters</code> list per template in <code>templates.ts</code>; an empty-state panel on the canvas that disappears once the first card exists; clicking a starter puts it in the composer.</p>
 <p><strong>Effort.</strong> Half a day. Depends on C2.</p>
+<p><strong>Status (2026-09-05): shipped.</strong> <code>starters</code> per template and <code>BLANK_STARTERS</code>; an empty-canvas panel with the template's summary, the starters (click puts one in the composer) and the first three open checklist items; gone once a card other than the seeded constraints exists.</p>
 <hr />
 <h2 id="carried-over-from-the-earlier-backlog">Carried over from the earlier backlog</h2>
 <ul>

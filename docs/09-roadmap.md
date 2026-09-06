@@ -192,6 +192,8 @@ Added 2026-09-05. Phase D deepens the model so more of governance becomes determ
 
 **Effort.** Two days. Depends on A1.
 
+**Status (2026-09-05): shipped.** `pathFrom` and `sequenceMermaid` in shared; view kind `sequence` with `focus` as the start and `depth`; "sequence from" picker on the model card creates the view by hand; the offline provider answers "draw a sequence diagram for X"; the prompt prefers the view over hand-drawn sequence Mermaid; the integration template's checklist accepts either; exports render it from the model. Choosing an explicit path (instead of breadth-first from a start) was not done.
+
 ### D7. Assumptions register
 
 **What.** Things believed true but not decided, each with an owner and a revisit date, separate from decisions. The AI records "we assume …" statements here, flags a later message that contradicts one, and offers to turn it into a decision or a decision point. Decisions gain an optional revisit date too, and the digest lists what is due.
@@ -275,6 +277,8 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 **Design.** A `starters` list per template in `templates.ts`; an empty-state panel on the canvas that disappears once the first card exists; clicking a starter puts it in the composer.
 
 **Effort.** Half a day. Depends on C2.
+
+**Status (2026-09-05): shipped.** `starters` per template and `BLANK_STARTERS`; an empty-canvas panel with the template's summary, the starters (click puts one in the composer) and the first three open checklist items; gone once a card other than the seeded constraints exists.
 
 ---
 
