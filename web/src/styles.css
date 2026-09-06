@@ -120,6 +120,19 @@ img.avatar { object-fit: cover; background: var(--panel-2); }
 .assumption.refuted { opacity: .7; text-decoration: line-through; }
 .assumption.confirmed, .assumption.decided { opacity: .8; }
 
+/* presentation mode: one card per screen */
+.present { position: fixed; inset: 0; z-index: 60; background: var(--ground); display: grid; grid-template-rows: 40px 1fr 44px; }
+.present-top { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.present-body { overflow: auto; display: flex; justify-content: center; padding: 28px 24px; }
+.present-slide { width: min(1100px, 100%); }
+.present-card { background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 20px 24px; font-size: 16px; }
+.present-card .art-body, .present-card table { font-size: 15px; }
+.present-card.diagram-full .mermaid-box svg { max-width: 100%; height: auto; }
+.present-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-top: 1px solid var(--line); background: var(--panel); }
+.present-arrange { position: absolute; right: 16px; top: 52px; width: 340px; max-height: calc(100vh - 120px); overflow: auto; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 10px 12px; font-size: 13px; }
+.present-item { padding: 2px 0; }
+.present-item.off { opacity: .5; }
+
 /* empty canvas: starter prompts per template */
 .empty-state { background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 14px 16px; width: min(560px, 80vw); margin-top: 40px; display: flex; flex-direction: column; gap: 6px; }
 .empty-state button { text-align: left; font-size: 13px; }
@@ -159,7 +172,24 @@ tr.row-changed td { animation: row-glow 2.6s ease-out; }
 .chip.kind-constraint { color: var(--warn); }
 .chip.kind-document { color: var(--accent); }
 .chip.kind-contract { color: var(--link); }
-.published { max-width: 820px; }
+.pub-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; max-width: 1140px; margin: 0 auto; padding: 0 16px; }
+.pub-side { position: sticky; top: 16px; align-self: start; padding-top: 32px; font-size: 13px; }
+.pub-toc { display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; }
+.pub-toc a { color: var(--ink-2); text-decoration: none; padding: 2px 0; line-height: 1.35; }
+.pub-toc a.sub { padding-left: 12px; font-size: 12px; }
+.pub-toc a:hover { color: var(--link); }
+.pub-actions { display: flex; gap: 8px; align-items: center; }
+.pub-diagram { cursor: zoom-in; }
+.published { max-width: 820px; margin: 0; }
+@media (max-width: 900px) { .pub-layout { grid-template-columns: 1fr; } .pub-side { position: static; padding-top: 16px; } }
+@media print {
+  .topbar, .pub-side, .pub-foot, .pub-actions { display: none !important; }
+  .pub-layout { display: block; max-width: none; padding: 0; }
+  .published { max-width: none; }
+  body { background: #fff; color: #000; }
+  .pub-body pre, .pub-body table { break-inside: avoid; }
+  .pub-body h2 { break-after: avoid; }
+}
 .pub-head { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 20px; }
 .pub-body { font-size: 15px; line-height: 1.55; }
 .pub-body h1 { font-size: 26px; margin: 26px 0 10px; }

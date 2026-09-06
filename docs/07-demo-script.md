@@ -379,7 +379,7 @@ Feature: the design document gets a public page at a stable address, no sign-in 
 | Bob | Signs off v2 when Alice requests review again: version 3 appears on the page by itself, "published on approval". |
 | Alice | **Unpublish**: the link answers "no longer published". **Publish again** brings it back at the same address. |
 
-Point at: the frozen copy (the session moves on, the page does not); the signers on each version; the raw `.md` for anyone who wants to put it somewhere else.
+Point at: the frozen copy (the session moves on, the page does not); the signers on each version; the raw `.md` for anyone who wants to put it somewhere else. The page has a contents sidebar, the version picker, **print** (a print stylesheet drops the chrome), click-to-enlarge diagrams, and a link preview (title, status, signers) when the address is pasted into chat.
 
 ## Stage 12h: the library
 
@@ -475,6 +475,12 @@ Point at: "what breaks if we drop Kafka" answered without a turn; decisions that
 Feature: **replay** in the top bar opens a slider over the whole ledger. Drag it (or use ← →) and the canvas, the decision registry, the constraints and the lane show what they were after that event; commits and decisions are marks on the slider. Read only until **back to now** (or Esc); events that arrive meanwhile are kept and shown when you return. On the Architecture model card, **compare with** an earlier version draws the difference (added, removed, changed) the way the as-is view does.
 
 Point at: the reducer is pure and the ledger complete, so this is a fold, not a new store; scrub back to before the decision point and forward to see the vote land.
+
+## Stage 14c: presentation mode (no script)
+
+Feature: **Present** in the top bar walks through the cards one per screen, in an order you set, with the decision log (and assumptions) as the closing screen. Arrow keys, space or a click move; Esc leaves. **arrange** chooses which cards are shown and in what order; the order lives in the shared layout document, so everyone presenting this session gets the same sequence, and nothing is written to the ledger.
+
+Point at: presenting the design to people who were not in the session, straight from the canvas; the diagrams render full width.
 
 ## Stage 14b: live cursors and coloured boundaries (no script)
 

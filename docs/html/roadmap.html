@@ -182,10 +182,12 @@ strong{font-weight:600}
 <p><strong>What.</strong> Full-screen walkthrough of the canvas in an order you set: one card per screen, the AI lane and side pane hidden, the decision log as the closing screen, arrow keys to move. For presenting a design to people who were not in the session.</p>
 <p><strong>Design.</strong> An ordered list of card ids stored in the Yjs layout document (so it is shared and not in the ledger); a <code>/s/:id/present</code> route reusing the card renderers at large size; a "present" button in the top bar; Escape returns.</p>
 <p><strong>Effort.</strong> Two days.</p>
+<p><strong>Status (2026-09-05): shipped.</strong> Present button, full-screen overlay reusing the card renderers at large size, keyboard and click navigation, an arrange panel (include or leave out, move up or down, reset to canvas order) writing a <code>present</code> array in the Yjs layout document, decision log and assumptions as the closing screen. A separate route was not needed.</p>
 <h3>E5. Published page polish</h3>
 <p><strong>What.</strong> A table of contents, a print stylesheet, diagram zoom, a link preview image, and the version picker moved into a sidebar. The page outsiders see should look finished.</p>
 <p><strong>Design.</strong> Headings collected client-side into a sticky sidebar; <code>@media print</code> rules; click-to-enlarge on Mermaid SVGs; an <code>og:image</code> rendered server-side from the title and status (a small SVG-to-PNG step, or a static image if that costs too much); the <code>.md</code> link kept.</p>
 <p><strong>Effort.</strong> One day.</p>
+<p><strong>Status (2026-09-05): shipped.</strong> Sticky sidebar with the version picker, status, a contents list built from the rendered headings, <code>.md</code> and print; print stylesheet; click-to-enlarge diagrams; the SPA fallback injects title, description and Open Graph tags for <code>/p/&lt;slug&gt;</code> with a server-drawn SVG preview at <code>/p/&lt;slug&gt;/preview.svg</code>.</p>
 <h3>E6. Session thumbnails</h3>
 <p><strong>What.</strong> A small preview of the canvas on the home page rows and on library hits, so a session is recognised by its shape, not its title.</p>
 <p><strong>Design.</strong> The client renders a thumbnail from the layout document and card types (coloured rectangles, no content) and posts it to the server on leave; stored per session, served with the session list; regenerated when the layout changes.</p>

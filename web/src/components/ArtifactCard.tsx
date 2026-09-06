@@ -222,7 +222,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
   );
 }
 
-function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large = false }: { artifact: Artifact; version: Artifact["current"]; sessionId: string; myId: string; onVote: (id: string) => void; large?: boolean }) {
+export function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large = false }: { artifact: Artifact; version: Artifact["current"]; sessionId: string; myId: string; onVote: (id: string) => void; large?: boolean }) {
   return (
     <>
       {a.type === "mermaid" && <Mermaid source={(v.content as MermaidContent).source} />}

@@ -258,6 +258,8 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 
 **Effort.** Two days.
 
+**Status (2026-09-05): shipped.** Present button, full-screen overlay reusing the card renderers at large size, keyboard and click navigation, an arrange panel (include or leave out, move up or down, reset to canvas order) writing a `present` array in the Yjs layout document, decision log and assumptions as the closing screen. A separate route was not needed.
+
 ### E5. Published page polish
 
 **What.** A table of contents, a print stylesheet, diagram zoom, a link preview image, and the version picker moved into a sidebar. The page outsiders see should look finished.
@@ -265,6 +267,8 @@ Added 2026-09-05. Phase E is visual and experience work. Nothing here changes go
 **Design.** Headings collected client-side into a sticky sidebar; `@media print` rules; click-to-enlarge on Mermaid SVGs; an `og:image` rendered server-side from the title and status (a small SVG-to-PNG step, or a static image if that costs too much); the `.md` link kept.
 
 **Effort.** One day.
+
+**Status (2026-09-05): shipped.** Sticky sidebar with the version picker, status, a contents list built from the rendered headings, `.md` and print; print stylesheet; click-to-enlarge diagrams; the SPA fallback injects title, description and Open Graph tags for `/p/<slug>` with a server-drawn SVG preview at `/p/<slug>/preview.svg`.
 
 ### E6. Session thumbnails
 
