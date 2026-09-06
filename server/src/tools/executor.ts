@@ -5,6 +5,7 @@ import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
 import { searchLibrary } from "../library.js";
+import { impactLines, impactOf } from "@tandem/shared";
 
 // Binds the shared tool schemas to a session/turn. The same handlers serve every provider.
 
@@ -175,8 +176,16 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
     }),
 
     bind("remove_from_model", async (input) => {
+      // What each removed component leaves behind, computed before the write so the answer can say it.
+      const before = getState(scope.sessionId);
+      const impact: Record<string, string[]> = {};
+      for (const id of input.componentIds ?? []) {
+        const i = impactOf(before, id);
+        if (i) impact[i.component.name] = impactLines(i);
+      }
       const next = removeFromModel(currentModel(), input.componentIds ?? [], input.relationshipIds ?? []);
-      return writeModel(next, input.rationale, `Model: ${next.components.length} components, ${next.relationships.length} relationships`);
+      const r = writeModel(next, input.rationale, `Model: ${next.components.length} components, ${next.relationships.length} relationships`);
+      return r.status === "model_updated" && Object.keys(impact).length ? { ...r, impact } : r;
     }),
 
     bind("create_artifact", async (input) => {

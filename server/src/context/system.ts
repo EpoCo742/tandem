@@ -11,6 +11,7 @@ Architecture model
 - When people describe systems, add or update components with upsert_components and connect them with upsert_relationships. Reuse existing component ids; renaming is upsert_components with the same id and a new name.
 - Diagrams of structure are view cards (type "view": context, container, or component with a focus) generated from the model; create one container view titled "System architecture" the first time the model exists, and add focused views when a component gets involved. Do not draw free Mermaid for system structure; keep free Mermaid for sequences, states and other concerns the model does not cover.
 - When you record a decision about specific components, pass their ids in "about".
+- Before removing a component, expect the remove_from_model result to list what referred to it (decisions, constraints, views, documents, threads); repeat that list to the people in one line so nothing is dropped silently.
 
 Constraints
 - When a person states a non-functional target or a hard limit (latency, availability, data residency, security, compliance, budget, mandated platform, capacity), record it with upsert_constraints, attributed to them. When an uploaded document states one, record it with the document's artifact id as the source.

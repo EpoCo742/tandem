@@ -13,6 +13,7 @@ import { ArtifactEditor } from "./ArtifactEditor";
 import { AlternativesView } from "./AlternativesView";
 import { ReviewPanel } from "./ReviewPanel";
 import { PublishPanel } from "./PublishPanel";
+import { ImpactPanel } from "./ImpactPanel";
 
 // Render ```mermaid fences inside Markdown cards as diagrams instead of code.
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
@@ -315,6 +316,7 @@ function ModelView({ content }: { content: ViewContent }) {
 
 function ModelTable({ content, artifactId }: { content: ArchModelContent; artifactId: string }) {
   const changedRows = useContext(ChangedRowsContext);
+  const [impactOf, setImpactOf] = useState<string | null>(null);
   const state = useStore((s) => s.state);
   const focus = useStore((s) => s.focusComponentId);
   const setFocus = useStore((s) => s.setFocusComponent);
@@ -344,7 +346,8 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
                 <td className="mono">{c.kind}</td>
                 <td className="mono">{c.technology ?? ""}</td>
                 <td className="mono">{bname(c.boundary)}</td>
-                <td style={{ textAlign: "right" }}>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  <button className="icon" style={{ padding: "0 4px" }} title={`What depends on ${c.name}: decisions, constraints, views, documents, threads`} onClick={(e) => { e.stopPropagation(); setImpactOf(c.id); }}>&#x2058;</button>
                   <button className="icon" style={{ padding: "0 4px" }} title={threadsOn(c.id) ? `${threadsOn(c.id)} open thread(s) on ${c.name}` : `Start a thread on ${c.name}`} onClick={(e) => { e.stopPropagation(); setThreadTarget({ artifactId, componentId: c.id }); }}>
                     &#x1F5E8;{threadsOn(c.id) ? <span className="mono" style={{ marginLeft: 2 }}>{threadsOn(c.id)}</span> : null}
                   </button>
@@ -361,6 +364,7 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
         </div>
       )}
       <CompareVersions artifactId={artifactId} current={content} />
+      {impactOf && <ImpactPanel componentId={impactOf} onClose={() => setImpactOf(null)} />}
     </div>
   );
 }

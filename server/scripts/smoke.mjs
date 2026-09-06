@@ -744,6 +744,11 @@ const docHit = (await alice.call("GET", "/api/v1/library?kind=document")).hits[0
 assert(/not copied/.test(await fails(alice.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: docHit.importRef }))), "published documents are read, not copied");
 assert(/403/.test(await fails(dave.call("POST", `/api/v1/sessions/${speakerSession}/library/import`, { ref: kafkaDecision.importRef }))), "someone outside the target session cannot copy into it");
 
+// Impact analysis: what depends on a component, deterministically.
+const impactA = await alice.call("GET", `/api/v1/sessions/${sessionId}/impact/service-a`);
+assert(impactA.component.name === "Service A" && impactA.decisions.length >= 1 && impactA.relationships >= 1 && impactA.views.length >= 1 && impactA.lines.length >= 3, `impact of Service A: ${impactA.decisions.length} decisions, ${impactA.relationships} relationships, ${impactA.views.length} views`);
+assert(/404/.test(await fails(alice.call("GET", `/api/v1/sessions/${sessionId}/impact/nope`))), "impact of an unknown component is a 404");
+
 // Templates: a kind of design seeds the constraints card and carries a checklist the AI works toward.
 assert(/unknown template/.test(await fails(alice.call("POST", "/api/v1/sessions", { title: "x", provider: "fake", payerMode: "sponsor", template: "nope" }))), "an unknown template is refused");
 const tpl = await alice.call("POST", "/api/v1/sessions", { title: "Orders integration", provider: "fake", payerMode: "sponsor", template: "integration" });

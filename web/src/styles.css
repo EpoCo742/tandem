@@ -171,6 +171,10 @@ tr.row-changed td { animation: row-glow 2.6s ease-out; }
 .replay-bar input[type="range"] { width: auto; padding: 0; accent-color: var(--accent); }
 .session.replaying .art-foot button, .session.replaying .art-foot select, .session.replaying .art-head button.icon, .session.replaying .review button, .session.replaying .publish button { display: none; }
 .session.replaying .canvas-wrap { outline: 2px solid var(--accent); outline-offset: -2px; }
+.modal.impact { width: min(640px, 92vw); font-size: 13px; }
+.impact-section { border-top: 1px solid var(--line); padding-top: 6px; }
+.impact-row { cursor: pointer; padding: 2px 0; }
+.impact-row:hover { color: var(--link); }
 .compare { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 6px; }
 .pane { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .pane.right { border-right: none; border-left: 1px solid var(--line); }

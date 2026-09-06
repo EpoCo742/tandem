@@ -418,6 +418,12 @@ Uploaded source cards start folded to one line (▾ opens them, double-click too
 
 Double-click a card's title to rename it; the rename is a new version under the same governance as an edit. A resized card shows ↺ in its header to go back to automatic size; images and diagrams scale with a resized card.
 
+## Stage 2d: impact (no script)
+
+Feature: the **⁘** button on a row of the Architecture model card opens **Impact**: the relationships, decisions, constraints, views, candidate architectures, documents and threads that refer to that component, and what would dangle if it were removed. Each line opens the thing it names. When the AI removes a component, its tool result carries the same list and the prompt tells it to say what now points at nothing.
+
+Point at: "what breaks if we drop Kafka" answered without a turn; decisions that would point at nothing.
+
 ## Stage 6b: replay (no script)
 
 Feature: **replay** in the top bar opens a slider over the whole ledger. Drag it (or use ← →) and the canvas, the decision registry, the constraints and the lane show what they were after that event; commits and decisions are marks on the slider. Read only until **back to now** (or Esc); events that arrive meanwhile are kept and shown when you return. On the Architecture model card, **compare with** an earlier version draws the difference (added, removed, changed) the way the as-is view does.

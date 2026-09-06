@@ -23,6 +23,7 @@ import { adoptAlternative, openAlternativesDecision } from "../alternatives.js";
 import { requestReview, signOff, withdrawReview } from "../review.js";
 import { publishDocument, revokePublication } from "../publish.js";
 import { importFromLibrary } from "../importer.js";
+import { impactLines, impactOf } from "@tandem/shared";
 
 export const COMPILE_INSTRUCTION =
   "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
@@ -92,6 +93,16 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const r = revokePublication(req.params.id, req.params.artifactId, user.id);
     if (!r.ok) return reply.code(r.status).send({ error: r.error });
     return r;
+  });
+
+  // What depends on a component, as the Impact panel shows it, for scripts and digests.
+  app.get<{ Params: { id: string; componentId: string } }>("/api/v1/sessions/:id/impact/:componentId", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
+    participantOr403(req.params.id, user.id);
+    const i = impactOf(getState(req.params.id), req.params.componentId);
+    if (!i) return reply.code(404).send({ error: "no such component" });
+    return { component: i.component, relationships: i.relationships.length, decisions: i.decisions.map((d) => d.label), constraints: i.constraints.map((k) => k.id), views: i.views.map((v) => v.title), alternatives: i.alternatives.flatMap((a) => a.candidates), mentions: i.mentions.map((m) => m.artifact.title), threads: i.threads.length, ifRemoved: i.ifRemoved, lines: impactLines(i) };
   });
 
   // The design checklist of a templated session, evaluated from the ledger (null without a template).

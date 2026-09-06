@@ -307,7 +307,7 @@ export const toolDescriptions: Record<ToolName, string> = {
   upsert_components:
     "Add components to the session's architecture model, or update existing ones by id (rename, change kind, describe, move into a boundary). The model is the source of truth for structure; diagrams are views of it. Prefer this over drawing free Mermaid for system structure.",
   upsert_relationships: "Add or update relationships between components of the architecture model by component id. Both ends must exist; the result names any unknown ids.",
-  remove_from_model: "Remove components (and their relationships) or specific relationships from the architecture model.",
+  remove_from_model: "Remove components (and their relationships) or specific relationships from the architecture model. The result lists what referred to each removed component (decisions, constraints, views, documents, threads); tell people what now points at nothing.",
   render_adr:
     "Render decisions as architecture decision record files (filename + Markdown), ready to write into a repository's docs/adr with an external tool. Omit decisionId to get all of them.",
   upsert_constraints:
@@ -331,7 +331,7 @@ export type ToolResult =
   | { status: "asked" }
   | { status: "content"; artifactId: string; versionNo: number; content: unknown }
   | { status: "pinned"; artifactId: string; pinned: boolean }
-  | { status: "model_updated"; artifactId: string; versionNo: number; components: number; relationships: number; unknown?: string[] }
+  | { status: "model_updated"; artifactId: string; versionNo: number; components: number; relationships: number; unknown?: string[]; impact?: Record<string, string[]> }
   | { status: "adrs"; files: { filename: string; markdown: string; label: string }[] }
   | { status: "constraints_updated"; artifactId: string; versionNo: number; constraints: { id: string; statement: string }[] }
   | { status: "alternatives_proposed"; artifactId: string; candidates: { id: string; title: string }[] }

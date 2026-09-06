@@ -9,3 +9,4 @@ export * from "./scan.js";
 export * from "./colors.js";
 export * from "./library.js";
 export * from "./templates.js";
+export * from "./impact.js";

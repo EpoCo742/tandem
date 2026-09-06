@@ -172,6 +172,8 @@ Added 2026-09-05. Phase D deepens the model so more of governance becomes determ
 
 **Effort.** Two days. Depends on A1, A2; better after D1.
 
+**Status (2026-09-05): shipped.** `impactOf` and `impactLines` in shared over relationships, decisions (by id or by name), constraints naming it, views drawing it, alternatives containing it, text mentions in documents and cards, anchored threads, and an "if removed" summary; Impact panel from the model table with links into each finding; `GET /sessions/:id/impact/:componentId`; `remove_from_model` returns the impact per removed component and the prompt asks the AI to repeat it.
+
 ### D5. Contracts as first-class cards
 
 **What.** An API or event contract (an OpenAPI or AsyncAPI fragment, or a plain schema) as a card attached to a relationship or a component. A change to the contract flags every consumer in the model; the library indexes contracts; the integration template's contract item points at this card type instead of a title match.
