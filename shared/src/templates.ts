@@ -18,7 +18,7 @@ export interface SeedConstraint {
 }
 
 export type ChecklistCheck =
-  | { kind: "artifact"; types: ArtifactType[]; titleMatch?: string; contentMatch?: string }
+  | { kind: "artifact"; types: ArtifactType[]; titleMatch?: string; contentMatch?: string; typesAny?: ArtifactType[] } // typesAny: these types count on their own, whatever the title
   | { kind: "model"; minComponents: number; requireKind?: ComponentKind }
   | { kind: "constraints"; min: number; category?: ConstraintCategory }
   | { kind: "decisions"; min: number; agreed?: boolean }
@@ -74,7 +74,7 @@ export const TEMPLATES: Record<TemplateId, SessionTemplate> = {
       common.model(3),
       common.view(),
       { id: "datamodel", title: "Data model", hint: "Ask the AI to draft the data model from what has been said", check: { kind: "artifact", types: ["data_model"] } },
-      common.card("api", "API contract", "A card describing the API or the events the service exposes (title it API, contract or interface)", "api|contract|interface|endpoint"),
+      { id: "api", title: "API contract", hint: "Describe the endpoints or events the service exposes; the AI records a contract card, or add one by hand", check: { kind: "artifact", types: ["markdown", "mermaid"], titleMatch: "api|contract|interface|endpoint", typesAny: ["contract"] } },
       common.constraints(1),
       common.card("ops", "Runbook and observability", "How the service is deployed, watched and recovered (title it runbook, operations or observability)", "runbook|operat|observab|monitor|deploy"),
       common.decisions(2),
@@ -97,7 +97,7 @@ export const TEMPLATES: Record<TemplateId, SessionTemplate> = {
       { id: "model", title: "Model with an external system", hint: "Model both sides; at least one component is an external system", check: { kind: "model", minComponents: 2, requireKind: "external" } },
       common.view(),
       { id: "sequence", title: "Sequence diagram", hint: "Ask for a sequence diagram of the main exchange, or pick 'sequence from' on the Architecture model card", check: { kind: "artifact", types: ["mermaid", "view"], contentMatch: 'sequenceDiagram|"kind":"sequence"' } },
-      common.card("contract", "Contract or schema", "The payloads, events or API shapes exchanged (title it contract, schema, payload or events)", "contract|schema|payload|event|message"),
+      { id: "contract", title: "Contract or schema", hint: "Describe the payloads, events or API shapes exchanged; the AI records a contract card attached to the relationship", check: { kind: "artifact", types: ["markdown", "mermaid"], titleMatch: "contract|schema|payload|event|message", typesAny: ["contract"] } },
       common.card("failure", "Failure handling", "What happens on timeout, duplicate, out-of-order or partial failure (title it failure, retry or resilience)", "failure|retry|resilien|idempot|timeout|error"),
       common.constraints(1),
       common.decisions(2),
@@ -172,7 +172,7 @@ function evaluate(state: SessionState, check: ChecklistCheck): { done: boolean; 
   const live = liveArtifacts(state);
   switch (check.kind) {
     case "artifact": {
-      const hits = live.filter((a) => check.types.includes(a.type) && matches(check.titleMatch, a.title) && matches(check.contentMatch, JSON.stringify(a.current.content)));
+      const hits = live.filter((a) => (check.typesAny?.includes(a.type) ?? false) || (check.types.includes(a.type) && matches(check.titleMatch, a.title) && matches(check.contentMatch, JSON.stringify(a.current.content))));
       return { done: hits.length > 0, detail: hits.length ? hits.map((a) => a.title).join(", ") : "" };
     }
     case "model": {

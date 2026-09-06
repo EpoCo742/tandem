@@ -777,6 +777,25 @@ const tplFork = await alice.call("POST", `/api/v1/sessions/${tpl.id}/fork`, {});
 assert((await alice.call("GET", `/api/v1/sessions/${tplFork.id}`)).template === "integration", "a fork keeps the template");
 subT.ws.close();
 
+// Contracts as cards: attached to a component, consumers derived from the model, a change flags them.
+const ctTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Contract for Service B: openapi 3.0.0, title Orders API, POST /orders creates an order, GET /orders/{id} reads one." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > ctTurns, "contract turn");
+const contractEv = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "contract").pop();
+assert(contractEv && contractEv.payload.content.format === "openapi" && contractEv.payload.content.attachedTo.componentId === "service-b" && /Orders API/.test(contractEv.payload.content.body), "the AI recorded an OpenAPI contract attached to Service B");
+const contracts1 = await alice.call("GET", `/api/v1/sessions/${sessionId}/contracts`);
+const ct = contracts1.find((c) => c.artifactId === contractEv.payload.artifactId);
+assert(ct && ct.provider === "service-b" && ct.changedAfterModel === false, `the contract is provided by Service B (${ct.consumers.length} consumer(s))`);
+const ctEdit = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${ct.artifactId}/versions`, { content: { ...contractEv.payload.content, body: contractEv.payload.content.body + " DELETE /orders/{id} cancels one.", version: "v2" }, rationale: "added GET /orders/{id}" });
+assert(ctEdit.status === "applied" || ctEdit.status === "pending_approval", "a contract can be edited by hand");
+if (ctEdit.status === "applied") {
+  const contracts2 = await alice.call("GET", `/api/v1/sessions/${sessionId}/contracts`);
+  assert(contracts2.find((c) => c.artifactId === ct.artifactId).changedAfterModel === true, "a contract changed after the model is flagged for its consumers");
+}
+const mdContracts = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/openapi.*provided by Service B/.test(mdContracts) && mdContracts.includes("Orders API"), "the export carries the contract with its provider and body");
+assert((await alice.call("GET", "/api/v1/library?q=Orders+API&kind=contract")).hits.some((h) => h.kind === "contract" && h.artifactId === ct.artifactId), "contracts are in the library");
+
 // Sequence diagrams from the model: a view kind that follows the relationships from a start.
 const seqTurns = subA.events.filter((e) => e.type === "turn.completed").length;
 await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Draw a sequence diagram for Service A." });

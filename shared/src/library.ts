@@ -1,7 +1,7 @@
 // The organisation library: what earlier sessions decided, built and constrained, searchable
 // across sessions, and the provenance carried by anything copied out of it.
 
-export type LibraryKind = "decision" | "component" | "constraint" | "document";
+export type LibraryKind = "decision" | "component" | "constraint" | "document" | "contract";
 
 /** Where a copied decision, component or constraint came from. Set by whoever copies it; never edited. */
 export interface ImportedFrom {

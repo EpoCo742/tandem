@@ -1,4 +1,4 @@
-import { allAdrs, contentText, dataModelMarkdown, describeAnchor, liveArtifacts, modelDiff, modelToMermaid, participantName, threads, type AlternativesContent, type ArchModelContent, type ConstraintsContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
+import { allAdrs, contentText, contractsOf, dataModelMarkdown, describeAnchor, liveArtifacts, modelDiff, modelToMermaid, participantName, threads, type AlternativesContent, type ArchModelContent, type ConstraintsContent, type ContractContent, type DataModelContent, type DecisionPointContent, type SessionState, type SourceContent, type ViewContent } from "@tandem/shared";
 
 function modelMarkdown(m: ArchModelContent): string[] {
   const out: string[] = [];
@@ -65,6 +65,11 @@ export function exportMarkdown(s: SessionState): string {
         if (c.cons.length) out.push(`Against: ${c.cons.join("; ")}`, "");
         if (c.constraintsMet.length || c.constraintsAtRisk.length) out.push(`Constraints met: ${c.constraintsMet.join(", ") || "none"}. At risk: ${c.constraintsAtRisk.join(", ") || "none"}.`, "");
       }
+    } else if (a.type === "contract") {
+      const c = v.content as ContractContent;
+      const st = contractsOf(s).find((x) => x.artifact.id === a.id);
+      const cname = (id: string) => model?.components.find((x) => x.id === id)?.name ?? id;
+      out.push(`${c.format}${c.version ? ` ${c.version}` : ""}${st?.provider ? `, provided by ${cname(st.provider)}` : ""}${st?.consumers.length ? `, consumed by ${st.consumers.map(cname).join(", ")}` : ""}${st?.changedAfterModel ? " (changed after the model; consumers may not have caught up)" : ""}`, "", "```" + (c.format === "markdown" ? "" : c.format === "openapi" || c.format === "asyncapi" ? "yaml" : c.format === "json_schema" ? "json" : ""), c.body, "```", "");
     } else if (a.type === "arch_model") out.push(...modelMarkdown(v.content as ArchModelContent));
     else if (a.type === "constraints") {
       const cc = v.content as ConstraintsContent;

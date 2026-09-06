@@ -442,6 +442,29 @@ export const fakeProvider: ProviderAdapter = {
       return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
+    // 0o. "Contract for Service B: …": a contract card attached to that component (or "for Service A -> Service B" to a relationship).
+    const contractMsg = batch.map((m) => ({ m, x: m.text.match(/^(?:(?:api|event|the) )?contract (?:for|of) (.+?):\s*([\s\S]+)$/i) })).find((x) => x.x);
+    if (contractMsg) {
+      const [, target, body] = contractMsg.x!;
+      const modelArt = artifacts.find((a) => a.type === "arch_model");
+      const cur = modelArt ? ((await call("read_artifact", { artifactId: modelArt.id })) as { content?: ArchModelContent }).content : undefined;
+      const byName = (n: string) => cur?.components.find((c) => c.name.toLowerCase() === n.trim().toLowerCase());
+      const pair = target!.split(/\s*(?:->|→|to)\s*/i);
+      const format = /^openapi/i.test(body!) ? "openapi" : /^asyncapi/i.test(body!) ? "asyncapi" : /^\{/.test(body!.trim()) ? "json_schema" : "markdown";
+      let attachedTo: { relationshipId?: string; componentId?: string } | null = null;
+      if (pair.length === 2 && byName(pair[0]!) && byName(pair[1]!)) {
+        const r = cur!.relationships.find((x) => x.from === byName(pair[0]!)!.id && x.to === byName(pair[1]!)!.id);
+        if (r) attachedTo = { relationshipId: r.id };
+      } else if (byName(target!)) attachedTo = { componentId: byName(target!)!.id };
+      if (!attachedTo) {
+        await emit(`I do not know "${target}" in the model; name a component or a relationship (A -> B) that exists.`);
+        return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+      }
+      const r = (await call("upsert_contract", { title: `${target!.trim()} contract`, format, body: body!.trim(), attachedTo, derivedFrom: [contractMsg.m.eventId], rationale: `Contract stated by ${contractMsg.m.speaker}` })) as { status: string; versionNo?: number; consumers?: string[] };
+      await emit(r.status === "contract_recorded" ? `Recorded the ${format} contract for ${target!.trim()} (v${r.versionNo})${r.consumers?.length ? `; consumers: ${r.consumers.join(", ")}` : ""}.` : `Could not record the contract: ${r.status}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
+    }
+
     // 0n. "Draw a sequence diagram for Service A": a sequence view from that component (or the first with outgoing flows).
     const seqReq = batch.find((m) => /\bsequence diagram\b/i.test(m.text));
     if (seqReq) {

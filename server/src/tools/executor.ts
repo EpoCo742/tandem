@@ -1,6 +1,7 @@
 import { ulid } from "ulid";
 import { allAdrs, emptyModel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
-import type { AlternativesContent, ConstraintsContent, DecisionPointContent, SessionState } from "@tandem/shared";
+import type { AlternativesContent, ConstraintsContent, ContractContent, DecisionPointContent, SessionState } from "@tandem/shared";
+import { contractsOf } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
@@ -313,6 +314,20 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
     bind("library_search", async (input) => {
       const r = searchLibrary(scope.onBehalfOf, input.query, { kind: input.kind, limit: input.limit ?? 8, excludeSessionId: input.excludeThisSession ? scope.sessionId : undefined });
       return { status: "library_results", hits: r.hits, searched: r.scope };
+    }),
+
+    bind("upsert_contract", async (input) => {
+      const state = getState(scope.sessionId);
+      const model = currentModel();
+      if (input.attachedTo.relationshipId && !model.relationships.some((r) => r.id === input.attachedTo.relationshipId)) return { status: "error", message: `No relationship ${input.attachedTo.relationshipId} in the model; ids look like from-kind-to` };
+      if (input.attachedTo.componentId && !model.components.some((c) => c.id === input.attachedTo.componentId)) return { status: "error", message: `No component ${input.attachedTo.componentId} in the model` };
+      if (!input.attachedTo.relationshipId && !input.attachedTo.componentId) return { status: "error", message: "attachedTo needs a relationshipId or a componentId" };
+      const existing = Object.values(state.artifacts).find((a) => a.type === "contract" && !a.deleted && JSON.stringify((a.current.content as ContractContent).attachedTo ?? {}) === JSON.stringify(input.attachedTo));
+      const content: ContractContent = { format: input.format, body: input.body, attachedTo: input.attachedTo, ...(input.version ? { version: input.version } : {}), sections: [{ id: "body", derivedFrom: input.derivedFrom }] };
+      const r = requestChange({ ...common, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "contract", title: input.title, content, summary: `${input.format} contract${input.version ? ` ${input.version}` : ""}`, rationale: input.rationale, baseVersionNo: existing?.current.versionNo ?? null, provenance: [{ sectionId: "body", derivedFrom: input.derivedFrom }] });
+      if (r.status !== "applied") return r as ToolResult;
+      const status = contractsOf(getState(scope.sessionId)).find((c) => c.artifact.id === r.artifactId);
+      return { status: "contract_recorded", artifactId: r.artifactId, versionNo: r.versionNo, consumers: (status?.consumers ?? []).map((id) => model.components.find((c) => c.id === id)?.name ?? id) };
     }),
 
     bind("read_artifact", async (input) => {

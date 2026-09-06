@@ -20,6 +20,7 @@ function canReadSource(sourceSessionId: string, userId: string): boolean {
 
 export function importFromLibrary(targetSessionId: string, userId: string, ref: ImportedFrom): Outcome<ImportOutcome> {
   if (ref.kind === "document") return { ok: false, status: 400, error: "published documents are read, not copied; open the page instead" };
+  if (ref.kind === "contract") return { ok: false, status: 400, error: "contracts belong to the relationship they govern; open the session and copy the text into a contract of your own" };
   if (!sessionExists(ref.sessionId)) return { ok: false, status: 404, error: "the source session no longer exists" };
   if (ref.sessionId === targetSessionId) return { ok: false, status: 400, error: "that is already in this session" };
   if (!canReadSource(ref.sessionId, userId)) return { ok: false, status: 403, error: "you cannot read the source session" };

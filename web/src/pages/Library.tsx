@@ -11,6 +11,7 @@ const KINDS: { id: LibraryKind | ""; label: string }[] = [
   { id: "component", label: "components" },
   { id: "constraint", label: "constraints" },
   { id: "document", label: "published documents" },
+  { id: "contract", label: "contracts" },
 ];
 
 interface SessionRow { id: string; title: string; status: "active" | "archived"; role: string; updatedAt: string }
@@ -107,7 +108,7 @@ function Hit({ h, targets, onOpen }: { h: LibraryHit; targets: SessionRow[]; onO
         <span style={{ fontWeight: 600, flex: 1 }}>{h.title}</span>
         {h.isPublic && <span className="chip" title="From a session you are not in; visible because it published a document">published</span>}
         <span className="mono">{new Date(h.updatedAt).toLocaleDateString()}</span>
-        {h.kind !== "document" && !done && (
+        {h.kind !== "document" && h.kind !== "contract" && !done && (
           <button className="icon" onClick={(e) => { e.stopPropagation(); setChoosing((c) => !c); }} title="Copy into one of your sessions, no AI turn; the origin stays attached">copy into…</button>
         )}
       </div>

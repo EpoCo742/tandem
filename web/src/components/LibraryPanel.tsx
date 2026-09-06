@@ -62,7 +62,9 @@ export function LibraryPanel({ sessionId }: { sessionId: string }) {
               {h.sessionTitle}{h.people.length > 0 && <> · {h.kind === "decision" ? "agreed by" : h.kind === "constraint" ? "set by" : "signed by"} {h.people.join(", ")}</>}
             </div>
             <div className="row" style={{ marginTop: 4, gap: 6 }}>
-              {h.kind === "document" ? (
+              {h.kind === "contract" ? (
+                <span className="muted" style={{ fontSize: 12 }}>open the session to read it</span>
+              ) : h.kind === "document" ? (
                 <a className="mono" href={h.link} onClick={(e) => { e.preventDefault(); navigate(h.link); }}>open page</a>
               ) : r ? (
                 "error" in r ? <span className="err" style={{ fontSize: 12 }}>{r.error}</span> : (

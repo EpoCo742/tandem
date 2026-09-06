@@ -1,5 +1,6 @@
 import type { ArtifactType, Option, Provenance } from "./events.js";
 import type { ImportedFrom } from "./library.js";
+import type { ContractContent } from "./contracts.js";
 import { modelToText, type ArchModelContent, type ViewContent } from "./model.js";
 
 export interface Section {
@@ -111,6 +112,7 @@ export interface CodeContent {
 }
 
 export type ArtifactContent =
+  | ContractContent
   | ArchModelContent
   | ViewContent
   | ConstraintsContent
@@ -187,6 +189,11 @@ export function contentText(type: string, content: unknown): string {
         ...ac.candidates.map((c) => `${c.id.toUpperCase()}. ${c.title}${ac.chosen === c.id ? " [chosen]" : ac.chosen ? " [not chosen]" : ""}: ${c.summary}\n   components: ${c.model.components.map((x) => x.name).join(", ") || "-"}\n   for: ${c.pros.join("; ") || "-"}\n   against: ${c.cons.join("; ") || "-"}\n   constraints met: ${c.constraintsMet.join(", ") || "-"}; at risk: ${c.constraintsAtRisk.join(", ") || "-"}`),
       ].join("\n");
     }
+    case "contract": {
+      const c = content as ContractContent;
+      const to = c.attachedTo?.relationshipId ? `relationship ${c.attachedTo.relationshipId}` : c.attachedTo?.componentId ? `component ${c.attachedTo.componentId}` : "nothing yet";
+      return `${c.format} contract${c.version ? ` ${c.version}` : ""}, attached to ${to}\n${c.body}`;
+    }
     case "view": {
       const v = content as ViewContent;
       return `${v.kind === "diff" ? "as-is vs to-be" : v.kind} view${v.focus ? ` ${v.kind === "sequence" ? "from" : "of"} ${v.focus}` : ""}${v.note ? `: ${v.note}` : ""} (rendered from the architecture model)`;
@@ -234,6 +241,8 @@ export function contentProblem(type: ArtifactType, content: unknown): string | n
       return need("constraints", "array");
     case "alternatives":
       return need("question", "string") ?? need("candidates", "array");
+    case "contract":
+      return need("format", "string") ?? need("body", "string");
     case "decision_point":
       return need("question", "string") ?? need("options", "array") ?? need("votes", "object") ?? need("blocksArtifactIds", "array");
     case "source":

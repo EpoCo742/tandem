@@ -184,6 +184,8 @@ Added 2026-09-05. Phase D deepens the model so more of governance becomes determ
 
 **Effort.** Three days. Depends on A1.
 
+**Status (2026-09-05): shipped.** Artifact type `contract` with format, body, `attachedTo` (relationship or component) and a version label; `contractsOf` in shared derives provider and consumers from the model's relationships and flags contracts that changed after the model last changed; the model table shows "contract vN" or "contract changed" on consumer rows; `upsert_contract` tool with a prompt rule; the card renders Markdown or the raw text; the editor edits the body; export section, library kind and a `GET /sessions/:id/contracts` route; the integration and new-service templates accept a contract card for their contract item. Not done: schema-aware diffs between contract versions.
+
 ### D6. Sequence diagrams from the model
 
 **What.** Choose a starting component and a path through the relationships, and get the sequence diagram deterministically. Stored as a view (kind `sequence`) so it regenerates when the model changes, like the other views.

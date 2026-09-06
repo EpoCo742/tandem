@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { participantName, type ArchModelContent, type ConstraintsContent, type LibraryHit, type LibraryKind, type SessionState } from "@tandem/shared";
+import { participantName, contractsOf, type ArchModelContent, type ConstraintsContent, type ContractContent, type LibraryHit, type LibraryKind, type SessionState } from "@tandem/shared";
 import { db, now, schema, sqlite } from "./db/index.js";
 import { getState } from "./ledger.js";
 import { latestPublishedMarkdown, livePublications } from "./publish.js";
@@ -11,7 +11,7 @@ import { latestPublishedMarkdown, livePublications } from "./publish.js";
 // Who sees what: items of a session the searcher takes part in, plus items of any session that
 // has a live published document (publishing is how a session enters the organisation's memory).
 
-const KINDS: LibraryKind[] = ["decision", "component", "constraint", "document"];
+const KINDS: LibraryKind[] = ["decision", "component", "constraint", "document", "contract"];
 
 let prepared: { del: ReturnType<typeof sqlite.prepare>; ins: ReturnType<typeof sqlite.prepare>; maxSeq: ReturnType<typeof sqlite.prepare> } | null = null;
 function stmts() {
@@ -55,6 +55,12 @@ function rowsFor(sessionId: string, state: SessionState, sessionTitle: string): 
     for (const k of kc.constraints) {
       out.push({ kind: "constraint", sessionId, refId: k.id, title: `${k.id} ${k.statement}`, body: [k.kind.replace("_", " "), k.category, k.value, k.exceptionTo ? `exception to ${k.exceptionTo}` : ""].filter(Boolean).join("\n"), people: k.setBy ? participantName(state, k.setBy) : "document", sessionTitle, isPublic, updatedAt: constraints.current.createdAt, link: `/s/${sessionId}`, artifactId: constraints.id });
     }
+  }
+  for (const a of live) {
+    if (a.type !== "contract") continue;
+    const c = a.current.content as ContractContent;
+    const st = contractsOf(state).find((x) => x.artifact.id === a.id);
+    out.push({ kind: "contract", sessionId, refId: a.id, title: `${a.title} (${c.format}${c.version ? ` ${c.version}` : ""})`, body: [st?.provider ? `provided by ${cname(st.provider)}` : "", st?.consumers.length ? `consumed by ${st.consumers.map(cname).join(", ")}` : "", c.body.slice(0, 20_000)].filter(Boolean).join("\n"), people: participantName(state, a.current.authorUserId), sessionTitle, isPublic, updatedAt: a.current.createdAt, link: `/s/${sessionId}`, artifactId: a.id });
   }
   for (const p of pubs) {
     const v = latestPublishedMarkdown(p.id);

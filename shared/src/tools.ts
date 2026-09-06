@@ -69,10 +69,18 @@ export const codeContentSchema = z.object({
   sections: z.array(sectionSchema),
 });
 
+export const contractContentSchema = z.object({
+  format: z.enum(["openapi", "asyncapi", "json_schema", "graphql", "proto", "markdown", "other"]),
+  body: z.string().describe("The contract text: an OpenAPI or AsyncAPI fragment, a schema, or plain Markdown"),
+  attachedTo: z.object({ relationshipId: z.string().optional(), componentId: z.string().optional() }).optional().describe("The relationship it governs (from the model's relationship ids) or the component that exposes it"),
+  version: z.string().optional().describe("The contract's own version label"),
+  sections: z.array(sectionSchema),
+});
+
 export const createArtifactInput = z.object({
-  type: z.enum(["mermaid", "markdown", "data_model", "code", "design_doc", "view"]).describe("design_doc is a Markdown document assembled from the canvas; use markdownContent for it. view is a diagram generated from the architecture model; use viewContent"),
+  type: z.enum(["mermaid", "markdown", "data_model", "code", "design_doc", "view", "contract"]).describe("design_doc is a Markdown document assembled from the canvas; use markdownContent for it. view is a diagram generated from the architecture model; use viewContent. contract is an API or event contract attached to a relationship or component; prefer upsert_contract"),
   title: z.string(),
-  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema]),
+  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema, contractContentSchema]),
   rationale: z.string().describe("One sentence on why this artifact exists"),
   summary: z.string().describe("One line describing the artifact for the index"),
 });
@@ -80,9 +88,19 @@ export const createArtifactInput = z.object({
 export const updateArtifactInput = z.object({
   artifactId: z.string(),
   baseVersionNo: z.number().int().describe("The version you read; the update is rejected as stale if it moved"),
-  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema]),
+  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema, contractContentSchema]),
   rationale: z.string(),
   summary: z.string(),
+});
+
+export const upsertContractInput = z.object({
+  title: z.string().describe("e.g. 'Payment gateway API', 'OrderPlaced event'"),
+  format: z.enum(["openapi", "asyncapi", "json_schema", "graphql", "proto", "markdown", "other"]),
+  body: z.string(),
+  attachedTo: z.object({ relationshipId: z.string().optional(), componentId: z.string().optional() }).describe("Exactly one of: the relationship id the contract governs, or the component id that exposes it"),
+  version: z.string().optional(),
+  derivedFrom: z.array(z.string()),
+  rationale: z.string(),
 });
 
 const componentKind = z.enum(["service", "database", "queue", "external", "ui", "person", "storage", "function", "other"]);
@@ -292,6 +310,7 @@ export const toolSchemas = {
   propose_alternatives: proposeAlternativesInput,
   set_as_is: setAsIsInput,
   library_search: librarySearchInput,
+  upsert_contract: upsertContractInput,
 } as const;
 
 export type ToolName = keyof typeof toolSchemas;
@@ -322,6 +341,8 @@ export const toolDescriptions: Record<ToolName, string> = {
     "Record the architecture as it exists today (read from a repository's manifests or a deployment file) as the model's as-is baseline. When the model is still empty it becomes the model too; otherwise the model stays the target state and the 'As-is vs to-be' view shows the difference. Read only manifests (package.json, docker-compose, go.mod, pom.xml, terraform, k8s), never whole source trees.",
   propose_alternatives:
     "Put two or three candidate architectures side by side on one card, each a complete model of its own with what speaks for and against it and which constraints it meets or puts at risk. The architecture model is not changed; people choose with the card's Decide button, the majority's pick becomes the model and the decision is recorded automatically.",
+  upsert_contract:
+    "Record an API or event contract (OpenAPI, AsyncAPI, a schema, or Markdown) as a card attached to the relationship it governs or the component that exposes it. Updating the contract attached to the same thing makes a new version and flags every consumer in the model. Use when people describe endpoints, payloads, events or schemas.",
   library_search:
     "Search the organisation library: decisions, model components, constraints and published design documents from the speaker's other sessions and from every session that published a document. Read only. Cite hits by session title and the people named; to copy one in, use record_decision, upsert_components or upsert_constraints with the hit's importRef as importedFrom.",
   remove_constraints: "Drop constraints that no longer apply. Removing a constraint someone else set is proposed to that person. Prefer an exception (upsert_constraints with exceptionTo) or a decision when people disagree.",
@@ -343,4 +364,5 @@ export type ToolResult =
   | { status: "alternatives_proposed"; artifactId: string; candidates: { id: string; title: string }[] }
   | { status: "as_is_set"; artifactId: string; versionNo: number; components: number; relationships: number; modelReplaced: boolean; diffViewArtifactId: string }
   | { status: "library_results"; hits: LibraryHit[]; searched: { sessions: number; publicSessions: number } }
+  | { status: "contract_recorded"; artifactId: string; versionNo: number; consumers: string[] }
   | { status: "error"; message: string };

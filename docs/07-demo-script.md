@@ -306,6 +306,16 @@ Fake architect: a constraint belongs to whoever set it, whatever card it sits on
 
 Point at: the Constraints card's "set by" column and the message link; the export's constraints table with the exception against its constraint; the compiled design document's Constraints section.
 
+## Stage 2f: contracts as cards
+
+Feature: an API or event contract (OpenAPI, AsyncAPI, a JSON schema, GraphQL, proto or Markdown) is a **contract** card attached to the relationship it governs or the component that exposes it. The model says who provides and who consumes it; when the contract changes after the model last changed, every consumer row on the Architecture model card shows "contract changed" until the model moves again.
+
+| Who | Says |
+|---|---|
+| Alice | "Contract for Service B: openapi: 3.0.0 … paths: /orders: post" |
+
+Fake architect: records an OpenAPI contract card attached to Service B and names its consumers. Edit the card (the body is the text) to add a path: the consumers' rows flag "contract changed". A real model gets `upsert_contract` and a rule to use it whenever people describe endpoints, payloads or schemas. Contracts are in the library and the export.
+
 ## Stage 2e: sequence diagrams from the model (no AI turn needed)
 
 Feature: a **sequence** view kind. **sequence from** on the Architecture model card picks a starting component and generates the sequence diagram from the relationships (three hops), as a view card that redraws when the model changes. "Draw a sequence diagram for Service A" does the same through the AI.

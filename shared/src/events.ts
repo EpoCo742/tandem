@@ -34,7 +34,8 @@ export type ArtifactType =
   | "arch_model"
   | "view"
   | "constraints"
-  | "alternatives";
+  | "alternatives"
+  | "contract";
 
 export type TurnStatus =
   | "collecting"

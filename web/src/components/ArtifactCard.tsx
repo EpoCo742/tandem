@@ -5,7 +5,7 @@ const ChangedRowsContext = createContext<Set<string>>(EMPTY_SET);
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, boundaryColor, violationsOf, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent } from "@tandem/shared";
+import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, boundaryColor, violationsOf, contractsOf, contractsConsumedBy, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent, type ContractContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -230,6 +230,7 @@ function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote, large 
       {a.type === "design_doc" && <PublishPanel artifact={a} sessionId={sessionId} />}
       {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
       {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
+      {a.type === "contract" && <ContractView artifactId={a.id} content={v.content as ContractContent} />}
       {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
       {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
       {a.type === "arch_model" && <ModelTable content={v.content as ArchModelContent} artifactId={a.id} />}
@@ -346,7 +347,7 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
             const n = decisionsAbout(c.id);
             return (
               <tr key={c.id} className={(focus === c.id ? "focus" : "") + (changedRows.has(c.id) ? " row-changed" : "")} onClick={() => setFocus(focus === c.id ? null : c.id)} style={{ cursor: "pointer" }} title={c.description ?? c.id}>
-                <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}{statusOf(c.id) && <span className="chip" style={{ marginLeft: 6, color: statusOf(c.id) === "added" ? "var(--ok)" : "var(--accent)" }} title="Against the as-is baseline">{statusOf(c.id)}</span>}{c.importedFrom && <span className="chip" style={{ marginLeft: 6, color: "var(--accent)" }} title={`Copied from session "${c.importedFrom.sessionTitle}" through the library`}>from {c.importedFrom.sessionTitle}</span>}</td>
+                <td><b>{c.name}</b>{n ? <span className="chip" style={{ marginLeft: 6, color: "var(--ok)" }}>{n} decision{n === 1 ? "" : "s"}</span> : null}{statusOf(c.id) && <span className="chip" style={{ marginLeft: 6, color: statusOf(c.id) === "added" ? "var(--ok)" : "var(--accent)" }} title="Against the as-is baseline">{statusOf(c.id)}</span>}{c.importedFrom && <span className="chip" style={{ marginLeft: 6, color: "var(--accent)" }} title={`Copied from session "${c.importedFrom.sessionTitle}" through the library`}>from {c.importedFrom.sessionTitle}</span>}{contractsConsumedBy(state, c.id).map((k) => <span key={k.artifact.id} className="chip" style={{ marginLeft: 6, color: k.changedAfterModel ? "var(--warn)" : "var(--link)", ...(k.changedAfterModel ? { borderColor: "var(--warn)" } : {}) }} title={k.changedAfterModel ? `${k.artifact.title} v${k.artifact.current.versionNo} changed after the model; this consumer may not have caught up` : `Consumes ${k.artifact.title} v${k.artifact.current.versionNo}`}>{k.changedAfterModel ? "contract changed" : `contract v${k.artifact.current.versionNo}`}</span>)}</td>
                 <td className="mono">{c.kind}</td>
                 <td className="mono">{c.technology ?? ""}</td>
                 <td className="mono">{c.boundary ? <><span className="swatch" style={{ background: boundaryColor(content, c.boundary) }} />{bname(c.boundary)}</> : ""}</td>
@@ -380,6 +381,27 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
       {content.relationships.length > 0 && <SequenceFrom content={content} />}
       <CompareVersions artifactId={artifactId} current={content} />
       {impactOf && <ImpactPanel componentId={impactOf} onClose={() => setImpactOf(null)} />}
+    </div>
+  );
+}
+
+// A contract card: format, what it is attached to, who provides and consumes it, and the text.
+function ContractView({ artifactId, content }: { artifactId: string; content: ContractContent }) {
+  const state = useStore((s) => s.state);
+  const setFocus = useStore((s) => s.setFocusComponent);
+  const st = contractsOf(state).find((c) => c.artifact.id === artifactId);
+  const model = Object.values(state.artifacts).find((x) => x.type === "arch_model" && !x.deleted)?.current.content as ArchModelContent | undefined;
+  const cname = (id: string) => model?.components.find((c) => c.id === id)?.name ?? id;
+  return (
+    <div>
+      <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+        <span className="chip" style={{ color: "var(--link)" }}>{content.format}{content.version ? ` ${content.version}` : ""}</span>
+        {st?.provider && <span className="mono">provided by <a href="#" onClick={(e) => { e.preventDefault(); setFocus(st.provider!); }}>{cname(st.provider)}</a></span>}
+        {st && st.consumers.length > 0 && <span className="mono">consumed by {st.consumers.map((id, i) => <span key={id}>{i ? ", " : ""}<a href="#" onClick={(e) => { e.preventDefault(); setFocus(id); }}>{cname(id)}</a></span>)}</span>}
+        {!content.attachedTo?.relationshipId && !content.attachedTo?.componentId && <span className="muted" style={{ fontSize: 12 }}>not attached to the model yet</span>}
+        {st?.changedAfterModel && <span className="chip" style={{ color: "var(--warn)", borderColor: "var(--warn)" }} title="This contract changed after the model last changed; the consumers may not have caught up">changed after the model</span>}
+      </div>
+      {content.format === "markdown" ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{content.body}</ReactMarkdown></div> : <pre>{content.body}</pre>}
     </div>
   );
 }
