@@ -69,7 +69,7 @@ async function main() {
             `<title>${esc(doc.title)}</title>`,
             `<meta name="description" content="${esc(desc)}">`,
             `<meta property="og:type" content="article">`,
-            `<meta property="og:site_name" content="Session Zero">`,
+            `<meta property="og:site_name" content="archloom">`,
             `<meta property="og:title" content="${esc(doc.title)}">`,
             `<meta property="og:description" content="${esc(desc)}">`,
             `<meta property="og:url" content="${base}/p/${m[1]}">`,
@@ -96,7 +96,7 @@ async function main() {
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
   rehydrateDeadlines();
-  app.log.info(`Session Zero POC on ${config.appUrl} (provider ${config.defaultProvider}, dev auth ${config.devAuth ? "on" : "off"})`);
+  app.log.info(`archloom POC on ${config.appUrl} (provider ${config.defaultProvider}, dev auth ${config.devAuth ? "on" : "off"})`);
 }
 
 main().catch((e) => {

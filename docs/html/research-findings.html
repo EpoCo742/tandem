@@ -1,4 +1,4 @@
-<title>Session Zero Research Findings</title>
+<title>archloom Research Findings</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--ground:#EDF0F3;--panel:#FFFFFF;--panel-2:#F5F7F9;--ink:#1A2128;--ink-2:#4A5561;--ink-3:#7C8893;--line:#D3DAE0;--a:#D4890A;--b:#178E9E;--ai:#5A6773;--ai-soft:#E4E8EC;--code:#F3F5F7;--shadow:0 1px 2px rgba(26,33,40,.06),0 8px 24px rgba(26,33,40,.08);--display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;--body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;--mono:"IBM Plex Mono",Consolas,"Courier New",monospace}
@@ -13,8 +13,9 @@ nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;li
 nav.toc a:hover{color:var(--b)}
 article{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:48px 56px 56px;min-width:0}
 .brandbar{display:flex;align-items:center;gap:10px;margin:0 0 20px;color:var(--ink)}
-.brandbar .wordmark{font-family:var(--display);font-weight:800;font-size:21px;letter-spacing:-.02em;background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
-.brandbar .tagline{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding-left:10px;border-left:1px solid var(--line)}
+.brandbar .wordmark{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.03em}
+.brandbar .wm-a{color:var(--ink)}
+.brandbar .wm-b{color:var(--a)}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
 h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.1;letter-spacing:-.015em}
 h1{font-size:clamp(34px,4.5vw,52px);font-weight:800;margin:0 0 12px}
@@ -50,12 +51,12 @@ strong{font-weight:600}
 <nav class="toc"><div class="k">Contents</div><a href="#1-verdict">1. Verdict</a><a href="#2-the-credential-question-in-detail">2. The credential question in detail</a><a href="#3-what-already-exists">3. What already exists</a><a href="#4-the-hard-problems-and-how-the-design-resolves-them">4. The hard problems and how the design resolves them</a><a href="#5-what-it-would-take">5. What it would take</a><a href="#6-open-questions-answered-2026-09-03">6. Open questions (answered 2026-09-03)</a><a href="#sources">Sources</a></nav>
 <article>
 <div class="brandbar">
-<svg viewBox="0 0 72 72" width="30" height="30" aria-hidden="true"><circle cx="36" cy="36" r="16" fill="none" stroke="currentColor" stroke-width="5.5"/><circle cx="36" cy="9" r="5.5" fill="var(--b)"/><circle cx="36" cy="63" r="5.5" fill="var(--b)"/><circle cx="9" cy="36" r="5.5" fill="var(--b)"/><circle cx="63" cy="36" r="5.5" fill="var(--a)"/></svg>
-<span class="wordmark">Session Zero</span><span class="tagline">Collaborative Architecture with AI</span></div>
-<div class="eyebrow"><span>Session Zero design package · 01 · Research findings</span><span>2026-09-03</span></div>
+<svg viewBox="0 0 72 72" width="30" height="30" aria-hidden="true"><g stroke="currentColor" stroke-width="5.5" fill="none"><path d="M4 17h30"/><path d="M4 30h24"/><path d="M4 43h32"/><path d="M4 56h27"/></g><rect x="40" y="12" width="28" height="48" fill="var(--a)"/></svg>
+<span class="wordmark"><span class="wm-a">arch</span><span class="wm-b">loom</span></span></div>
+<div class="eyebrow"><span>archloom design package · 01 · Research findings</span><span>2026-09-03</span></div>
 <h1>Research Findings: Shared AI Sessions for Collaborative Architecture</h1>
 
-<p>The product is <strong>Session Zero</strong>: the session before the build, where the architecture is agreed. These documents were written under the earlier working name Tandem, which the code, package names and environment variables still use.
+<p>The product is <strong>archloom</strong>: the session before the build, where the architecture is agreed. These documents were written under the earlier working name Tandem, which the code, package names and environment variables still use.
 Date of research: 2026-09-03.</p>
 <p>This document answers the questions in the original brief: is it possible, what already exists, what it would take, and where the real risks are. The architecture and build spec live in <code>02-architecture.md</code> and <code>03-technical-design-spec.md</code>.</p>
 <hr />
@@ -114,7 +115,7 @@ Date of research: 2026-09-03.</p>
 <blockquote>
 <p>This does not restrict how customers provision and manage their own API keys ... provided the resulting usage is billed to the key owner under their agreement with Anthropic and is not resold or intermediated.</p>
 </blockquote>
-<p>Consequences for Session Zero:</p>
+<p>Consequences for archloom:</p>
 <ul>
 <li><strong>Do not</strong> build "Sign in with Claude". It is prohibited and Anthropic actively enforces it (OpenClaw and other harnesses were cut off in January and February 2026).</li>
 <li><strong>Do</strong> let each user paste their own Anthropic Console API key. Usage bills to their Console account. This is the standard BYOK pattern used by Warp, Kodus, Cursor and many others. Store keys encrypted (AES-256-GCM, envelope key in a KMS), never send them to the browser.</li>
@@ -139,7 +140,7 @@ Date of research: 2026-09-03.</p>
 <thead>
 <tr>
 <th>Provider</th>
-<th>Auth in Session Zero</th>
+<th>Auth in archloom</th>
 <th>Bills to</th>
 <th>Claude models available</th>
 <th>Policy status</th>
@@ -247,11 +248,11 @@ Date of research: 2026-09-03.</p>
 <p>Conclusion: the category is real and multiple large vendors are moving into it, but nobody combines (a) BYO credentials, (b) an architect's artifact canvas, (c) an explicit governance model for conflicting steering, and (d) git-like versioning of the shared design. That combination is the product.</p>
 <h3>3.2 Research that informs the design</h3>
 <ul>
-<li><strong>MUCA: Multi-User Chat Assistant</strong> (arXiv 2401.04883). Frames the group-chat assistant problem as three decisions: <em>what</em> to say, <em>when</em> to speak, <em>who</em> to address. Three modules: sub-topic generator, dialog analyzer, conversational strategies arbitrator. Session Zero adopts the 3W framing: users explicitly address the AI in v1, and an "ambient" mode later lets the AI decide when to intervene.</li>
-<li><strong>GroupGPT</strong> (arXiv 2603.01059). Separates the <em>intervention decision</em> from <em>response generation</em>, cutting token use up to 3x. Session Zero uses the same split: a cheap classifier step (Haiku 4.5) decides whether a message needs a full turn, a conflict flag, or nothing.</li>
+<li><strong>MUCA: Multi-User Chat Assistant</strong> (arXiv 2401.04883). Frames the group-chat assistant problem as three decisions: <em>what</em> to say, <em>when</em> to speak, <em>who</em> to address. Three modules: sub-topic generator, dialog analyzer, conversational strategies arbitrator. archloom adopts the 3W framing: users explicitly address the AI in v1, and an "ambient" mode later lets the AI decide when to intervene.</li>
+<li><strong>GroupGPT</strong> (arXiv 2603.01059). Separates the <em>intervention decision</em> from <em>response generation</em>, cutting token use up to 3x. archloom uses the same split: a cheap classifier step (Haiku 4.5) decides whether a message needs a full turn, a conflict flag, or nothing.</li>
 <li><strong>Collaborative Document Editing with Multiple Users and AI Agents</strong> (CHI 2026, arXiv 2509.11826). Week-long study, 14 teams. Teams folded agents into existing norms of authorship and control rather than treating them as teammates; agent outputs became shared resources, agent configurations stayed personal. Design implication: the AI's output must be attributed <em>to the human who asked</em>, and private scratch prompts must exist.</li>
 <li><strong>Multi-User Shared AI Sessions</strong> (tianpan.co, 2026-04-17). Treat the session as an ordered persistent event stream; serialize LLM turns; broadcast tokens to everyone; attribute every tool call to a user identity; context fills faster with multiple authors so compaction must be attribution-aware; OT/CRDT do not map onto inference semantics. The ledger and turn broker follow this directly.</li>
-<li><strong>Multi-party turn-taking and addressee prediction</strong> (several 2024-2026 papers). LLMs do reasonably at addressee recognition when speakers are explicitly labelled. Session Zero always labels speakers in the transcript.</li>
+<li><strong>Multi-party turn-taking and addressee prediction</strong> (several 2024-2026 papers). LLMs do reasonably at addressee recognition when speakers are explicitly labelled. archloom always labels speakers in the transcript.</li>
 </ul>
 <h3>3.3 Infrastructure that can be reused</h3>
 <div class="table-wrap"><table>

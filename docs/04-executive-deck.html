@@ -1,4 +1,4 @@
-<title>Session Zero Concept Deck</title>
+<title>archloom Concept Deck</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   :root {
@@ -141,9 +141,8 @@
 <section class="slide" id="s1">
   <div class="eyebrow"><span>Concept deck</span><span>01 / 13</span></div>
   <div class="body" style="justify-content:center">
-    <svg viewBox="0 0 72 72" width="64" height="64" aria-hidden="true" style="width:64px;height:64px;flex:none;margin-bottom:14px"><circle cx="36" cy="36" r="16" fill="none" stroke="currentColor" stroke-width="5.5"/><circle cx="36" cy="9" r="5.5" fill="var(--b)"/><circle cx="36" cy="63" r="5.5" fill="var(--b)"/><circle cx="9" cy="36" r="5.5" fill="var(--b)"/><circle cx="63" cy="36" r="5.5" fill="var(--a)"/></svg>
-    <h1>Session Zero</h1>
-    <p class="lede" style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-top:-4px">Collaborative Architecture with AI</p>
+    <svg viewBox="0 0 72 72" style="width:70px;height:70px;flex:none;margin-bottom:16px" aria-hidden="true"><g stroke="currentColor" stroke-width="5.5" fill="none"><path d="M4 17h30"/><path d="M4 30h24"/><path d="M4 43h32"/><path d="M4 56h27"/></g><rect x="40" y="12" width="28" height="48" fill="var(--a)"/></svg>
+    <h1>archloom</h1>
     <p class="lede">Shared AI sessions for people who design systems together. Two architects, one AI, one context, one canvas, and everyone pays their own way.</p>
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px">
       <span class="chip a">participant</span><span class="chip b">participant</span><span class="chip ai">AI · on behalf of whoever asked</span>
@@ -183,7 +182,7 @@
   <div class="body">
     <h2>One session. Many voices. One shared context.</h2>
     <div class="cols two">
-      <div class="exchange" aria-label="A Session Zero exchange">
+      <div class="exchange" aria-label="A archloom exchange">
         <div class="msg a"><span class="who">Alice · runs on her Anthropic key</span>Service A publishes an OrderPlaced event to Kafka.</div>
         <div class="msg b"><span class="who">Bob · runs on his Copilot seat</span>Service B subscribes and writes to the orders table in Postgres.</div>
         <div class="msg ai"><span class="who">AI · on behalf of Bob, sees both</span>Updated ARCH-01 with the Kafka topic and the consumer. Recorded D-04 "Kafka is the event bus" (Alice) and D-05 "orders persisted in Postgres" (Bob). Want an outbox on Service A?</div>
@@ -214,7 +213,7 @@
         <tr><td>Mixus multiplayer chat</td><td><span class="chip ok">yes</span></td><td>no</td><td>no</td><td>roles only</td><td>no</td></tr>
         <tr><td>Liveblocks AI Copilots</td><td>infra, mostly single-player</td><td>no</td><td>bring your own</td><td>no</td><td>no</td></tr>
         <tr><td>Eraser, Miro AI, FigJam AI</td><td>AI as a board feature</td><td>no</td><td><span class="chip ok">yes</span></td><td>no</td><td>board history</td></tr>
-        <tr><td><b>Session Zero</b></td><td><span class="chip ok">yes</span></td><td><span class="chip ok">yes</span></td><td><span class="chip ok">yes</span></td><td><span class="chip ok">yes</span></td><td><span class="chip ok">yes</span></td></tr>
+        <tr><td><b>archloom</b></td><td><span class="chip ok">yes</span></td><td><span class="chip ok">yes</span></td><td><span class="chip ok">yes</span></td><td><span class="chip ok">yes</span></td><td><span class="chip ok">yes</span></td></tr>
       </tbody>
     </table>
     </div>
@@ -241,7 +240,7 @@
       </tbody>
     </table>
     </div>
-    <p class="lede" style="font-size:17px">Anthropic's terms forbid routing third-party apps through consumer subscriptions and forbid storing Claude.ai tokens. Copilot's SDK documents the opposite: "Copilot usage is billed to each user's subscription." Session Zero builds on the two paths that are explicitly allowed.</p>
+    <p class="lede" style="font-size:17px">Anthropic's terms forbid routing third-party apps through consumer subscriptions and forbid storing Claude.ai tokens. Copilot's SDK documents the opposite: "Copilot usage is billed to each user's subscription." archloom builds on the two paths that are explicitly allowed.</p>
   </div>
   <div class="foot"><span>Design consequence: a provider adapter layer, so policy changes cost a module, not the product.</span></div>
 </section>
@@ -465,7 +464,7 @@
 <section class="slide" id="s11">
   <div class="eyebrow"><span>Economics</span><span>11 / 13</span></div>
   <div class="body">
-    <h2>Participants pay their providers. Session Zero sells the room.</h2>
+    <h2>Participants pay their providers. archloom sells the room.</h2>
     <div class="cols two">
       <div>
         <h3>A two-hour session on Claude Opus 5</h3>

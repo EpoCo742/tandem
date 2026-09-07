@@ -1,6 +1,6 @@
-# Session Zero design package
+# archloom design package
 
-The product is **Session Zero**. Produced 2026-09-03 from `research-prompt.txt` under the earlier working name Tandem, which the code, package names and environment variables still use.
+The product is **archloom**. Produced 2026-09-03 from `research-prompt.txt` under the earlier working name Tandem, which the code, package names and environment variables still use.
 
 | File | Audience | Purpose |
 |---|---|---|

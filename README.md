@@ -1,12 +1,10 @@
 <p align="center">
-  <img src="docs/brand/session-zero-logo-transparent.png" alt="Session Zero" width="300">
+  <img src="docs/brand/archloom-logo-transparent.png" alt="archloom" width="300">
 </p>
 
-<p align="center"><b>Collaborative Architecture with AI</b></p>
+archloom is where the architecture gets agreed, before anyone builds it. Two to five software architects share one AI conversation and one versioned artifact canvas, each funding their turns with their own AI credentials, and compile the result into a design document that can be reviewed, signed off and published.
 
-Session Zero is the session before the build, where the architecture gets agreed. Two to five software architects share one AI conversation and one versioned artifact canvas, each funding their turns with their own AI credentials, and compile the result into a design document that can be reviewed, signed off and published.
-
-The name is the product; the code, package names and environment variables still say "Tandem", the earlier working name. This repository holds the research, the design package, and the proof-of-concept.
+The code, package names and environment variables still say "Tandem", the original working name. This repository holds the research, the design package, and the proof-of-concept.
 
 ## What it does
 
@@ -73,7 +71,7 @@ To tell which one it is, from the same machine and shell:
 curl -sS -I https://api.github.com/user -H "Authorization: Bearer <your token>"
 ```
 
-A certificate error means TLS inspection (set `NODE_EXTRA_CA_CERTS`); a timeout or an HTML login page means the proxy (set `HTTPS_PROXY`); a 401 means the token itself expired or was revoked (fine-grained tokens expire; re-create it under credentials). Nothing in Session Zero's own builds changes how the runtime reaches GitHub.
+A certificate error means TLS inspection (set `NODE_EXTRA_CA_CERTS`); a timeout or an HTML login page means the proxy (set `HTTPS_PROXY`); a 401 means the token itself expired or was revoked (fine-grained tokens expire; re-create it under credentials). Nothing in archloom's own builds changes how the runtime reaches GitHub.
 
 ## If a card says "This version of the card cannot be shown"
 
@@ -133,7 +131,7 @@ Open http://localhost:5173. With `TANDEM_DEV_AUTH=1` you can log in with any han
 
 Sponsor mode (default) funds every turn with the session creator's credential, so only the creator needs a seat.
 
-**External tools:** under credentials → External tools, paste the server entry from your editor's `mcp.json` (VS Code, Claude Desktop and Cursor shapes all work; `gallery` and `version` are ignored, `${input:…}` placeholders must be replaced with real values) or fill in the fields by hand (stdio command or HTTP URL, with your own tokens in the environment or headers). The AI can use them on turns you direct; reads run at once, writes are proposed to you in the session's Proposals tab and denied if nobody answers. `node server/scripts/mcp-demo-server.mjs` is a stand-in for Atlassian for demos. Stdio servers run as child processes of the Session Zero server, so only register commands you trust on the machine it runs on.
+**External tools:** under credentials → External tools, paste the server entry from your editor's `mcp.json` (VS Code, Claude Desktop and Cursor shapes all work; `gallery` and `version` are ignored, `${input:…}` placeholders must be replaced with real values) or fill in the fields by hand (stdio command or HTTP URL, with your own tokens in the environment or headers). The AI can use them on turns you direct; reads run at once, writes are proposed to you in the session's Proposals tab and denied if nobody answers. `node server/scripts/mcp-demo-server.mjs` is a stand-in for Atlassian for demos. Stdio servers run as child processes of the archloom server, so only register commands you trust on the machine it runs on.
 
 **Long sessions:** once more than `TANDEM_COMPACT_AFTER` messages (default 8) have fallen out of the model's transcript window, the server folds them into a running brief that keeps who said what and the message ids, and the AI reads the brief instead. That summary is one extra provider request on the sponsor's plan each time it runs. The Brief tab shows it and can refresh it by hand.
 

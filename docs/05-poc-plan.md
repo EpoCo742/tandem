@@ -1,4 +1,4 @@
-# Session Zero: Proof-of-Concept Plan
+# archloom: Proof-of-Concept Plan
 
 Purpose: get a working, demoable prototype running locally (and in one container) with the fewest moving pieces, without changing the real architecture in `02-architecture.md`. Every consolidation below is a swap behind an interface, with the production component named so the path back is obvious.
 

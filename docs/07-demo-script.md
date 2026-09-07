@@ -1,4 +1,4 @@
-# Session Zero POC: Demo Script
+# archloom POC: Demo Script
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 

@@ -1,4 +1,4 @@
-<title>Session Zero Backlog</title>
+<title>archloom Backlog</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--ground:#EDF0F3;--panel:#FFFFFF;--panel-2:#F5F7F9;--ink:#1A2128;--ink-2:#4A5561;--ink-3:#7C8893;--line:#D3DAE0;--a:#D4890A;--b:#178E9E;--ai:#5A6773;--ai-soft:#E4E8EC;--code:#F3F5F7;--shadow:0 1px 2px rgba(26,33,40,.06),0 8px 24px rgba(26,33,40,.08);--display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;--body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;--mono:"IBM Plex Mono",Consolas,"Courier New",monospace}
@@ -13,8 +13,9 @@ nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;li
 nav.toc a:hover{color:var(--b)}
 article{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:48px 56px 56px;min-width:0}
 .brandbar{display:flex;align-items:center;gap:10px;margin:0 0 20px;color:var(--ink)}
-.brandbar .wordmark{font-family:var(--display);font-weight:800;font-size:21px;letter-spacing:-.02em;background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
-.brandbar .tagline{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding-left:10px;border-left:1px solid var(--line)}
+.brandbar .wordmark{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.03em}
+.brandbar .wm-a{color:var(--ink)}
+.brandbar .wm-b{color:var(--a)}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
 h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.1;letter-spacing:-.015em}
 h1{font-size:clamp(34px,4.5vw,52px);font-weight:800;margin:0 0 12px}
@@ -50,16 +51,16 @@ strong{font-weight:600}
 <nav class="toc"><div class="k">Contents</div><a href="#1-per-user-mcp-servers-first-slice-shipped-2026-09-05">1. Per-user MCP servers (first slice shipped 2026-09-05)</a><a href="#2-collapsed-source-cards">2. Collapsed source cards</a><a href="#3-editing-indicator">3. Editing indicator</a><a href="#4-real-image-and-long-document-validation-on-copilot">4. Real-image and long-document validation on Copilot</a><a href="#5-live-text-co-editing-on-cards">5. Live text co-editing on cards</a><a href="#6-github-app-instead-of-oauth-app">6. GitHub App instead of OAuth App</a><a href="#7-m4-change-sets-and-building-together">7. M4: change sets and building together</a></nav>
 <article>
 <div class="brandbar">
-<svg viewBox="0 0 72 72" width="30" height="30" aria-hidden="true"><circle cx="36" cy="36" r="16" fill="none" stroke="currentColor" stroke-width="5.5"/><circle cx="36" cy="9" r="5.5" fill="var(--b)"/><circle cx="36" cy="63" r="5.5" fill="var(--b)"/><circle cx="9" cy="36" r="5.5" fill="var(--b)"/><circle cx="63" cy="36" r="5.5" fill="var(--a)"/></svg>
-<span class="wordmark">Session Zero</span><span class="tagline">Collaborative Architecture with AI</span></div>
-<div class="eyebrow"><span>Session Zero design package · 08 · Backlog</span><span>2026-09-03</span></div>
-<h1>Session Zero backlog</h1>
+<svg viewBox="0 0 72 72" width="30" height="30" aria-hidden="true"><g stroke="currentColor" stroke-width="5.5" fill="none"><path d="M4 17h30"/><path d="M4 30h24"/><path d="M4 43h32"/><path d="M4 56h27"/></g><rect x="40" y="12" width="28" height="48" fill="var(--a)"/></svg>
+<span class="wordmark"><span class="wm-a">arch</span><span class="wm-b">loom</span></span></div>
+<div class="eyebrow"><span>archloom design package · 08 · Backlog</span><span>2026-09-03</span></div>
+<h1>archloom backlog</h1>
 
 <p>Superseded on 2026-09-05 by <code>09-roadmap.md</code>, which folds these items into a phased plan. Kept for the design sketch of the MCP work.</p>
 <p>What is not built yet, in the order it is worth doing. Status of what is built lives in <code>05-poc-plan.md</code> section 7. Last updated 2026-09-05.</p>
 <p>Shipped from this list on 2026-09-05: the first slice of per-user MCP servers (registration, discovery, speaker-only tools, outbound-write gate, offline demo server), collapsed source cards, the editing indicator. What remains of item 1 is noted inside it.</p>
 <h2 id="1-per-user-mcp-servers-first-slice-shipped-2026-09-05">1. Per-user MCP servers (first slice shipped 2026-09-05)</h2>
-<p><strong>Still to do.</strong> Running stdio servers in a per-user sandbox rather than as children of the Session Zero server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test). Shipped later on 2026-09-05: standing permissions ("Approve, always for space ARCH", listed and revocable under External tools) and external actions in the History tab and the export.</p>
+<p><strong>Still to do.</strong> Running stdio servers in a per-user sandbox rather than as children of the archloom server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test). Shipped later on 2026-09-05: standing permissions ("Approve, always for space ARCH", listed and revocable under External tools) and external actions in the History tab and the export.</p>
 <p><strong>Ask.</strong> Each participant registers their own MCP servers with their own credentials and configuration, for example Atlassian and GitHub. In the chat a person can say "upload the design document to Confluence", "create epics and stories for the data model", or "commit the diagrams to the repo", and the AI discovers and uses that person's tools to do it.</p>
 <p><strong>Why it fits.</strong> The product already treats the AI credential as personal and bills each turn to a person. MCP servers are the same shape: personal, credentialed, and the source of what that person is allowed to do in outside systems. The Copilot SDK takes an <code>mcpServers</code> map per session (stdio servers with command, args and env; HTTP or SSE servers with a URL and headers), with a <code>tools</code> allow-list per server, so no new runtime is needed.</p>
 <p><strong>Design sketch.</strong></p>
@@ -69,7 +70,7 @@ strong{font-weight:600}
 <li><em>Discovery.</em> On each turn the broker passes the speaker's registered servers to <code>createSession</code> alongside the canvas tools, and lists them in the prompt under "External tools available to Alice". The model already knows how to pick a tool from a description.</li>
 <li><em>Governance.</em> Every external write is a new risk class, <code>outbound</code>. Under the hybrid policy it is a proposal that names the target ("create 4 Jira stories in project ORD", "publish page 'Order platform v1' to space ARCH") and needs the owner's approval; the person who registered the tool can pre-approve targets. Reads are additive. Nothing leaves the session without a ledger event that names who directed it and which tool ran, and the export's history shows the same.</li>
 <li><em>Ledger events.</em> <code>tool.registered</code>, <code>tool.removed</code>, <code>external.call_proposed</code>, <code>external.call_completed</code> with the target and a link back to the message that caused it.</li>
-<li><em>Sandboxing.</em> Stdio servers run as child processes of the Session Zero server; production would run them in a per-user sandbox and the design already reserves that for M4.</li>
+<li><em>Sandboxing.</em> Stdio servers run as child processes of the archloom server; production would run them in a per-user sandbox and the design already reserves that for M4.</li>
 </ul>
 <p><strong>Acceptance.</strong> Alice registers the Atlassian MCP with her token; Bob has none. Alice says "publish the design document to Confluence under ARCH". The AI proposes the publish with the page title and space, Alice approves, the page appears, the history shows Alice directed it. Bob asking the same is told he has no Confluence tool registered.</p>
 <p><strong>Effort.</strong> About a week for one engineer: registration and sealing reuse the credential code; the broker change is contained; the proposal card needs one new shape.</p>

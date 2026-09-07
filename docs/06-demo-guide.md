@@ -1,4 +1,4 @@
-# Session Zero POC: Demo Guide
+# archloom POC: Demo Guide
 
 A walkthrough of the proof of concept as it runs today, with screenshots from a real run on 2026-09-03. Two people, Alice and Bob, design an order platform with one AI participant on a shared, versioned canvas. The run uses the offline "fake" provider so it costs nothing and needs no Copilot seat; with a Copilot credential the same steps run against a real model.
 
@@ -156,7 +156,7 @@ Ask the AI to "draft the data model" and a **data model** card appears with the 
 ````markdown
 # Order platform v1
 
-<!-- session zero: session 01M1NAKN...; exported 2026-09-07T…; head commit 01M1NAWF... -->
+<!-- archloom: session 01M1NAKN...; exported 2026-09-07T…; head commit 01M1NAWF... -->
 
 ## Artifacts
 

@@ -15,7 +15,7 @@ import { Semaphore } from "async-mutex";
 import { config } from "../config.js";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
 
-// GitHub Copilot adapter. One throwaway Copilot session per Session Zero turn, funded by
+// GitHub Copilot adapter. One throwaway Copilot session per archloom turn, funded by
 // the payer's GitHub token. Verified against @github/copilot-sdk 1.0.x typings.
 
 const turnSlots = new Semaphore(config.maxConcurrentTurns);
