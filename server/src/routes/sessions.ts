@@ -523,6 +523,20 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     return outcome;
   });
 
+  // Undo of a delete: the card comes back at its last content as a new version, so the ledger keeps both.
+  app.post<{ Params: { id: string; artifactId: string } }>("/api/v1/sessions/:id/artifacts/:artifactId/restore", async (req, reply) => {
+    const user = requireUser(req, reply);
+    const me = participantOr403(req.params.id, user.id);
+    if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot restore" });
+    const state = getState(req.params.id);
+    const a = state.artifacts[req.params.artifactId];
+    if (!a) return reply.code(404).send({ error: "artifact not found" });
+    if (!a.deleted) return reply.code(409).send({ error: "the card is not deleted" });
+    const outcome = requestChange({ sessionId: req.params.id, turnId: null, actorKind: "user", actorUserId: user.id, op: "restore", artifactId: a.id, artifactType: a.type, title: a.title, content: a.current.content, summary: a.current.summary, rationale: "Restored (undo)", baseVersionNo: null, causedBy: [], provenance: a.current.provenance });
+    if (outcome.status === "applied") createCommit(req.params.id, user.id, null, `${user.displayName || user.handle} restored ${a.title}`);
+    return outcome;
+  });
+
   app.post<{ Params: { id: string }; Body: { type: ArtifactType; title: string; content: unknown; summary?: string } }>("/api/v1/sessions/:id/artifacts", async (req, reply) => {
     const user = requireUser(req, reply);
     const me = participantOr403(req.params.id, user.id);

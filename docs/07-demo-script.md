@@ -355,6 +355,16 @@ Point at: the badge on the tab while something is open; the design document's "O
 
 Tool servers never speak in the lane: a server that fails, times out or needs a login shows its status and last error under credentials → External tools, and the prompt tells the model not to announce what tools are or are not available.
 
+## Stage 7d: undo and redo (no AI turn)
+
+| Who | Does |
+|---|---|
+| Anyone | Drags a card, then **Ctrl+Z** (Cmd+Z on a Mac): the card goes back; **Ctrl+Y** moves it again. A short note at the top says what was undone. |
+| Bob | Edits his note, saves, **Ctrl+Z**: the previous text comes back as a new version (v3 after v2), so the history keeps both. |
+| Bob | Deletes his own card, **Ctrl+Z**: it is restored as a new version. |
+
+Only your own actions in this tab: moves, resizes, tidy, edits, deletes. Whichever stack (layout or content) has the most recent action answers the key. AI turns, decisions, votes and answers are not undone this way; the History tab's revert covers whole commits.
+
 ## Stage 7c: the composer (no AI turn)
 
 | Who | Does |

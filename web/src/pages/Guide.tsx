@@ -33,6 +33,7 @@ const GROUPS: Group[] = [
     title: "The canvas",
     entries: [
       { name: "Cards", where: "The centre", how: "Every card has edit, versions, threads and delete. Editing someone else's card makes a proposal they approve." },
+      { name: "Undo and redo", where: "Ctrl+Z and Ctrl+Y anywhere in a session (Cmd on a Mac)", how: "Takes back your own last card move, resize, tidy, edit or delete in this tab; Ctrl+Y does it again. Edits and deletes are undone as new versions, so the history stays whole and everyone sees it. Not for AI turns, decisions or answers." },
       { name: "Tidy", where: "Canvas corner, tidy", how: "Packs every card by its real size into as many columns as fill the screen. Everyone gets the new layout." },
       { name: "Architecture model", where: "The arch model card", how: "The source of truth for structure. Views are drawn from it. Click a component to see its decisions, threads and impact." },
       { name: "Import a diagram", where: "Model card, import…", how: "Paste Mermaid, Structurizr DSL or PlantUML to merge into the model, replace it, or record it as the as-is baseline." },

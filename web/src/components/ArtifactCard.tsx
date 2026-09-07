@@ -17,6 +17,7 @@ import { ContractSpec } from "./ContractSpec";
 import { parseContract } from "@tandem/shared";
 import { ImpactPanel } from "./ImpactPanel";
 import { navigate } from "../App";
+import { recordAction } from "../undo";
 import { ImportModel } from "./ImportModel";
 import { MermaidLegend } from "./MermaidLegend";
 
@@ -110,6 +111,13 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
     setMsg(null);
     try {
       const r = await api<{ status: string; approvers?: string[] }>("DELETE", `/api/v1/sessions/${sessionId}/artifacts/${a.id}`, { rationale: "Removed from the canvas" });
+      if (r.status === "applied") {
+        recordAction({
+          label: `the removal of "${a.title}"`,
+          undo: () => api("POST", `/api/v1/sessions/${sessionId}/artifacts/${a.id}/restore`).then(() => undefined),
+          redo: () => api("DELETE", `/api/v1/sessions/${sessionId}/artifacts/${a.id}`, { rationale: "Removed again (redo)" }).then(() => undefined),
+        });
+      }
       if (r.status === "pending_approval") setMsg(`Removal proposed; waiting for ${(r.approvers ?? []).map((u) => participantName(state, u)).join(", ")}.`);
       else if (r.status !== "applied") setMsg(`Could not remove: ${r.status.replace(/_/g, " ")}.`);
     } catch (e) {

@@ -3,6 +3,7 @@ import { api, type SessionMeta } from "../api";
 import { useStore } from "../state/store";
 import { connectLedger, disconnectLedger } from "../ws";
 import { connectCollab, loadPresenceMode, setPresenceVisible, type Collab } from "../collab";
+import { bindLayoutUndo, onUndoNote, redo, typingTarget, undo } from "../undo";
 import { TopBar, Avatar } from "../components/TopBar";
 import { navigate } from "../App";
 import { ConversationPane } from "../components/ConversationPane";
@@ -44,6 +45,33 @@ export function Session({ sessionId }: { sessionId: string }) {
   const [exporting, setExporting] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const collabRef = useRef<Collab | null>(null);
+  // Ctrl+Z / Ctrl+Y (Cmd on a Mac): this tab's own last card move, resize, tidy, edit or delete.
+  const [undoNote, setUndoNote] = useState<string | null>(null);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const off = onUndoNote((note) => {
+      setUndoNote(note);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setUndoNote(null), 2500);
+    });
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || typingTarget(e)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        void undo();
+      } else if (k === "y" || (k === "z" && e.shiftKey)) {
+        e.preventDefault();
+        void redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      off();
+      window.removeEventListener("keydown", onKey);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
   const [collab, setCollab] = useState<Collab | null>(null);
 
   useEffect(() => {
@@ -87,6 +115,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     if (!meta || !myParticipant || collabRef.current) return;
     const c = connectCollab(sessionId, meta.collabToken, { userId: me.user!.id, name: myParticipant.name, color: myParticipant.color, avatarUrl: me.user!.avatarUrl });
+    bindLayoutUndo(c);
     collabRef.current = c;
     setCollab(c);
   }, [meta, myParticipant, sessionId, me.user]);
@@ -123,6 +152,7 @@ export function Session({ sessionId }: { sessionId: string }) {
 
   return (
     <div className={`session${archived ? " archived" : ""}${demo ? " demo" : ""}${replay ? " replaying" : ""}`}>
+      {undoNote && <div className="undo-note mono">{undoNote}</div>}
       <TopBar>
         <span style={{ fontWeight: 600 }}>{meta.demo ? meta.title : state.title || meta.title}</span>
         {!demo && <SessionMenu sessionId={sessionId} title={state.title || meta.title} status={archived ? "archived" : "active"} isOwner={isOwner} onDeleted={() => navigate("/")} />}

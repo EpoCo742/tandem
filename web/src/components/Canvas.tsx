@@ -19,6 +19,7 @@ import { liveArtifacts, completeness, BLANK_STARTERS, TEMPLATES, isTemplateId, t
 import { api } from "../api";
 import { setCursor, setSelectedArtifact, type Collab, type Layout } from "../collab";
 import { useStore } from "../state/store";
+import { untracked } from "../undo";
 import { usePrefs, type GridStyle } from "../state/prefs";
 import { ArtifactCard } from "./ArtifactCard";
 
@@ -256,19 +257,21 @@ function CanvasInner({ sessionId, collab }: { sessionId: string; collab: Collab 
   useEffect(() => {
     if (!synced) return;
     const defaults = defaultPositions(artifacts);
-    for (const a of artifacts) {
-      if (!collab.nodes.has(a.id)) {
-        collab.nodes.set(a.id, defaults.get(a.id)!);
-        guessed.current.add(a.id);
+    untracked(collab, () => {
+      for (const a of artifacts) {
+        if (!collab.nodes.has(a.id)) {
+          collab.nodes.set(a.id, defaults.get(a.id)!);
+          guessed.current.add(a.id);
+        }
       }
-    }
+    });
   }, [artifacts, collab, synced]);
 
   // Drop the stored size so the card goes back to its natural height and default width.
   const resetSize = useCallback(
     (id: string) => {
       const cur = collab.nodes.get(id);
-      if (cur) collab.nodes.set(id, { x: cur.x, y: cur.y });
+      if (cur) untracked(collab, () => collab.nodes.set(id, { x: cur.x, y: cur.y }));
       setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, width: undefined, height: undefined, style: undefined } : n)));
     },
     [collab],

@@ -839,6 +839,16 @@ await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").lengt
 const q3 = await alice.call("POST", `/api/v1/sessions/${sessionId}/questions`, { text: "Is the DR site still needed?" });
 assert((await alice.call("POST", `/api/v1/sessions/${sessionId}/questions/${q3.questionId}/resolve`, { outcome: "dropped" })).outcome === "dropped", "a question can be dropped as moot");
 const mdQuestions = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+// Undo of a delete: restore brings the card back as a new version; nothing is rewritten.
+const undoCard = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts`, { type: "markdown", title: "Scratch note", content: { markdown: "temporary", sections: [{ id: "body", derivedFrom: [] }] } });
+const undoDel = await alice.call("DELETE", `/api/v1/sessions/${sessionId}/artifacts/${undoCard.artifactId}`, { rationale: "Removed from the canvas" });
+assert(undoDel.status === "applied", "a card of my own is removed at once");
+const undoRestore = await alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${undoCard.artifactId}/restore`);
+assert(undoRestore.status === "applied" && undoRestore.versionNo > undoCard.versionNo, "restore brings it back as a newer version");
+assert(/not deleted/.test(await fails(alice.call("POST", `/api/v1/sessions/${sessionId}/artifacts/${undoCard.artifactId}/restore`))), "a live card cannot be restored");
+const restoredEv = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactId === undoCard.artifactId).pop();
+assert(restoredEv && restoredEv.payload.op === "restore" && restoredEv.payload.content.markdown === "temporary", "the restore is an op of its own carrying the last content");
+
 // Comparing versions of the design: computed from the document text and the session state each
 // version was written in; saved as a card without an AI turn; narrated by the AI only on request.
 const docMeta = await alice.call("GET", `/api/v1/sessions/${sessionId}/artifacts/${docCard.artifactId}`);

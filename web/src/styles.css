@@ -444,3 +444,6 @@ table.guide { border-collapse: collapse; width: 100%; font-size: 13px; }
 table.guide th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); padding: 4px 8px; border-bottom: 1px solid var(--line); }
 table.guide td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 table.guide td.mono { color: var(--ink-2); }
+
+/* what Ctrl+Z / Ctrl+Y just did */
+.undo-note { position: fixed; left: 50%; top: 52px; transform: translateX(-50%); background: var(--ink); color: var(--panel); padding: 6px 12px; border-radius: 3px; z-index: 60; box-shadow: var(--shadow); letter-spacing: .03em; }

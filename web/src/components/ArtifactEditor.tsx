@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { contentText, type Artifact } from "@tandem/shared";
 import { api } from "../api";
+import { recordAction } from "../undo";
 import { setEditingArtifact } from "../collab";
 
 // Direct human edit. Goes through the same governance path as AI changes:
@@ -40,7 +41,14 @@ export function ArtifactEditor({ artifact: a, sessionId, onClose }: { artifact: 
     } else content = { ...base, markdown: text };
     try {
       const r = await api<{ status: string; versionNo?: number; approvers?: string[]; message?: string }>("POST", `/api/v1/sessions/${sessionId}/artifacts/${a.id}/versions`, { content, title, rationale: rationale || "Direct edit" });
-      if (r.status === "applied") { setResult(`Applied as v${r.versionNo}.`); setTimeout(onClose, 600); }
+      if (r.status === "applied") {
+        const prev = { content: a.current.content, title: a.title, versionNo: a.current.versionNo };
+        const next = { content, title, versionNo: r.versionNo ?? prev.versionNo + 1 };
+        const post = (to: typeof prev, why: string) => api("POST", `/api/v1/sessions/${sessionId}/artifacts/${a.id}/versions`, { content: to.content, title: to.title, rationale: why }).then(() => undefined);
+        recordAction({ label: `the edit of "${title}"`, undo: () => post(prev, `Undo: back to v${prev.versionNo}`), redo: () => post(next, `Redo: v${next.versionNo} again`) });
+        setResult(`Applied as v${r.versionNo}.`);
+        setTimeout(onClose, 600);
+      }
       else if (r.status === "pending_approval") { setResult("Sent as a proposal; the artifact's owner must approve it (auto-applies after the timeout)."); setTimeout(onClose, 1500); }
       else if (r.status === "stale") setResult(r.message ?? "Stale");
       else setResult(r.status);
