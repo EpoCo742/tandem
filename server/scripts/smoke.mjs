@@ -397,6 +397,50 @@ assert(forkEvents.some((e) => e.type === "participant.joined" && e.actorUserId =
 const forkMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
 assert(forkMeta.me.consented === true && forkMeta.forkedFrom.sessionId === sessionId, "consent given in the original holds in the fork (same provider, same people)");
 
+// Sessions as files: export one or more, import as a copy (new ids, importer owns it) or restore in place.
+const bundle = await alice.call("POST", `/api/v1/backup/export`, { sessionIds: [sessionId, fork.id] });
+assert(bundle.format === "session-zero-bundle" && bundle.sessions.length === 2 && bundle.exportedBy.handle === "alice", "two sessions export as one bundle");
+const cap = bundle.sessions.find((s) => s.id === sessionId);
+const ledgerNow = await alice.call("GET", `/api/v1/sessions/${sessionId}/events`);
+assert(cap.events.length === ledgerNow.length && cap.uploads.length >= 1 && cap.uploads[0].data && cap.participants.length === 3 && cap.users.length >= 3, `the capture has the whole ledger (${cap.events.length} events), the uploads with bytes and the people`);
+assert(JSON.stringify(bundle).indexOf("ciphertext") < 0 && !("sponsorCredentialId" in cap), "no credentials travel in a bundle");
+assert(/not in session/.test(await fails(dave.call("POST", `/api/v1/backup/export`, { sessionIds: [fork.id] }))), "only participants export a session");
+assert(/not a session bundle/.test(await fails(bob.call("POST", `/api/v1/backup/import`, { hello: 1 }))), "a file that is no bundle is refused");
+const copyIn = await carol.call("POST", `/api/v1/backup/import?mode=copy`, { ...bundle, sessions: [cap] });
+const copiedIn = copyIn.sessions[0];
+assert(copiedIn.outcome === "imported" && copiedIn.sessionId && copiedIn.sessionId !== sessionId && copiedIn.events === cap.events.length, `import as a copy makes a new session (${copiedIn.sessionId})`);
+const copyMeta = await carol.call("GET", `/api/v1/sessions/${copiedIn.sessionId}`);
+assert(copyMeta.me.role === "owner" && copyMeta.title === cap.title && copyMeta.demo === false, "the importer owns the copy");
+const copyEvents = await carol.call("GET", `/api/v1/sessions/${copiedIn.sessionId}/events`);
+assert(copyEvents.length === cap.events.length && copyEvents.every((e, i) => e.type === cap.events[i].type), "the copy's ledger is the original's, event for event");
+const copySources = await carol.call("GET", `/api/v1/sessions/${copiedIn.sessionId}/uploads`);
+const origUploadIds = new Set(cap.uploads.map((u) => u.id));
+const copyUpload = { id: copySources[0].content.uploadId };
+assert(copySources.length >= 1 && copySources.every((x) => x.content.uploadId && !origUploadIds.has(x.content.uploadId)), "uploads come along under new ids");
+const copyUploadName = copyEvents.find((e) => e.type === "upload.added" && e.payload.uploadId === copyUpload.id).payload.name;
+const origUpload = cap.uploads.find((u) => u.name === copyUploadName);
+const copyFile = await fetch(`${BASE}/api/v1/sessions/${copiedIn.sessionId}/files/${copyUpload.id}`, { headers: { Cookie: carol.cookie } });
+assert(copyFile.ok && Buffer.from(await copyFile.arrayBuffer()).equals(Buffer.from(origUpload.data, "base64")), "the copied upload serves the same bytes");
+assert(copyEvents.some((e) => e.type === "upload.added" && e.payload.uploadId === copyUpload.id), "the ledger's upload references were rewritten to the new ids");
+const aliceInCopy = await alice.call("GET", `/api/v1/sessions/${copiedIn.sessionId}`);
+assert(aliceInCopy.me.role === "editor", "the original owner is an editor in someone else's copy");
+const replaceByBob = await bob.call("POST", `/api/v1/backup/import?mode=replace`, { ...bundle, sessions: [cap] });
+assert(replaceByBob.sessions[0].outcome === "skipped" && /not its owner/.test(replaceByBob.sessions[0].reason), "restore in place of a session you do not own is skipped");
+const restored = await alice.call("POST", `/api/v1/backup/import?mode=replace`, { ...bundle, sessions: [cap] });
+assert(restored.sessions[0].outcome === "replaced" && restored.sessions[0].sessionId === sessionId, "the owner restores a session in place under the same id");
+const afterRestore = await alice.call("GET", `/api/v1/sessions/${sessionId}/events`);
+assert(afterRestore.length === cap.events.length && afterRestore[afterRestore.length - 1].id === cap.events[cap.events.length - 1].id, "after the restore the ledger is exactly the file's");
+const bobAfter = await bob.call("GET", `/api/v1/sessions/${sessionId}`);
+assert(bobAfter.me.role === "editor" && bobAfter.me.consented === true, "roles and consent survive a restore");
+const adminBundle = await (await fetch(`${BASE}/api/v1/admin/backup`, { headers: { Authorization: "Bearer smoke-admin" } })).json();
+assert(adminBundle.sessions && adminBundle.sessions.length >= 3 && adminBundle.exportedBy === null, `the operator route exports every session (${adminBundle.sessions.length})`);
+assert((await fetch(`${BASE}/api/v1/admin/backup`, { headers: { Authorization: "Bearer wrong" } })).status === 401, "the operator route wants the token");
+const dbSnap = await fetch(`${BASE}/api/v1/admin/backup.db`, { headers: { Authorization: "Bearer smoke-admin" } });
+const dbHead = Buffer.from(await dbSnap.arrayBuffer());
+assert(dbSnap.ok && dbHead.subarray(0, 15).toString() === "SQLite format 3" && dbHead.length > 4096, `the operator gets a consistent database snapshot (${(dbHead.length / 1024).toFixed(0)} KB)`);
+await carol.call("DELETE", `/api/v1/sessions/${copiedIn.sessionId}`);
+// The restore replaced the live ledger; the subscriptions carry on from their own copy of it.
+
 // Managing sessions: rename, archive, delete are the owner's; the fork is the guinea pig so the main session stays.
 assert(/403/.test(await fails(bob.call("PATCH", `/api/v1/sessions/${fork.id}`, { title: "Bob's" }))), "a non-owner cannot rename a session");
 const renamedSession = await alice.call("PATCH", `/api/v1/sessions/${fork.id}`, { title: "Order platform v2 (renamed)" });

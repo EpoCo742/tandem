@@ -355,6 +355,15 @@ Point at: the badge on the tab while something is open; the design document's "O
 
 Tool servers never speak in the lane: a server that fails, times out or needs a login shows its status and last error under credentials → External tools, and the prompt tells the model not to announce what tools are or are not available.
 
+## Stage 7f: sessions as files (no AI turn)
+
+| Who | Does |
+|---|---|
+| Anyone | The **⋯** menu next to the session title, **Export session file**: one JSON file with the conversation, every card and version, decisions, uploads, canvas layout and published pages. Credentials never go in. |
+| Anyone | Home page, **Your sessions**: **Select…** ticks several sessions for one file; **Export all** takes every session you are in. |
+| Anyone | Home page, **Import…**: pick the file. **Add as new sessions** makes copies you own (new ids; a colleague's file or another install). **Restore in place** keeps every id, role and published page and replaces a same-id session you own; a session you do not own is skipped. |
+| Operator | With `TANDEM_ADMIN_TOKEN` set: `node server/scripts/backup.mjs export --url … --token …` before a redeploy, `import` after; `db` downloads a consistent copy of the SQLite file. |
+
 ## Stage 7e: zoom in the full-screen view (no AI turn)
 
 | Who | Does |

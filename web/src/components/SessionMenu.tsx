@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { downloadBundle } from "./Backup";
 
 // One small menu for the things an owner does to a session as a whole: rename it, close it
 // (archive: read only, out of everyone's digest) or reopen it, and delete it outright. Non-owners
@@ -52,12 +53,14 @@ export function SessionMenu({ sessionId, title, status, isOwner, onChange, onDel
   const rename = () => run(() => api("PATCH", `/api/v1/sessions/${sessionId}`, { title: draft.trim() }), onChange);
   const archive = (archived: boolean) => run(() => api("POST", `/api/v1/sessions/${sessionId}/archive`, { archived }), onChange);
   const remove = () => run(() => api("DELETE", `/api/v1/sessions/${sessionId}`), onDeleted);
+  const exportBundle = () => run(() => downloadBundle([sessionId], title));
 
   return (
     <div className="session-menu" ref={ref} onClick={(e) => e.stopPropagation()}>
-      <button className="icon" title="Session: rename, archive, delete" aria-label="Session menu" aria-expanded={open} onClick={() => { setDraft(title); setMode("menu"); setOpen((o) => !o); }}>⋯</button>
+      <button className="icon" title="Session: export, rename, archive, delete" aria-label="Session menu" aria-expanded={open} onClick={() => { setDraft(title); setMode("menu"); setOpen((o) => !o); }}>⋯</button>
       {open && (
         <div className="pop" role="menu">
+          {mode === "menu" && <button role="menuitem" disabled={busy} onClick={exportBundle} title="Download this session as a file: conversation, cards, decisions, uploads, layout. Import it on the home page, here or on another install.">Export session file</button>}
           {!isOwner && <div className="muted" style={{ padding: "4px 8px", fontSize: 12.5 }}>Only the session owner can rename, archive or delete it.</div>}
           {isOwner && mode === "menu" && (
             <>

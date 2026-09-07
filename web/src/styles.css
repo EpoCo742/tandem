@@ -457,3 +457,9 @@ table.guide td.mono { color: var(--ink-2); }
 .pannable { cursor: grab; user-select: none; }
 .pannable.panning { cursor: grabbing; }
 .pannable svg { pointer-events: none; }
+
+/* sessions as files: picking rows on the home page, the import panel */
+.session-row.picking { cursor: default; }
+.session-row.picking input[type="checkbox"] { width: 16px; height: 16px; flex: none; margin: 0 4px 0 0; }
+.import-bundle input[type="file"] { font-size: 13px; }
+.import-bundle label.row input[type="radio"] { margin-top: 3px; }

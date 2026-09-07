@@ -15,6 +15,7 @@ import { registerMcpRoutes } from "./routes/mcp.js";
 import { registerLibraryRoutes } from "./routes/library.js";
 import { publishedDocument } from "./publish.js";
 import { registerNotificationRoutes } from "./routes/notifications.js";
+import { registerBackupRoutes } from "./routes/backup.js";
 import { startNotifier } from "./notify.js";
 import { ensureDemoSession } from "./demo.js";
 import { rehydrateDeadlines } from "./async.js";
@@ -40,6 +41,7 @@ async function main() {
   await registerMcpRoutes(app);
   await registerLibraryRoutes(app);
   await registerNotificationRoutes(app);
+  await registerBackupRoutes(app);
   startNotifier();
   ensureDemoSession((m) => app.log.info(m));
   await registerUploadRoutes(app);

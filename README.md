@@ -124,11 +124,24 @@ docker compose up --build
 
 Serves the built SPA and API on http://localhost:3000 with SQLite and uploads under `./data`.
 
+## Backups and redeploys
+
+Everything lives under `DATA_DIR`: `tandem.db` (SQLite: sessions, ledger, accounts, sealed credentials, tool servers, published pages) and `files/` (uploads). Anything that replaces the container's filesystem loses both unless that directory is on a volume. On Cloud Foundry every `cf push`, restage and restart starts from a fresh filesystem, so a plain push wipes the data; mount a volume service at `DATA_DIR` (one instance only; SQLite over NFS wants `journal_mode=DELETE`, which is not what the app sets) or, simpler, move the data through the app:
+
+```
+# on the server: TANDEM_ADMIN_TOKEN=<long random string>
+node server/scripts/backup.mjs export --url https://app.example --token $TANDEM_ADMIN_TOKEN --out backup.json   # before the push
+cf push ...
+node server/scripts/backup.mjs import --url https://app.example --token $TANDEM_ADMIN_TOKEN --in backup.json    # after it
+```
+
+The bundle carries every session whole: ledger, people, uploads with their bytes, canvas layout, published pages. It does not carry accounts' credentials or tool servers (people connect those again). `backup.mjs db` downloads a consistent copy of the SQLite file itself (made with SQLite's online backup while the app runs), which does carry those, sealed with `TANDEM_MASTER_KEY`; keep that key the same across deployments or the credentials in it cannot be opened. Individuals can do the same for their own sessions from the app: the … menu next to a session exports it, the home page imports.
+
 ## Tests
 
 ```
 pnpm typecheck
-TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake DATA_DIR=./data-smoke PORT=3011 APP_URL=http://localhost:3011 pnpm --filter @tandem/server start &
+TANDEM_DEV_AUTH=1 TANDEM_PROVIDER=fake TANDEM_ADMIN_TOKEN=smoke-admin DATA_DIR=./data-smoke PORT=3011 APP_URL=http://localhost:3011 pnpm --filter @tandem/server start &
 node server/scripts/smoke.mjs http://localhost:3011
 ```
 

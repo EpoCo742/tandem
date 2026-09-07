@@ -4,6 +4,7 @@ import { navigate } from "../App";
 import { TopBar } from "../components/TopBar";
 import { useStore } from "../state/store";
 import { SessionMenu } from "../components/SessionMenu";
+import { downloadBundle, ImportBundle } from "../components/Backup";
 import { TEMPLATES, TEMPLATE_IDS, type TemplateId } from "@tandem/shared";
 
 interface SessionRow { id: string; title: string; status: "active" | "archived"; template: string | null; thumbnail: string | null; demo: boolean; role: string; policy: string; payerMode: string; pinnedModel: string; provider: string; createdAt: string; updatedAt: string }
@@ -34,6 +35,11 @@ export function Home() {
   const [model, setModel] = useState("");
   const [template, setTemplate] = useState<TemplateId | "">("");
   const [err, setErr] = useState<string | null>(null);
+  // Sessions as files: pick some (or all) to export; import a file below the list.
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [fileErr, setFileErr] = useState<string | null>(null);
 
   function reload() {
     api<SessionRow[]>("GET", "/api/v1/sessions").then(setSessions);
@@ -54,6 +60,19 @@ export function Home() {
 
   const providerCred = creds?.credentials.find((c) => c.provider === provider && c.status === "active");
   const models = providerCred?.models ?? [];
+
+  const exportable = sessions.filter((s) => !s.demo).map((s) => s.id);
+  async function exportIds(ids: string[]) {
+    setFileErr(null);
+    try {
+      await downloadBundle(ids, ids.length === 1 ? sessions.find((s) => s.id === ids[0])?.title : undefined);
+      setSelecting(false);
+      setPicked(new Set());
+    } catch (e) {
+      setFileErr((e as Error).message);
+    }
+  }
+  const togglePick = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   async function create() {
     setErr(null);
@@ -139,15 +158,34 @@ export function Home() {
             </div>
           </>
         )}
-        <h2 style={{ fontSize: 22, margin: "22px 0 10px" }}>Your sessions</h2>
-        <p className="muted" style={{ marginTop: 0 }}>Sessions you created or were invited to. Nobody else can see them.</p>
+        <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", margin: "22px 0 10px" }}>
+          <h2 style={{ fontSize: 22, margin: 0 }}>Your sessions</h2>
+          <span className="row backup-tools" style={{ gap: 6 }}>
+            {selecting ? (
+              <>
+                <span className="mono">{picked.size} picked</span>
+                <button className="primary" disabled={picked.size === 0} onClick={() => exportIds([...picked])} title="Download the picked sessions as one file">Export picked</button>
+                <button onClick={() => { setSelecting(false); setPicked(new Set()); }}>Cancel</button>
+              </>
+            ) : (
+              <>
+                {exportable.length > 0 && <button onClick={() => setSelecting(true)} title="Tick sessions, then export them as one file">Select…</button>}
+                {exportable.length > 0 && <button onClick={() => exportIds(exportable)} title="Every session you are in, as one file: conversation, cards, decisions, uploads, layout">Export all</button>}
+                <button onClick={() => setImporting((v) => !v)} title="Bring sessions back from a file exported here or on another install">Import…</button>
+              </>
+            )}
+          </span>
+        </div>
+        <p className="muted" style={{ marginTop: 0 }}>Sessions you created or were invited to. Nobody else can see them.{selecting ? " Tick the ones to export." : ""}</p>
+        {fileErr && <p className="err">{fileErr}</p>}
+        {importing && <ImportBundle onDone={reload} onClose={() => setImporting(false)} />}
         {active.length === 0 && <p className="muted">None yet.</p>}
-        {active.map((s) => <SessionListRow key={s.id} s={s} onChange={reload} />)}
+        {active.map((s) => <SessionListRow key={s.id} s={s} onChange={reload} picking={selecting ? picked.has(s.id) : null} onPick={togglePick} />)}
         {archived.length > 0 && (
           <>
             <h3 style={{ fontSize: 16, margin: "22px 0 8px", color: "var(--ink-3)" }}>Archived</h3>
             <p className="muted" style={{ marginTop: 0 }}>Read only and out of the digest. The owner can reopen one from its menu.</p>
-            {archived.map((s) => <SessionListRow key={s.id} s={s} onChange={reload} />)}
+            {archived.map((s) => <SessionListRow key={s.id} s={s} onChange={reload} picking={selecting ? picked.has(s.id) : null} onPick={togglePick} />)}
           </>
         )}
       </div>
@@ -155,9 +193,10 @@ export function Home() {
   );
 }
 
-function SessionListRow({ s, onChange }: { s: SessionRow; onChange: () => void }) {
+function SessionListRow({ s, onChange, picking, onPick }: { s: SessionRow; onChange: () => void; picking: boolean | null; onPick: (id: string) => void }) {
   return (
-    <div className={`card row session-row${s.status === "archived" ? " archived" : ""}`} onClick={() => navigate(`/s/${s.id}`)}>
+    <div className={`card row session-row${s.status === "archived" ? " archived" : ""}${picking !== null ? " picking" : ""}`} onClick={() => (picking !== null ? onPick(s.id) : navigate(`/s/${s.id}`))}>
+      {picking !== null && <input type="checkbox" checked={picking} onChange={() => onPick(s.id)} onClick={(e) => e.stopPropagation()} aria-label={`Pick ${s.title}`} />}
       <div className="thumb" aria-hidden="true">{s.thumbnail ? <img src={`data:image/svg+xml;utf8,${encodeURIComponent(s.thumbnail)}`} alt="" /> : <span className="mono">empty</span>}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600 }}>{s.title}{s.status === "archived" && <span className="chip" style={{ marginLeft: 8 }}>archived</span>}</div>

@@ -41,6 +41,8 @@ export const config = {
   // Compact once this many messages have fallen out of the transcript window (0 disables).
   compactAfter: Number(env("TANDEM_COMPACT_AFTER", "8")),
   webDist: path.resolve(env("WEB_DIST", "../web/dist")),
+  // Operator access to whole-install backup and restore (/api/v1/admin/*); off when empty.
+  adminToken: process.env.TANDEM_ADMIN_TOKEN?.trim() ?? "",
   isProd: process.env.NODE_ENV === "production",
 };
 
