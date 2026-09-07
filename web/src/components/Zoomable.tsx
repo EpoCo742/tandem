@@ -68,7 +68,43 @@ export function useZoom(initial = 1) {
         setZoom((z) => (e.deltaY < 0 ? z * 1.1 : z / 1.1));
       };
       el.addEventListener("wheel", onWheel, { passive: false });
-      detach.current = () => el.removeEventListener("wheel", onWheel);
+      // Drag to pan a diagram: press anywhere that is not a control and pull the view around.
+      let drag: { x: number; y: number; left: number; top: number; id: number } | null = null;
+      const onDown = (e: PointerEvent) => {
+        if (e.button !== 0 || !el.classList.contains("pannable")) return;
+        const t = e.target as HTMLElement | null;
+        if (t?.closest("button, a, input, textarea, select, [contenteditable]")) return;
+        drag = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, id: e.pointerId };
+        el.setPointerCapture(e.pointerId);
+        el.classList.add("panning");
+        e.preventDefault();
+      };
+      const onMove = (e: PointerEvent) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        el.scrollLeft = drag.left - (e.clientX - drag.x);
+        el.scrollTop = drag.top - (e.clientY - drag.y);
+      };
+      const onUp = (e: PointerEvent) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        drag = null;
+        el.classList.remove("panning");
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch {
+          /* already released */
+        }
+      };
+      el.addEventListener("pointerdown", onDown);
+      el.addEventListener("pointermove", onMove);
+      el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
+      detach.current = () => {
+        el.removeEventListener("wheel", onWheel);
+        el.removeEventListener("pointerdown", onDown);
+        el.removeEventListener("pointermove", onMove);
+        el.removeEventListener("pointerup", onUp);
+        el.removeEventListener("pointercancel", onUp);
+      };
     },
     [setZoom],
   );
@@ -88,7 +124,7 @@ export function ZoomBar({ z, diagram }: { z: ReturnType<typeof useZoom>; diagram
 
 export function ZoomBody({ z, className, diagram = false, children }: { z: ReturnType<typeof useZoom>; className: string; diagram?: boolean; children: ReactNode }) {
   return (
-    <div className={className} ref={z.bodyRef}>
+    <div className={className + (diagram ? " pannable" : "")} ref={z.bodyRef} title={diagram ? "Drag to move around; Ctrl+wheel to zoom" : undefined}>
       <div style={{ zoom: z.zoom, ...(diagram && z.baseWidth ? { width: z.baseWidth } : {}) } as React.CSSProperties}>{children}</div>
     </div>
   );

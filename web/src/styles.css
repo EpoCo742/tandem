@@ -452,3 +452,8 @@ table.guide td.mono { color: var(--ink-2); }
 .zoombar { display: inline-flex; gap: 2px; align-items: center; margin-right: 6px; }
 .zoombar button.icon { font-variant-numeric: tabular-nums; }
 .present-card { overflow: auto; max-height: calc(100vh - 150px); }
+
+/* a zoomed diagram is dragged around, not scrolled */
+.pannable { cursor: grab; user-select: none; }
+.pannable.panning { cursor: grabbing; }
+.pannable svg { pointer-events: none; }
