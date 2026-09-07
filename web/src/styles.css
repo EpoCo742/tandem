@@ -438,3 +438,9 @@ tr.row-changed td { animation: row-glow 2.6s ease-out; }
 .api-detail { padding: 4px 6px 8px 72px; font-size: 12.5px; }
 .api-detail table { font-size: 12px; margin-bottom: 4px; }
 .api-detail .code { font-family: var(--mono); font-size: 11.5px; }
+
+/* the guide: one row per feature */
+table.guide { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.guide th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); padding: 4px 8px; border-bottom: 1px solid var(--line); }
+table.guide td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.guide td.mono { color: var(--ink-2); }

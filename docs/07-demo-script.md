@@ -259,7 +259,7 @@ Feature: new session from the current canvas; participants re-consent; origin li
 
 | Who | Does |
 |---|---|
-| Alice | **Fork as v2**. |
+| Alice | **Fork as v2**. Her consent to the AI provider carries over, so Compile works in the fork at once. |
 
 Point at: the new session "Order platform v2" with every live card at v1, agreed decisions carried over, superseded ones left behind, a "forked from" link in the top bar, and Bob asked to consent again.
 
@@ -488,6 +488,9 @@ Feature: any two versions of the design document can be compared, and the compar
 | Alice | **read** on the Design document card, then **compare with** in the sidebar and pick v1. The page shows the changes instead of the document. |
 | Alice | **save as card**: the changes card lands on the canvas. Or **save + AI narrative**: the same card, then the AI writes "What matters" at the top. |
 | Anyone | On a published document, the publish panel offers **changes since v1** whenever the canvas version is newer than the public page. |
+| Alice | In a fork ("Order platform v2"): **read** on its Design document, then **compare with** lists the original session's versions under "forked from …", so the fork can be compared with where it came from. |
+
+Where things are, for every feature: **guide** in the top bar.
 
 Fake architect: writes a "What matters" paragraph from the ranked list. A real model gets the card attached to a single instruction and a rule to touch nothing else.
 

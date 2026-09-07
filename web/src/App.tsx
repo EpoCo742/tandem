@@ -10,6 +10,7 @@ import { Login } from "./pages/Login";
 import { Published } from "./pages/Published";
 import { Library } from "./pages/Library";
 import { Document } from "./pages/Document";
+import { Guide } from "./pages/Guide";
 
 function usePath() {
   const [path, setPath] = useState(location.pathname);
@@ -44,6 +45,7 @@ export function App() {
   if (published) return <Published slug={published[1]!} />; // public: no sign-in needed
   if (!me.user) return <Login />;
   if (path.startsWith("/library")) return <Library />;
+  if (path.startsWith("/guide")) return <Guide />;
 
   const join = path.match(/^\/join\/([^/]+)/);
   if (join) return <Join token={join[1]!} />;

@@ -108,6 +108,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const archived = state.status === "archived";
   const demo = meta.demo;
   const readOnly = archived || demo;
+  const consented = state.participants[me.user!.id]?.consented ?? meta.me.consented;
   const checklist = completeness(state);
 
   async function invite() {
@@ -151,7 +152,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         {state.forkedFrom && (
           <a className="mono" href={`/s/${state.forkedFrom.sessionId}`} onClick={(e) => { e.preventDefault(); navigate(`/s/${state.forkedFrom!.sessionId}`); }} title="This session was forked from another one">forked from {state.forkedFrom.title}</a>
         )}
-        <button className="primary" disabled={readOnly} title="Ask the AI to assemble a design document from the canvas and decision registry" onClick={() => api("POST", `/api/v1/sessions/${sessionId}/compile`).catch((e) => setErr((e as Error).message))}>Compile design doc</button>
+        <button className="primary" disabled={readOnly || !consented} title={consented ? "Ask the AI to assemble a design document from the canvas and decision registry (one AI turn)" : "Accept the note in the AI lane first: everything posted is sent to the AI provider"} onClick={() => api("POST", `/api/v1/sessions/${sessionId}/compile`).catch((e) => setErr((e as Error).message))}>Compile design doc</button>
         {!demo && <button title="Start a new session from the current canvas and agreed decisions; this one stays intact" onClick={() => api<{ id: string }>("POST", `/api/v1/sessions/${sessionId}/fork`, {}).then((r) => navigate(`/s/${r.id}`)).catch((e) => setErr((e as Error).message))}>Fork as v2</button>}
         <button onClick={() => setExporting(true)} title="Preview the Markdown export, then copy or download it">Export .md</button>
         <button onClick={() => setPresenting(true)} disabled={!collab} title="Walk through the cards one per screen, in an order you set, with the decision log as the closing screen">Present</button>

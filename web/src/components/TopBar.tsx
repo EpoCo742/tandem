@@ -48,6 +48,7 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
       <ThemeToggle />
       {user && (
         <div className="who">
+          <a href="/guide" onClick={(e) => { e.preventDefault(); navigate("/guide"); }} title="Every feature, where it is, and how to use it">guide</a>
           <a href="/library" onClick={(e) => { e.preventDefault(); navigate("/library"); }} title="Search decisions, components, constraints and published documents across sessions">library</a>
           <a href="/settings" onClick={(e) => { e.preventDefault(); navigate("/settings"); }}>credentials</a>
           {user.avatarUrl ? (

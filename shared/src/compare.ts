@@ -162,11 +162,11 @@ export function compareDesign(before: SessionState, after: SessionState, mdBefor
 }
 
 /** The comparison as a Markdown document: "Major changes" on top, then every category in full. */
-export function comparisonMarkdown(c: DesignComparison, docTitle: string): string {
+export function comparisonMarkdown(c: DesignComparison, docTitle: string, labels?: { from: string; to: string }): string {
   const day = (iso: string) => iso.slice(0, 10);
   const out: string[] = [];
-  out.push(`# Changes: ${docTitle} v${c.from.versionNo} → v${c.to.versionNo}`, "");
-  out.push(`_v${c.from.versionNo} of ${day(c.from.at)} compared with v${c.to.versionNo} of ${day(c.to.at)}; ${c.words.before} → ${c.words.after} words._`, "");
+  out.push(labels ? `# Changes: ${labels.from} → ${labels.to}` : `# Changes: ${docTitle} v${c.from.versionNo} → v${c.to.versionNo}`, "");
+  out.push(`_${labels ? labels.from : `v${c.from.versionNo}`} of ${day(c.from.at)} compared with ${labels ? labels.to : `v${c.to.versionNo}`} of ${day(c.to.at)}; ${c.words.before} → ${c.words.after} words._`, "");
   out.push("## Major changes", "");
   if (c.major.length === 0) out.push("Nothing of substance changed between these versions.");
   for (const m of c.major) out.push(`- ${m}`);

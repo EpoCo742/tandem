@@ -639,24 +639,60 @@ export async function registerSessionRoutes(app: FastifyInstance) {
   });
 
   // Two versions of the design side by side: the document text plus the session state each version
-  // was written in. Computed, no AI turn; the AI is asked to say what matters only when requested.
-  function compareDoc(sessionId: string, artifactId: string, fromNo: number, toNo: number) {
-    const state = getState(sessionId);
-    const a = state.artifacts[artifactId];
-    if (!a || a.deleted || a.type !== "design_doc") return { error: "no such design document" };
-    const vFrom = a.versions.find((v) => v.versionNo === fromNo);
-    const vTo = a.versions.find((v) => v.versionNo === toNo);
-    if (!vFrom || !vTo) return { error: `versions ${fromNo} and ${toNo} must both exist (the document has v1 to v${a.current.versionNo})` };
-    const events = listEvents(sessionId);
-    const seqOf = (eventId: string) => events.find((e) => e.id === eventId)?.seq ?? Number.MAX_SAFE_INTEGER;
-    const before = reduceUpTo(sessionId, events, seqOf(vFrom.eventId));
-    const after = reduceUpTo(sessionId, events, seqOf(vTo.eventId));
-    const md = (v: typeof vFrom) => (v.content as { markdown?: string }).markdown ?? "";
-    const comparison = compareDesign(before, after, md(vFrom), md(vTo), { from: { versionNo: vFrom.versionNo, at: vFrom.createdAt }, to: { versionNo: vTo.versionNo, at: vTo.createdAt } });
-    return { artifact: a, vFrom, vTo, comparison, markdown: comparisonMarkdown(comparison, a.title) };
+  // was written in. Either side may be in another session (a fork and its origin). Computed, no AI
+  // turn; the AI is asked to say what matters only when requested.
+  interface DocRef { sessionId: string; artifactId: string; versionNo: number }
+  function docVersion(ref: DocRef) {
+    if (!sessionExists(ref.sessionId)) return null;
+    const state = getState(ref.sessionId);
+    const a = state.artifacts[ref.artifactId];
+    if (!a || a.deleted || a.type !== "design_doc") return null;
+    const version = a.versions.find((v) => v.versionNo === ref.versionNo);
+    if (!version) return null;
+    const events = listEvents(ref.sessionId);
+    const seq = events.find((e) => e.id === version.eventId)?.seq ?? Number.MAX_SAFE_INTEGER;
+    return { artifact: a, version, state: reduceUpTo(ref.sessionId, events, seq), sessionTitle: state.title };
+  }
+  function compareDoc(from: DocRef, to: DocRef) {
+    const A = docVersion(from);
+    const B = docVersion(to);
+    if (!A || !B) return { error: `no such version (${!A ? `v${from.versionNo} on the earlier side` : `v${to.versionNo} on the later side`})` };
+    const cross = from.sessionId !== to.sessionId;
+    const md = (v: typeof A.version) => (v.content as { markdown?: string }).markdown ?? "";
+    const comparison = compareDesign(A.state, B.state, md(A.version), md(B.version), { from: { versionNo: A.version.versionNo, at: A.version.createdAt }, to: { versionNo: B.version.versionNo, at: B.version.createdAt } });
+    const labels = cross ? { from: `${A.sessionTitle} v${from.versionNo}`, to: `${B.sessionTitle} v${to.versionNo}` } : undefined;
+    const title = labels ? `Changes: ${labels.from} → ${labels.to}` : `Changes: ${B.artifact.title} v${from.versionNo} → v${to.versionNo}`;
+    return { artifact: B.artifact, vFrom: A.version, vTo: B.version, comparison, markdown: comparisonMarkdown(comparison, B.artifact.title, labels), title, cross };
+  }
+  /** The design document this one descends from, when the session is a fork and the person can see the origin. */
+  function originDoc(sessionId: string, doc: { title: string }, userId: string): { sessionId: string; sessionTitle: string; artifactId: string; versions: { versionNo: number; createdAt: string }[] } | null {
+    const row = db.select({ from: schema.sessions.forkedFromSessionId }).from(schema.sessions).where(eq(schema.sessions.id, sessionId)).get();
+    if (!row?.from || !sessionExists(row.from)) return null;
+    const isMember = db.select({ userId: schema.participants.userId }).from(schema.participants).where(and(eq(schema.participants.sessionId, row.from), eq(schema.participants.userId, userId))).get();
+    if (!isMember) return null;
+    const src = getState(row.from);
+    const docs = liveArtifacts(src).filter((a) => a.type === "design_doc");
+    const pick = docs.find((a) => a.title === doc.title) ?? (docs.length === 1 ? docs[0] : undefined);
+    if (!pick) return null;
+    return { sessionId: row.from, sessionTitle: src.title, artifactId: pick.id, versions: pick.versions.map((v) => ({ versionNo: v.versionNo, createdAt: v.createdAt })) };
+  }
+  function fromRef(req: { params: { id: string; artifactId: string } }, q: { fromSession?: string; fromArtifact?: string; from?: string | number }, userId: string, fallbackFrom: number): DocRef | { error: string } {
+    const versionNo = Number(q.from) || fallbackFrom;
+    if (!q.fromSession || q.fromSession === req.params.id) return { sessionId: req.params.id, artifactId: req.params.artifactId, versionNo };
+    if (!sessionExists(q.fromSession)) return { error: "no such session on the earlier side" };
+    const member = db.select({ userId: schema.participants.userId }).from(schema.participants).where(and(eq(schema.participants.sessionId, q.fromSession), eq(schema.participants.userId, userId))).get();
+    if (!member) return { error: "you are not a participant of the earlier session" };
+    let artifactId = q.fromArtifact;
+    if (!artifactId) {
+      const here = getState(req.params.id).artifacts[req.params.artifactId];
+      const docs = liveArtifacts(getState(q.fromSession)).filter((a) => a.type === "design_doc");
+      artifactId = (docs.find((a) => a.title === here?.title) ?? (docs.length === 1 ? docs[0] : undefined))?.id;
+      if (!artifactId) return { error: "the earlier session has no matching design document; pass fromArtifact" };
+    }
+    return { sessionId: q.fromSession, artifactId, versionNo };
   }
 
-  app.get<{ Params: { id: string; artifactId: string }; Querystring: { from?: string; to?: string } }>("/api/v1/sessions/:id/artifacts/:artifactId/compare", async (req, reply) => {
+  app.get<{ Params: { id: string; artifactId: string }; Querystring: { from?: string; to?: string; fromSession?: string; fromArtifact?: string } }>("/api/v1/sessions/:id/artifacts/:artifactId/compare", async (req, reply) => {
     const user = requireUser(req, reply);
     if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
     participantOr403(req.params.id, user.id);
@@ -666,13 +702,14 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const toNo = Number(req.query.to) || a.current.versionNo;
     const pub = state.publications[a.id];
     const lastPub = pub?.status === "live" ? pub.versions[pub.versions.length - 1]?.docVersionNo : undefined;
-    const fromNo = Number(req.query.from) || (lastPub && lastPub < toNo ? lastPub : Math.max(1, toNo - 1));
-    const r = compareDoc(req.params.id, a.id, fromNo, toNo);
+    const from = fromRef(req, req.query, user.id, lastPub && lastPub < toNo ? lastPub : Math.max(1, toNo - 1));
+    if ("error" in from) return reply.code(400).send({ error: from.error });
+    const r = compareDoc(from, { sessionId: req.params.id, artifactId: a.id, versionNo: toNo });
     if ("error" in r) return reply.code(400).send({ error: r.error });
-    return { comparison: r.comparison, markdown: r.markdown, title: `Changes: ${a.title} v${fromNo} → v${toNo}` };
+    return { comparison: r.comparison, markdown: r.markdown, title: r.title, cross: r.cross };
   });
 
-  app.post<{ Params: { id: string; artifactId: string }; Body: { from: number; to?: number; narrate?: boolean } }>("/api/v1/sessions/:id/artifacts/:artifactId/compare", async (req, reply) => {
+  app.post<{ Params: { id: string; artifactId: string }; Body: { from: number; to?: number; narrate?: boolean; fromSession?: string; fromArtifact?: string } }>("/api/v1/sessions/:id/artifacts/:artifactId/compare", async (req, reply) => {
     const user = requireUser(req, reply);
     if (!sessionExists(req.params.id)) return reply.code(404).send({ error: "not found" });
     const me = participantOr403(req.params.id, user.id);
@@ -681,17 +718,18 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const a = state.artifacts[req.params.artifactId];
     if (!a || a.deleted || a.type !== "design_doc") return reply.code(404).send({ error: "no such design document" });
     const toNo = Number(req.body?.to) || a.current.versionNo;
-    const fromNo = Number(req.body?.from);
-    if (!fromNo) return reply.code(400).send({ error: "from is needed" });
-    const r = compareDoc(req.params.id, a.id, fromNo, toNo);
+    if (!Number(req.body?.from)) return reply.code(400).send({ error: "from is needed" });
+    const from = fromRef(req, req.body ?? {}, user.id, 1);
+    if ("error" in from) return reply.code(400).send({ error: from.error });
+    const r = compareDoc(from, { sessionId: req.params.id, artifactId: a.id, versionNo: toNo });
     if ("error" in r) return reply.code(400).send({ error: r.error });
-    const title = `Changes: ${a.title} v${fromNo} → v${toNo}`;
+    const title = r.title;
     const existing = Object.values(state.artifacts).find((x) => x.type === "markdown" && !x.deleted && x.title === title);
-    const out = requestChange({ sessionId: req.params.id, turnId: null, actorKind: "user", actorUserId: user.id, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "markdown", title, content: { markdown: r.markdown, sections: [{ id: "body", derivedFrom: [r.vFrom.eventId, r.vTo.eventId] }] }, summary: `What changed between v${fromNo} and v${toNo} of ${a.title}`, rationale: "Comparison of two versions of the design document", baseVersionNo: existing?.current.versionNo ?? null, causedBy: [], force: true });
+    const out = requestChange({ sessionId: req.params.id, turnId: null, actorKind: "user", actorUserId: user.id, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "markdown", title, content: { markdown: r.markdown, sections: [{ id: "body", derivedFrom: [r.vTo.eventId] }] }, summary: r.cross ? `What changed between ${from.versionNo === r.vFrom.versionNo ? "" : ""}the original session's v${r.vFrom.versionNo} and this v${toNo}` : `What changed between v${r.vFrom.versionNo} and v${toNo} of ${a.title}`, rationale: "Comparison of two versions of the design document", baseVersionNo: existing?.current.versionNo ?? null, causedBy: [], force: true });
     if (out.status !== "applied") return reply.code(409).send({ error: `could not save the comparison: ${out.status}` });
     let eventId: string | undefined;
     if (req.body?.narrate) {
-      if (!me.consentedAt) return reply.code(403).send({ error: "consent required before addressing the AI" });
+      if (!me.consentedAt) return reply.code(403).send({ error: "accept the note in the AI lane first (everything posted is sent to the AI provider); the card is saved" });
       const ev = appendEvent(req.params.id, { type: "message.posted", actorKind: "user", actorUserId: user.id, payload: { text: NARRATE_INSTRUCTION, mode: "directive", attachments: [out.artifactId], intent: "compare" } });
       brokerFor(req.params.id).onDirective(ev);
       brokerFor(req.params.id).sendNow();
@@ -706,7 +744,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const user = requireUser(req, reply);
     const me = participantOr403(req.params.id, user.id);
     if (me.role === "viewer") return reply.code(403).send({ error: "viewers cannot compile" });
-    if (!me.consentedAt) return reply.code(403).send({ error: "consent required" });
+    if (!me.consentedAt) return reply.code(403).send({ error: "accept the note in the AI lane first (everything posted is sent to the AI provider); then compile" });
     const ev = appendEvent(req.params.id, {
       type: "message.posted",
       actorKind: "user",
@@ -753,9 +791,11 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const parts = db.select().from(schema.participants).where(eq(schema.participants.sessionId, src.id)).all();
     for (const p of parts) {
       const role = p.userId === user.id ? "owner" : p.role === "owner" ? "editor" : p.role;
-      db.insert(schema.participants).values({ sessionId: id, userId: p.userId, role, credentialId: null, color: p.color, consentedAt: null, joinedAt: ts }).run();
+      // Same provider, same payer mode, same people: the consent given in the original holds here.
+      db.insert(schema.participants).values({ sessionId: id, userId: p.userId, role, credentialId: null, color: p.color, consentedAt: p.consentedAt, joinedAt: ts }).run();
       const sp = state.participants[p.userId];
       appendEvent(id, { type: "participant.joined", actorKind: "user", actorUserId: p.userId, payload: { role: role as "owner" | "editor" | "viewer", name: sp?.name ?? p.userId, color: p.color, avatarUrl: sp?.avatarUrl } });
+      if (p.consentedAt) appendEvent(id, { type: "participant.consented", actorKind: "user", actorUserId: p.userId, payload: { providers: [src.provider] } });
     }
     for (const a of Object.values(state.artifacts).filter((x) => !x.deleted && x.type !== "decision_point")) {
       appendEvent(id, {
@@ -838,6 +878,7 @@ export async function registerSessionRoutes(app: FastifyInstance) {
       sessionId: req.params.id,
       sessionTitle: state.title,
       demo: (session?.demo ?? 0) > 0,
+      origin: a.type === "design_doc" ? originDoc(req.params.id, a, user.id) : null,
       artifact: { id: a.id, title: a.title, type: a.type, versionNo: v.versionNo, authorName: `${v.authorKind === "ai" ? "AI for " : ""}${participantName(state, v.authorUserId)}`, createdAt: v.createdAt, markdown },
       versions: a.versions.map((x) => ({ versionNo: x.versionNo, authorName: `${x.authorKind === "ai" ? "AI for " : ""}${participantName(state, x.authorUserId)}`, createdAt: x.createdAt })),
       review: review ? { status: review.status, approvedVersionNo: review.approvedVersionNo, signerNames: review.status === "approved" ? review.reviewers.map((u) => participantName(state, u)) : [], decisionLabel: review.decisionId ? state.decisions[review.decisionId]?.label : undefined } : null,

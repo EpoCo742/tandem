@@ -15,7 +15,11 @@ interface DocResponse {
   versions: { versionNo: number; authorName: string; createdAt: string }[];
   review: { status: "draft" | "in_review" | "approved"; approvedVersionNo?: number; signerNames: string[]; decisionLabel?: string } | null;
   published: { slug: string } | null;
+  origin: { sessionId: string; sessionTitle: string; artifactId: string; versions: { versionNo: number; createdAt: string }[] } | null;
 }
+
+// "3" is another version of this document; "o:2" is version 2 of the document in the session this one was forked from.
+type CompareKey = string;
 
 // A design document as a page inside the app, for anyone who can open the session: contents,
 // versions, status, print. The published page is the same thing for people outside.
@@ -24,7 +28,7 @@ export function Document({ sessionId, artifactId }: { sessionId: string; artifac
   const [err, setErr] = useState<string | null>(null);
   const [v, setV] = useState<number | undefined>(undefined);
   const [toc, setToc] = useState<{ id: string; text: string; level: number }[]>([]);
-  const [compareWith, setCompareWith] = useState<number | null>(() => Number(new URLSearchParams(window.location.search).get("compare")) || null);
+  const [compareWith, setCompareWith] = useState<CompareKey | null>(() => new URLSearchParams(window.location.search).get("compare") || null);
   const [cmp, setCmp] = useState<{ markdown: string; title: string; major: number } | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const me = useStore((s) => s.me);
@@ -35,23 +39,34 @@ export function Document({ sessionId, artifactId }: { sessionId: string; artifac
   }, [sessionId, artifactId, v]);
 
   // A comparison replaces the body: this version against the chosen earlier (or later) one.
+  function sides(key: CompareKey): { from: number; to: number; fromSession?: string; fromArtifact?: string } | null {
+    if (!doc) return null;
+    if (key.startsWith("o:")) {
+      if (!doc.origin) return null;
+      return { from: Number(key.slice(2)), to: doc.artifact.versionNo, fromSession: doc.origin.sessionId, fromArtifact: doc.origin.artifactId };
+    }
+    const n = Number(key);
+    if (!n || n === doc.artifact.versionNo) return null;
+    return n < doc.artifact.versionNo ? { from: n, to: doc.artifact.versionNo } : { from: doc.artifact.versionNo, to: n };
+  }
   useEffect(() => {
-    if (!doc || !compareWith || compareWith === doc.artifact.versionNo) {
+    const s = compareWith ? sides(compareWith) : null;
+    if (!s) {
       setCmp(null);
       return;
     }
-    const [from, to] = compareWith < doc.artifact.versionNo ? [compareWith, doc.artifact.versionNo] : [doc.artifact.versionNo, compareWith];
-    api<{ comparison: { major: string[] }; markdown: string; title: string }>("GET", `/api/v1/sessions/${sessionId}/artifacts/${artifactId}/compare?from=${from}&to=${to}`)
+    const q = new URLSearchParams({ from: String(s.from), to: String(s.to), ...(s.fromSession ? { fromSession: s.fromSession, fromArtifact: s.fromArtifact! } : {}) });
+    api<{ comparison: { major: string[] }; markdown: string; title: string }>("GET", `/api/v1/sessions/${sessionId}/artifacts/${artifactId}/compare?${q}`)
       .then((r) => setCmp({ markdown: r.markdown, title: r.title, major: r.comparison.major.length }))
       .catch((e) => setErr((e as Error).message));
   }, [doc, compareWith, sessionId, artifactId]);
 
   async function saveComparison(narrate: boolean) {
-    if (!doc || !compareWith) return;
-    const [from, to] = compareWith < doc.artifact.versionNo ? [compareWith, doc.artifact.versionNo] : [doc.artifact.versionNo, compareWith];
+    const s = compareWith ? sides(compareWith) : null;
+    if (!doc || !s) return;
     setSaving("saving…");
     try {
-      const r = await api<{ artifactId: string; narrated: boolean }>("POST", `/api/v1/sessions/${sessionId}/artifacts/${artifactId}/compare`, { from, to, narrate });
+      const r = await api<{ artifactId: string; narrated: boolean }>("POST", `/api/v1/sessions/${sessionId}/artifacts/${artifactId}/compare`, { ...s, narrate });
       setSaving(r.narrated ? "Saved as a card; the AI is writing what matters. Open the session to watch it land." : "Saved as a card on the canvas.");
     } catch (e) {
       setSaving((e as Error).message);
@@ -92,15 +107,27 @@ export function Document({ sessionId, artifactId }: { sessionId: string; artifac
             <br />by {doc.artifact.authorName}, {new Date(doc.artifact.createdAt).toLocaleDateString()}
             {!isLatest && <><br /><a href="#" onClick={(e) => { e.preventDefault(); setV(undefined); }}>latest is v{latest.versionNo}</a></>}
           </div>
-          {doc.versions.length > 1 && (
+          {(doc.versions.length > 1 || doc.origin) && (
             <div style={{ marginBottom: 14 }}>
               <div className="mono" style={{ marginBottom: 6 }}>compare with</div>
-              <select value={compareWith ?? ""} onChange={(e) => { setCompareWith(Number(e.target.value) || null); setSaving(null); }} style={{ width: "100%" }} title="Show what changed between this version and another: the text, the decisions, the model, the constraints, the contracts">
+              <select value={compareWith ?? ""} onChange={(e) => { setCompareWith(e.target.value || null); setSaving(null); }} style={{ width: "100%" }} title="Show what changed between this version and another: the text, the decisions, the model, the constraints, the contracts">
                 <option value="">nothing</option>
-                {[...doc.versions].reverse().filter((x) => x.versionNo !== doc.artifact.versionNo).map((x) => (
-                  <option key={x.versionNo} value={x.versionNo}>v{x.versionNo} · {new Date(x.createdAt).toLocaleDateString()}{r?.status === "approved" && r.approvedVersionNo === x.versionNo ? " · approved" : ""}</option>
-                ))}
+                {doc.versions.length > 1 && (
+                  <optgroup label="this document">
+                    {[...doc.versions].reverse().filter((x) => x.versionNo !== doc.artifact.versionNo).map((x) => (
+                      <option key={x.versionNo} value={String(x.versionNo)}>v{x.versionNo} · {new Date(x.createdAt).toLocaleDateString()}{r?.status === "approved" && r.approvedVersionNo === x.versionNo ? " · approved" : ""}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {doc.origin && (
+                  <optgroup label={`forked from ${doc.origin.sessionTitle}`}>
+                    {[...doc.origin.versions].reverse().map((x) => (
+                      <option key={x.versionNo} value={`o:${x.versionNo}`}>{doc.origin!.sessionTitle} v{x.versionNo} · {new Date(x.createdAt).toLocaleDateString()}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
+              {!cmp && !compareWith && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Pick a version to see what changed: text, decisions, model, constraints, contracts, questions.</div>}
               {cmp && canSave && (
                 <div className="stack" style={{ gap: 4, marginTop: 8 }}>
                   <button className="icon" onClick={() => saveComparison(false)} title="Put the comparison on the canvas as a Markdown card; no AI turn">save as card</button>

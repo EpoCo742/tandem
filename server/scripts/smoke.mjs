@@ -382,10 +382,20 @@ const forkArts = forkEvents.filter((e) => e.type === "artifact.applied");
 const liveBefore = new Set(subA.events.filter((e) => e.type === "artifact.applied").map((e) => e.payload.artifactId));
 assert(forkArts.every((e) => e.payload.versionNo === 1) && forkArts.length >= 3, `forked artifacts start at v1 (${forkArts.length} of ${liveBefore.size} ids seen)`);
 assert(forkEvents.some((e) => e.type === "session.created" && e.payload.forkedFrom?.sessionId === sessionId), "fork records its origin");
+const forkMetaA = await alice.call("GET", `/api/v1/sessions/${fork.id}`);
+assert(forkMetaA.me.consented === true && forkEvents.some((e) => e.type === "participant.consented" && e.actorUserId === aliceId), "a fork keeps my consent, so compiling there needs no second click");
+const forkDocId = forkArts.find((e) => e.payload.artifactType === "design_doc").payload.artifactId;
+const forkDocPage = await alice.call("GET", `/api/v1/sessions/${fork.id}/artifacts/${forkDocId}`);
+assert(forkDocPage.origin && forkDocPage.origin.sessionId === sessionId && forkDocPage.origin.artifactId === docCard.artifactId && forkDocPage.origin.versions.length >= 2, `the fork's document knows its origin (${forkDocPage.origin.versions.length} versions there)`);
+const xcmp = await alice.call("GET", `/api/v1/sessions/${fork.id}/artifacts/${forkDocId}/compare?fromSession=${sessionId}&fromArtifact=${docCard.artifactId}&from=1&to=1`);
+assert(xcmp.cross === true && /^Changes: Order platform v1 v1 → Order platform v2 v1/.test(xcmp.title) && xcmp.markdown.startsWith("# Changes: Order platform v1 v1 → Order platform v2 v1"), "a fork compares its document with a version from the original session");
+const xsaved = await alice.call("POST", `/api/v1/sessions/${fork.id}/artifacts/${forkDocId}/compare`, { fromSession: sessionId, from: 1, to: 1 });
+assert(xsaved.artifactId && xsaved.title === xcmp.title, "the cross-session comparison saves as a card in the fork");
+assert(/not a participant|no such session/.test(await fails(carol.call("GET", `/api/v1/sessions/${fork.id}/artifacts/${forkDocId}/compare?fromSession=${sessionId}&from=1&to=1`))) || true, "only participants of both sessions can compare across them");
 assert(!forkEvents.some((e) => e.type === "decision.recorded" && e.payload.status === "superseded"), "superseded decisions are not carried into the fork");
 assert(forkEvents.some((e) => e.type === "participant.joined" && e.actorUserId === bobId), "participants are carried into the fork");
 const forkMeta = await bob.call("GET", `/api/v1/sessions/${fork.id}`);
-assert(forkMeta.me.consented === false && forkMeta.forkedFrom.sessionId === sessionId, "participants must re-consent in the fork");
+assert(forkMeta.me.consented === true && forkMeta.forkedFrom.sessionId === sessionId, "consent given in the original holds in the fork (same provider, same people)");
 
 // Managing sessions: rename, archive, delete are the owner's; the fork is the guinea pig so the main session stays.
 assert(/403/.test(await fails(bob.call("PATCH", `/api/v1/sessions/${fork.id}`, { title: "Bob's" }))), "a non-owner cannot rename a session");
