@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { CopilotClient, approveAll, defineTool, type MCPServerConfig, type PermissionHandler } from "@github/copilot-sdk";
-import type { McpServerForTurn } from "../mcp.js";
+import { noteTurnStatus, type McpServerForTurn } from "../mcp.js";
 
 function toCopilotMcp(servers: McpServerForTurn[]): Record<string, MCPServerConfig> {
   const out: Record<string, MCPServerConfig> = {};
@@ -20,21 +20,15 @@ import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
 
 const turnSlots = new Semaphore(config.maxConcurrentTurns);
 
-// A tool server that is broken stays broken across turns; the lane hears about it once per session,
-// again only when what is wrong changes or after it has recovered. The console gets every turn.
-const lastServerNote = new Map<string, string>();
-function noteServerOnce(req: TurnRequest, serverName: string, note: string | null) {
-  const key = `${req.sessionId}:${serverName}`;
-  if (note === null) {
-    lastServerNote.delete(key);
-    return;
+// Tool-server trouble is not conversation: it goes to the server log and to the External tools
+// page (status and last error per server), never into the lane.
+function serverTrouble(req: TurnRequest, server: { id: string; name: string }, ok: boolean, detail: string | null) {
+  console.log(`[tandem] turn ${req.turnId}: external tool server "${server.name}" ${ok ? "connected" : `trouble: ${detail}`}`);
+  try {
+    noteTurnStatus(server.id, ok, detail);
+  } catch (e) {
+    console.warn(`[tandem] could not record tool server status: ${(e as Error).message}`);
   }
-  if (lastServerNote.get(key) === note) {
-    console.log(`[tandem] turn ${req.turnId}: ${note} (already told the session)`);
-    return;
-  }
-  lastServerNote.set(key, note);
-  req.onNote(note);
 }
 
 function makeClient(token: string) {
@@ -146,7 +140,8 @@ export const copilotProvider: ProviderAdapter = {
         // A remote MCP server asking for OAuth cannot be satisfied here (no browser, no token); say so
         // in the session instead of leaving the runtime waiting, and point at the stdio route.
         onMcpAuthRequest: (auth) => {
-          req.onNote(`External tool server "${auth.serverName}" (${auth.serverUrl}) asked for an OAuth login (${auth.reason}); the headers on file were not accepted. Register it as a stdio server through mcp-remote so the login can happen in a browser, or supply a valid Authorization header.`);
+          const s = req.mcpServers.find((x) => x.name === auth.serverName);
+          if (s) serverTrouble(req, s, false, `asked for an OAuth login (${auth.reason}); the headers on file were not accepted. Register it as a stdio server through mcp-remote so the login can happen in a browser, or supply a valid Authorization header.`);
           return { kind: "cancelled" };
         },
         tools,
@@ -161,7 +156,10 @@ export const copilotProvider: ProviderAdapter = {
       });
       // What the runtime says about the attached servers, surfaced to the people in the session.
       const offErr = session.on("session.error", (e) => req.onNote(`Runtime error (${e.data.errorType}): ${e.data.message}`));
-      const offHeaders = session.on("mcp.headers_refresh_required", (e) => req.onNote(`External tool server "${(e.data as { serverName?: string }).serverName ?? "?"}" asked for refreshed headers; re-register it with current credentials.`));
+      const offHeaders = session.on("mcp.headers_refresh_required", (e) => {
+        const s = req.mcpServers.find((x) => x.name === (e.data as { serverName?: string }).serverName);
+        if (s) serverTrouble(req, s, false, "asked for refreshed headers; re-register it with current credentials");
+      });
       if (req.mcpServers.length) console.log(`[tandem] turn ${req.turnId}: attached MCP servers ${req.mcpServers.map((s) => `${s.name} (${s.config.transport}${s.config.transport === "http" && s.config.sse ? "/sse" : ""}, ${s.tools.length} tools)`).join(", ")}; allow-list adds mcp:* (expected names: ${mcpToolNames.slice(0, 3).join(", ")}${mcpToolNames.length > 3 ? ", …" : ""})`);
       const offDelta = session.on("assistant.message_delta", (e) => {
         text += e.data.deltaContent;
@@ -237,12 +235,10 @@ export const copilotProvider: ProviderAdapter = {
           });
           for (const s of req.mcpServers) {
             const st = statuses.get(s.name);
-            if (!st || st.status === "pending") noteServerOnce(req, s.name, `External tool server "${s.name}" did not finish connecting within 25 seconds; its tools are not available until it does.`);
-            else if (st.status === "connected") {
-              console.log(`[tandem] turn ${req.turnId}: external tool server "${s.name}" connected; ${s.tools.length} tools available`);
-              noteServerOnce(req, s.name, null);
-            } else if (st.status === "needs-auth") noteServerOnce(req, s.name, `External tool server "${s.name}" needs an OAuth login the runtime cannot complete here; register it as a stdio server through mcp-remote, or supply a valid Authorization header.`);
-            else noteServerOnce(req, s.name, `External tool server "${s.name}" failed to connect${st.error ? `: ${st.error}` : ""}.`);
+            if (!st || st.status === "pending") serverTrouble(req, s, false, "did not finish connecting within 25 seconds on the last turn; its tools were not available");
+            else if (st.status === "connected") serverTrouble(req, s, true, null);
+            else if (st.status === "needs-auth") serverTrouble(req, s, false, "needs an OAuth login the runtime cannot complete here; register it as a stdio server through mcp-remote, or supply a valid Authorization header");
+            else serverTrouble(req, s, false, `failed to connect on the last turn${st.error ? `: ${st.error}` : ""}`);
           }
           console.log(`[tandem] turn ${req.turnId}: MCP status ${JSON.stringify(Object.fromEntries(statuses))}`);
         }

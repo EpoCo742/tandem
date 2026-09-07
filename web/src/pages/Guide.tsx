@@ -47,7 +47,7 @@ const GROUPS: Group[] = [
     title: "Registers",
     entries: [
       { name: "Decisions", where: "Right pane, Decisions", how: "The AI records what the group settles. Proposed until everyone named agrees. A decision point opens a vote when people disagree or a constraint is at risk." },
-      { name: "Questions", where: "Right pane, Questions (a badge shows how many are open)", how: "What the AI or a person still needs answered. Answer or drop them here with no AI turn; the answer reaches the AI with the next message. Ask the group with the box at the bottom." },
+      { name: "Questions", where: "Right pane, Questions (a badge shows how many are open)", how: "What the AI or a person still needs answered. Answer or drop them here with no AI turn; the answer reaches the AI with the next message. Ask the group with the box at the bottom. The AI cannot open the same question twice, and a reply that re-asks an open one loses that sentence." },
       { name: "Assumptions", where: "Right pane, Decisions, Assumptions section", how: "Say “we assume …” and the AI records it for you with an optional revisit date. Settle one as held or did not hold." },
       { name: "Constraints", where: "The constraints card", how: "Musts, must-nots and targets with who set them. Changes that break one raise a decision point." },
       { name: "Checklist", where: "Right pane, Checklist (templated sessions)", how: "What a whole design of this kind still lacks; the AI steers toward the unticked items." },
@@ -76,7 +76,7 @@ const GROUPS: Group[] = [
     title: "Your tools",
     entries: [
       { name: "Credentials", where: "Top bar, credentials", how: "A Copilot token or GitHub sign-in funds your turns (or the sponsor's, depending on the session)." },
-      { name: "External tools", where: "Top bar, credentials, External tools", how: "Register MCP servers. The AI can read through them freely; anything that writes waits for your approval in the Proposals tab." },
+      { name: "External tools", where: "Top bar, credentials, External tools", how: "Register MCP servers. The AI can read through them freely; anything that writes waits for your approval in the Proposals tab. A server that fails or times out shows its status and last error here, not in the lane." },
       { name: "Notifications", where: "Top bar, credentials, Notifications", how: "Be told through one of your own tools when something waits on you." },
     ],
   },

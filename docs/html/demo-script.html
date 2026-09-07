@@ -652,7 +652,8 @@ node server/scripts/bob.mjs state &lt;sessionId&gt;          # list artifact ids
 </tr>
 </tbody>
 </table></div>
-<p>Point at: the badge on the tab while something is open; the design document's "Open questions" section listing them; the export's Questions section with every answer.</p>
+<p>Point at: the badge on the tab while something is open; the design document's "Open questions" section listing them; the export's Questions section with every answer. Two guards keep a real model honest: <code>ask_clarification</code> answers "already open" for a question that rewords an open one, and a reply sentence that re-asks an open question is dropped before it reaches the lane (the server log says which).</p>
+<p>Tool servers never speak in the lane: a server that fails, times out or needs a login shows its status and last error under credentials → External tools, and the prompt tells the model not to announce what tools are or are not available.</p>
 <h2 id="stage-7c-the-composer-no-ai-turn">Stage 7c: the composer (no AI turn)</h2>
 <div class="table-wrap"><table>
 <thead>

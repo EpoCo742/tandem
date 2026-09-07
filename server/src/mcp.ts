@@ -230,6 +230,11 @@ function view(row: typeof schema.mcpServers.$inferSelect): McpServerView {
   };
 }
 
+/** What the last turn saw of a server: shown on the External tools page instead of in the lane. */
+export function noteTurnStatus(id: string, ok: boolean, detail: string | null) {
+  db.update(schema.mcpServers).set({ status: ok ? "ok" : "error", lastError: ok ? null : detail, testedAt: now() }).where(eq(schema.mcpServers.id, id)).run();
+}
+
 export function listMcpServers(userId: string): McpServerView[] {
   return db.select().from(schema.mcpServers).where(eq(schema.mcpServers.userId, userId)).all().map(view);
 }

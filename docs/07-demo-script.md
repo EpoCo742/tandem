@@ -351,7 +351,9 @@ Feature: what the AI or a participant still needs answered lives in a **Question
 | Alice | Asks `Which region hosts the DR site?` → Q-02. |
 | Bob | Questions tab, answers `Frankfurt, same as production`. No AI turn; the answer is in the next prompt. **drop** marks a question moot. |
 
-Point at: the badge on the tab while something is open; the design document's "Open questions" section listing them; the export's Questions section with every answer.
+Point at: the badge on the tab while something is open; the design document's "Open questions" section listing them; the export's Questions section with every answer. Two guards keep a real model honest: `ask_clarification` answers "already open" for a question that rewords an open one, and a reply sentence that re-asks an open question is dropped before it reaches the lane (the server log says which).
+
+Tool servers never speak in the lane: a server that fails, times out or needs a login shows its status and last error under credentials → External tools, and the prompt tells the model not to announce what tools are or are not available.
 
 ## Stage 7c: the composer (no AI turn)
 

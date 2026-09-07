@@ -404,6 +404,7 @@ export type ToolResult =
   | { status: "invalid_content"; artifactId: string; message: string }
   | { status: "recorded"; decisionId: string; label: string }
   | { status: "asked"; questionId: string; label: string }
+  | { status: "already_open"; questionId: string; label: string; message: string }
   | { status: "question_resolved"; questionId: string; label: string }
   | { status: "content"; artifactId: string; versionNo: number; content: unknown }
   | { status: "pinned"; artifactId: string; pinned: boolean }

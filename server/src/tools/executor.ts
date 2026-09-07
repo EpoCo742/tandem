@@ -1,7 +1,7 @@
 import { ulid } from "ulid";
 import { allAdrs, emptyModel, nextAssumptionLabel, nextQuestionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertDeployment, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { AlternativesContent, ConstraintsContent, ContractContent, DecisionPointContent, SessionState } from "@tandem/shared";
-import { contractsOf, liveArtifacts, parseContract, type SourceContent } from "@tandem/shared";
+import { contractsOf, liveArtifacts, parseContract, similarQuestion, type SourceContent } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
@@ -307,6 +307,8 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
 
     bind("ask_clarification", async (input) => {
       const state = getState(scope.sessionId);
+      const already = similarQuestion(input.question, Object.values(state.questions).filter((q) => q.status === "open"));
+      if (already) return { status: "already_open", questionId: already.id, label: already.label, message: `${already.label} already asks this; it is open in the Questions tab. Do not repeat it.` };
       const questionId = ulid();
       const label = nextQuestionLabel(state);
       appendEvent(scope.sessionId, {

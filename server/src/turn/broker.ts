@@ -1,3 +1,4 @@
+import { stripRepeatedQuestions } from "@tandem/shared";
 import { ulid } from "ulid";
 import { eq } from "drizzle-orm";
 import type { AnyLedgerEvent, LedgerEvent, TurnStatus } from "@tandem/shared";
@@ -195,6 +196,10 @@ class SessionBroker {
       this.state = "applying";
       this.publishState();
       const interrupted = this.abort.signal.aborted;
+      // The register remembers; the reply must not re-ask what is already open there.
+      const openQuestions = Object.values(getState(this.sessionId).questions).filter((q) => q.status === "open");
+      const cleaned = stripRepeatedQuestions(result.text || streamed || "", openQuestions);
+      if (cleaned.removed.length) console.log(`[tandem] turn ${turnId}: dropped ${cleaned.removed.length} repeated question(s) from the reply: ${cleaned.removed.map((r) => JSON.stringify(r.slice(0, 80))).join(", ")}`);
       appendEvent(this.sessionId, {
         type: "ai.message",
         actorKind: "ai",
@@ -202,7 +207,7 @@ class SessionBroker {
         turnId,
         causedBy: batchEventIds,
         payload: {
-          text: result.text || streamed || (interrupted ? "(interrupted before any text)" : "(no text)"),
+          text: cleaned.text || (interrupted ? "(interrupted before any text)" : "(no text)"),
           addressedTo: [...new Set(batch.map((b) => b.actorUserId).filter((x): x is string => Boolean(x)))],
           toolCallsCount: result.toolCallsCount,
           partial: interrupted || undefined,

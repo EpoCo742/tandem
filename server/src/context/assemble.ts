@@ -138,7 +138,7 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
     }
     lines.push("");
   } else {
-    lines.push("## External tools", "None registered by the person this turn is for. If they ask to publish, create tickets or commit somewhere, tell them to register the tool under credentials → External tools.", "");
+    lines.push("## External tools", "None registered by the person this turn is for. Say nothing about tools or their availability unless they ask you to publish, create tickets, commit or otherwise act outside this session; then tell them to register the tool under credentials → External tools.", "");
   }
 
   for (const note of operatorNotes) lines.push(`## Operator note`, note, "");
