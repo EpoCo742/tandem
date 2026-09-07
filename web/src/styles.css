@@ -460,6 +460,8 @@ table.guide td.mono { color: var(--ink-2); }
 
 /* sessions as files: picking rows on the home page, the import panel */
 .session-row.picking { cursor: default; }
-.session-row.picking input[type="checkbox"] { width: 16px; height: 16px; flex: none; margin: 0 4px 0 0; }
+.session-row.picking input[type="checkbox"] { width: 16px; height: 16px; flex: none; padding: 0; margin: 0 4px 0 0; accent-color: var(--accent); }
 .import-bundle input[type="file"] { font-size: 13px; }
-.import-bundle label.row input[type="radio"] { margin-top: 3px; }
+.import-bundle label.row { align-items: flex-start; gap: 10px; cursor: pointer; }
+.import-bundle label.row input[type="radio"] { width: 16px; height: 16px; flex: none; padding: 0; margin: 2px 0 0 0; accent-color: var(--accent); }
+.import-bundle label.row > span { flex: 1; min-width: 0; line-height: 1.4; }

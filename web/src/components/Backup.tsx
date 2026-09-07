@@ -93,11 +93,11 @@ export function ImportBundle({ onDone, onClose }: { onDone: () => void; onClose:
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {peek.sessions.map((s) => <li key={s.id}>{s.title} <span className="mono">{s.events} events · {s.people} people</span></li>)}
               </ul>
-              <label className="row" style={{ alignItems: "flex-start", gap: 8 }}>
+              <label className="row">
                 <input type="radio" name="bundle-mode" checked={mode === "copy"} onChange={() => setMode("copy")} />
                 <span><b>Add as new sessions.</b> Safe: new ids, you become the owner, nothing here is touched. Use this for a copy from someone else or from another install.</span>
               </label>
-              <label className="row" style={{ alignItems: "flex-start", gap: 8 }}>
+              <label className="row">
                 <input type="radio" name="bundle-mode" checked={mode === "replace"} onChange={() => setMode("replace")} />
                 <span><b>Restore in place.</b> Keeps every id, roles and published pages. A session with the same id that you own is replaced by the file's copy; one you do not own is skipped.</span>
               </label>
