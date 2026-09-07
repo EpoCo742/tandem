@@ -355,6 +355,13 @@ Point at: the badge on the tab while something is open; the design document's "O
 
 Tool servers never speak in the lane: a server that fails, times out or needs a login shows its status and last error under credentials → External tools, and the prompt tells the model not to announce what tools are or are not available.
 
+## Stage 7e: zoom in the full-screen view (no AI turn)
+
+| Who | Does |
+|---|---|
+| Anyone | **⤢** on a diagram or document card: the header has − % + and, for diagrams, **fit**. The + − 0 keys and Ctrl+wheel do the same; **f** fits. Text reflows at the new size and the view scrolls, so a large diagram can be read piece by piece. |
+| Anyone | In **Present**, the same controls sit in the top bar; every slide starts at 100%. |
+
 ## Stage 7d: undo and redo (no AI turn)
 
 | Who | Does |

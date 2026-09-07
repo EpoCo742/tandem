@@ -14,6 +14,7 @@ import { AlternativesView } from "./AlternativesView";
 import { ReviewPanel } from "./ReviewPanel";
 import { PublishPanel } from "./PublishPanel";
 import { ContractSpec } from "./ContractSpec";
+import { useZoom, ZoomBar, ZoomBody } from "./Zoomable";
 import { parseContract } from "@tandem/shared";
 import { ImpactPanel } from "./ImpactPanel";
 import { navigate } from "../App";
@@ -78,6 +79,17 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const zoom = useZoom(1);
+  const isDiagram = a.type === "mermaid" || a.type === "view";
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false);
+      else zoom.onKey(e);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded, zoom.onKey]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const editors = useStore((s) => s.editing[a.id]) ?? [];
   const selectors = useStore((s) => s.selections[a.id]) ?? [];
@@ -227,11 +239,12 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
               <span className="chip" style={{ color: AI_COLOR }}>{a.type.replace("_", " ")}</span>
               <b style={{ flex: 1 }}>{a.title}</b>
               <span className="mono">v{v.versionNo} &middot; {authorLabel}</span>
-              <button onClick={() => setExpanded(false)}>close</button>
+              <ZoomBar z={zoom} diagram={isDiagram} />
+              <button onClick={() => setExpanded(false)} title="Close (Esc)">close</button>
             </div>
-            <div className={"modal-body" + (a.type === "mermaid" ? " diagram-full" : " md-doc")}>
+            <ZoomBody z={zoom} className={"modal-body" + (isDiagram ? " diagram-full" : " md-doc")}>
               <ArtifactBody artifact={a} version={v} sessionId={sessionId} myId={me.user!.id} onVote={vote} large />
-            </div>
+            </ZoomBody>
           </div>
         </div>,
         document.body,

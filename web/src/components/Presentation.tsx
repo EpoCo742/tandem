@@ -4,6 +4,7 @@ import { liveArtifacts, participantName, AI_COLOR, type Artifact } from "@tandem
 import type { Collab } from "../collab";
 import { useStore } from "../state/store";
 import { ArtifactBody } from "./ArtifactCard";
+import { useZoom, ZoomBar, ZoomBody } from "./Zoomable";
 
 // Presentation mode: one card per screen in an order the presenter sets, the AI lane and the
 // side pane out of the way, the decision log as the closing screen. The order lives in the
@@ -31,6 +32,7 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
   const [i, setI] = useState(0);
   const [arranging, setArranging] = useState(false);
   const [contents, setContents] = useState(false);
+  const zoom = useZoom(1);
 
   useEffect(() => {
     const read = () => setIds(order.toArray());
@@ -56,10 +58,12 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
       if (e.key === "Home") setI(0);
       if (e.key === "End") setI(total - 1);
       if (e.key === "c" || e.key === "C") setContents((v) => !v);
+      zoom.onKey(e);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [total, onClose]);
+  }, [total, onClose, zoom.onKey]);
+  useEffect(() => zoom.reset(), [at, zoom.reset]);
 
   function move(id: string, dir: -1 | 1) {
     const cur = order.toArray();
@@ -93,6 +97,7 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
         <span className="mono">{state.title}</span>
         <span className="mono">{at + 1} / {total}</span>
         <span className="grow" />
+        <ZoomBar z={zoom} diagram={Boolean(a && (a.type === "mermaid" || a.type === "view"))} />
         <button className={"icon" + (contents ? " primary" : "")} onClick={() => { setContents((v) => !v); setArranging(false); }} title="Jump to a slide (C)">contents</button>
         <button className="icon" onClick={() => { setArranging((v) => !v); setContents(false); }} title="Choose which cards are shown and in what order (shared with everyone presenting this session)">{arranging ? "done" : "arrange"}</button>
         <button className="icon" onClick={onClose} title="Leave presentation (Esc)">exit</button>
@@ -105,9 +110,9 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
               <h1 style={{ fontSize: 28, margin: 0 }}>{a.title}</h1>
               <span className="mono">v{a.current.versionNo} · {a.current.authorKind === "ai" ? "AI for " : ""}{participantName(state, a.current.authorUserId)}</span>
             </div>
-            <div className={"present-card" + (a.type === "mermaid" || a.type === "view" ? " diagram-full" : " md-doc")}>
+            <ZoomBody z={zoom} className={"present-card" + (a.type === "mermaid" || a.type === "view" ? " diagram-full" : " md-doc")}>
               <ArtifactBody artifact={a} version={a.current} sessionId={sessionId} myId={me.user!.id} onVote={() => undefined} large />
-            </div>
+            </ZoomBody>
           </div>
         ) : (
           <div className="present-slide">
@@ -130,7 +135,7 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
       </div>
       <div className="present-nav" onClick={(e) => e.stopPropagation()}>
         <button onClick={() => setI((x) => Math.max(0, x - 1))} disabled={at === 0}>◀ previous</button>
-        <span className="mono">← → to move · C for contents · Esc to leave</span>
+        <span className="mono">← → to move · C for contents · + − 0 f to zoom · Esc to leave</span>
         <button onClick={() => setI((x) => Math.min(total - 1, x + 1))} disabled={at === total - 1}>next ▶</button>
       </div>
       {contents && (

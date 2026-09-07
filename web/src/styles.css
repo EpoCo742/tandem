@@ -447,3 +447,8 @@ table.guide td.mono { color: var(--ink-2); }
 
 /* what Ctrl+Z / Ctrl+Y just did */
 .undo-note { position: fixed; left: 50%; top: 52px; transform: translateX(-50%); background: var(--ink); color: var(--panel); padding: 6px 12px; border-radius: 3px; z-index: 60; box-shadow: var(--shadow); letter-spacing: .03em; }
+
+/* zoom controls on a full-screen card or a slide */
+.zoombar { display: inline-flex; gap: 2px; align-items: center; margin-right: 6px; }
+.zoombar button.icon { font-variant-numeric: tabular-nums; }
+.present-card { overflow: auto; max-height: calc(100vh - 150px); }
