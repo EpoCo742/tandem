@@ -110,7 +110,7 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
               <h1 style={{ fontSize: 28, margin: 0 }}>{a.title}</h1>
               <span className="mono">v{a.current.versionNo} · {a.current.authorKind === "ai" ? "AI for " : ""}{participantName(state, a.current.authorUserId)}</span>
             </div>
-            <ZoomBody z={zoom} className={"present-card" + (a.type === "mermaid" || a.type === "view" ? " diagram-full" : " md-doc")}>
+            <ZoomBody z={zoom} diagram={a.type === "mermaid" || a.type === "view"} className={"present-card" + (a.type === "mermaid" || a.type === "view" ? " diagram-full" : " md-doc")}>
               <ArtifactBody artifact={a} version={a.current} sessionId={sessionId} myId={me.user!.id} onVote={() => undefined} large />
             </ZoomBody>
           </div>

@@ -242,7 +242,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
               <ZoomBar z={zoom} diagram={isDiagram} />
               <button onClick={() => setExpanded(false)} title="Close (Esc)">close</button>
             </div>
-            <ZoomBody z={zoom} className={"modal-body" + (isDiagram ? " diagram-full" : " md-doc")}>
+            <ZoomBody z={zoom} diagram={isDiagram} className={"modal-body" + (isDiagram ? " diagram-full" : " md-doc")}>
               <ArtifactBody artifact={a} version={v} sessionId={sessionId} myId={me.user!.id} onVote={vote} large />
             </ZoomBody>
           </div>

@@ -13,6 +13,9 @@ export function useZoom(initial = 1) {
   const [zoom, setZoomRaw] = useState(initial);
   const bodyEl = useRef<HTMLDivElement | null>(null);
   const detach = useRef<(() => void) | null>(null);
+  // The body's inner width in CSS pixels. A diagram's SVG is sized to its container, which would
+  // fill the same box at every zoom; pinning the zoomed wrapper to this width makes it scale instead.
+  const [baseWidth, setBaseWidth] = useState<number | null>(null);
   const setZoom = useCallback((z: number | ((cur: number) => number)) => setZoomRaw((cur) => clamp(typeof z === "function" ? z(cur) : z)), []);
   const zoomIn = useCallback(() => setZoom((z) => z * STEP), [setZoom]);
   const zoomOut = useCallback(() => setZoom((z) => z / STEP), [setZoom]);
@@ -56,6 +59,9 @@ export function useZoom(initial = 1) {
       detach.current = null;
       bodyEl.current = el;
       if (!el) return;
+      const cs = getComputedStyle(el);
+      // Measured before the vertical scrollbar appears, so leave room for it.
+      setBaseWidth(Math.max(0, el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 18));
       const onWheel = (e: WheelEvent) => {
         if (!e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
@@ -66,7 +72,7 @@ export function useZoom(initial = 1) {
     },
     [setZoom],
   );
-  return { zoom, setZoom, zoomIn, zoomOut, reset, fit, onKey, bodyRef };
+  return { zoom, setZoom, zoomIn, zoomOut, reset, fit, onKey, bodyRef, baseWidth };
 }
 
 export function ZoomBar({ z, diagram }: { z: ReturnType<typeof useZoom>; diagram: boolean }) {
@@ -80,10 +86,10 @@ export function ZoomBar({ z, diagram }: { z: ReturnType<typeof useZoom>; diagram
   );
 }
 
-export function ZoomBody({ z, className, children }: { z: ReturnType<typeof useZoom>; className: string; children: ReactNode }) {
+export function ZoomBody({ z, className, diagram = false, children }: { z: ReturnType<typeof useZoom>; className: string; diagram?: boolean; children: ReactNode }) {
   return (
     <div className={className} ref={z.bodyRef}>
-      <div style={{ zoom: z.zoom } as React.CSSProperties}>{children}</div>
+      <div style={{ zoom: z.zoom, ...(diagram && z.baseWidth ? { width: z.baseWidth } : {}) } as React.CSSProperties}>{children}</div>
     </div>
   );
 }
