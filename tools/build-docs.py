@@ -5,14 +5,14 @@ OUT = SRC / "html"
 OUT.mkdir(exist_ok=True)
 
 DOCS = [
-    ("01-research-findings.md", "Tandem Research Findings", "01 · Research findings", "research-findings.html"),
-    ("02-architecture.md", "Tandem Architecture", "02 · Architecture", "architecture.html"),
-    ("03-technical-design-spec.md", "Tandem Technical Spec", "03 · Technical design specification", "technical-spec.html"),
-    ("05-poc-plan.md", "Tandem POC Plan", "05 · Proof-of-concept plan", "poc-plan.html"),
-    ("06-demo-guide.md", "Tandem Demo Guide", "06 · Demo guide", "demo-guide.html"),
-    ("07-demo-script.md", "Tandem Demo Script", "07 · Demo script", "demo-script.html"),
-    ("08-backlog.md", "Tandem Backlog", "08 · Backlog", "backlog.html"),
-    ("09-roadmap.md", "Tandem Roadmap", "09 · Roadmap", "roadmap.html"),
+    ("01-research-findings.md", "Session Zero Research Findings", "01 · Research findings", "research-findings.html"),
+    ("02-architecture.md", "Session Zero Architecture", "02 · Architecture", "architecture.html"),
+    ("03-technical-design-spec.md", "Session Zero Technical Spec", "03 · Technical design specification", "technical-spec.html"),
+    ("05-poc-plan.md", "Session Zero POC Plan", "05 · Proof-of-concept plan", "poc-plan.html"),
+    ("06-demo-guide.md", "Session Zero Demo Guide", "06 · Demo guide", "demo-guide.html"),
+    ("07-demo-script.md", "Session Zero Demo Script", "07 · Demo script", "demo-script.html"),
+    ("08-backlog.md", "Session Zero Backlog", "08 · Backlog", "backlog.html"),
+    ("09-roadmap.md", "Session Zero Roadmap", "09 · Roadmap", "roadmap.html"),
 ]
 
 CSS = """
@@ -27,6 +27,9 @@ nav.toc .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-tran
 nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;line-height:1.35}
 nav.toc a:hover{color:var(--b)}
 article{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:48px 56px 56px;min-width:0}
+.brandbar{display:flex;align-items:center;gap:10px;margin:0 0 20px;color:var(--ink)}
+.brandbar .wordmark{font-family:var(--display);font-weight:800;font-size:21px;letter-spacing:-.02em;background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+.brandbar .tagline{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding-left:10px;border-left:1px solid var(--line)}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
 h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.1;letter-spacing:-.015em}
 h1{font-size:clamp(34px,4.5vw,52px);font-weight:800;margin:0 0 12px}
@@ -58,6 +61,10 @@ strong{font-weight:600}
 :focus-visible{outline:2px solid var(--b);outline-offset:2px}
 @media (max-width:900px){.page{grid-template-columns:1fr}nav.toc{position:static;border-left:none;padding-left:0}article{padding:28px 20px 40px}h2{font-size:24px}}
 """
+
+BRANDBAR = """<div class="brandbar">
+<svg viewBox="0 0 72 72" width="30" height="30" aria-hidden="true"><circle cx="36" cy="36" r="16" fill="none" stroke="currentColor" stroke-width="5.5"/><circle cx="36" cy="9" r="5.5" fill="var(--b)"/><circle cx="36" cy="63" r="5.5" fill="var(--b)"/><circle cx="9" cy="36" r="5.5" fill="var(--b)"/><circle cx="63" cy="36" r="5.5" fill="var(--a)"/></svg>
+<span class="wordmark">Session Zero</span><span class="tagline">Collaborative Architecture with AI</span></div>"""
 
 FONTS = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">'
 
@@ -109,7 +116,8 @@ for src, title, eyebrow, out in DOCS:
 <div class="page">
 <nav class="toc"><div class="k">Contents</div>{toc_html}</nav>
 <article>
-<div class="eyebrow"><span>Tandem design package · {html.escape(eyebrow)}</span><span>2026-09-03</span></div>
+{BRANDBAR}
+<div class="eyebrow"><span>Session Zero design package · {html.escape(eyebrow)}</span><span>2026-09-03</span></div>
 <h1>{html.escape(h1)}</h1>
 {body}
 </article>

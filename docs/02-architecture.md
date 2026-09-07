@@ -1,6 +1,6 @@
-# Tandem: Architecture Document
+# Session Zero: Architecture Document
 
-*Shared AI sessions for software architects. Working name: Tandem.*
+*Shared AI sessions for software architects. Written under the earlier working name Tandem, which the code still uses.*
 *Companion documents: `01-research-findings.md` (what exists, what is possible) and `03-technical-design-spec.md` (build-level detail for Claude).*
 
 ---
@@ -21,7 +21,7 @@ flowchart LR
         A[Alice<br/>Anthropic key]
         B[Bob<br/>Copilot seat]
     end
-    subgraph Tandem
+    subgraph Session Zero
         L[(Session ledger<br/>append-only events)]
         T[Turn broker]
         C[Canvas<br/>artifacts, versions, decisions]
@@ -52,7 +52,7 @@ flowchart LR
 4. **The AI escalates disagreement, it does not adjudicate it.** Contradictions become explicit Decision Points that people resolve.
 5. **Governance is a dial.** Speed for whiteboarding, rigor for design review. The same mechanism (proposals) serves both; only the auto-apply rules change.
 6. **Everything is a version; nothing is deleted.** Artifacts have immutable versions, sessions have commits, rollback is a forward commit.
-7. **Bring your own credentials, keep your own bill.** Tandem never resells inference. Each participant pays their provider directly.
+7. **Bring your own credentials, keep your own bill.** Session Zero never resells inference. Each participant pays their provider directly.
 
 ---
 
@@ -66,7 +66,7 @@ flowchart TB
         YC[Yjs client<br/>presence, layout, live text]
     end
 
-    subgraph Tandem backend
+    subgraph Session Zero backend
         API[API gateway<br/>REST + WebSocket]
         TB[Turn broker<br/>one worker per active session]
         CA[Context assembler]
@@ -125,7 +125,7 @@ flowchart TB
 sequenceDiagram
     participant U as User
     participant W as Web app
-    participant API as Tandem API
+    participant API as Session Zero API
     participant KMS
     participant GH as GitHub
     U->>W: Sign in
@@ -147,7 +147,7 @@ sequenceDiagram
 
 **Consent.** On joining, a participant sees the sentence: "Everything posted in this session, including other people's uploads, is sent to each participant's AI provider when that participant asks the AI something." They must accept. Sponsor mode collapses this to a single provider.
 
-**What Tandem never does.** It never offers Claude.ai login, never stores Claude.ai session tokens, never proxies a subscription for someone who did not authenticate it. See `01-research-findings.md` section 2.
+**What Session Zero never does.** It never offers Claude.ai login, never stores Claude.ai session tokens, never proxies a subscription for someone who did not authenticate it. See `01-research-findings.md` section 2.
 
 ---
 

@@ -1,4 +1,4 @@
-# Tandem POC: Demo Script
+# Session Zero POC: Demo Script
 
 The lines Alice and Bob say, in order, and what the offline "fake" architect does in reply. Stages build on each other, so you can run the demo up to any stage and stop, or seed a session through stage N with the runner and continue by hand from stage N+1.
 
@@ -648,6 +648,16 @@ Wording to avoid: a plain "and" between two service names is fine, but "order se
 
 ---
 
+## Stage 15: the guide (no script)
+
+| Who | Does |
+|---|---|
+| Anyone | Top bar, **guide**: every feature grouped by where it lives, with what to do there. Useful as the closing slide of a demo, and as the answer to "where was that again?". |
+
+The guide page is the app's own inventory of itself: if something is built, it is listed there; if it is listed there, it exists. Keep `web/src/pages/Guide.tsx` in step with this file when a feature lands.
+
+---
+
 ## Keeping this file current
 
-When a feature lands, add a stage here (and a matching stage in `server/scripts/demo.mjs` if it can be driven through the API), note any new fake-provider trigger in the table above, and bump the date at the top.
+When a feature lands, add a stage here (and a matching stage in `server/scripts/demo.mjs` if it can be driven through the API), add an entry to the in-app guide (`web/src/pages/Guide.tsx`), note any new fake-provider trigger in the table above, and bump the date at the top.

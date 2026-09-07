@@ -1,4 +1,4 @@
-<title>Tandem Technical Spec</title>
+<title>Session Zero Technical Spec</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--ground:#EDF0F3;--panel:#FFFFFF;--panel-2:#F5F7F9;--ink:#1A2128;--ink-2:#4A5561;--ink-3:#7C8893;--line:#D3DAE0;--a:#D4890A;--b:#178E9E;--ai:#5A6773;--ai-soft:#E4E8EC;--code:#F3F5F7;--shadow:0 1px 2px rgba(26,33,40,.06),0 8px 24px rgba(26,33,40,.08);--display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;--body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;--mono:"IBM Plex Mono",Consolas,"Courier New",monospace}
@@ -12,6 +12,9 @@ nav.toc .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-tran
 nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;line-height:1.35}
 nav.toc a:hover{color:var(--b)}
 article{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:48px 56px 56px;min-width:0}
+.brandbar{display:flex;align-items:center;gap:10px;margin:0 0 20px;color:var(--ink)}
+.brandbar .wordmark{font-family:var(--display);font-weight:800;font-size:21px;letter-spacing:-.02em;background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+.brandbar .tagline{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding-left:10px;border-left:1px solid var(--line)}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
 h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.1;letter-spacing:-.015em}
 h1{font-size:clamp(34px,4.5vw,52px);font-weight:800;margin:0 0 12px}
@@ -46,8 +49,11 @@ strong{font-weight:600}
 <div class="page">
 <nav class="toc"><div class="k">Contents</div><a href="#0-locked-decisions-and-defaults">0. Locked decisions and defaults</a><a href="#1-repository-layout">1. Repository layout</a><a href="#2-data-model-postgres-drizzle">2. Data model (Postgres, Drizzle)</a><a href="#3-ledger-event-catalogue-wire-types-in-packages-shared">3. Ledger event catalogue (wire types in packages/shared)</a><a href="#4-turn-broker-packages-core-turn-broker">4. Turn broker (packages/core/turn-broker)</a><a href="#5-context-assembler-packages-context">5. Context assembler (packages/context)</a><a href="#6-provider-adapters-packages-providers">6. Provider adapters (packages/providers)</a><a href="#7-canvas-tools-packages-tools">7. Canvas tools (packages/tools)</a><a href="#8-governance-mechanics">8. Governance mechanics</a><a href="#9-versioning-commits-forks">9. Versioning, commits, forks</a><a href="#10-uploads-and-ingestion">10. Uploads and ingestion</a><a href="#11-design-document-compiler-apps-worker-compiler">11. Design document compiler (apps/worker/compiler)</a><a href="#12-api-surface">12. API surface</a><a href="#13-web-app-structure">13. Web app structure</a><a href="#14-prompts-initial-drafts-iterate-with-evals">14. Prompts (initial drafts, iterate with evals)</a><a href="#15-testing-strategy">15. Testing strategy</a><a href="#16-milestones-and-acceptance-criteria">16. Milestones and acceptance criteria</a><a href="#17-non-functional-targets">17. Non-functional targets</a><a href="#18-things-deliberately-out-of-v1">18. Things deliberately out of v1</a></nav>
 <article>
-<div class="eyebrow"><span>Tandem design package · 03 · Technical design specification</span><span>2026-09-03</span></div>
-<h1>Tandem: Technical Design Specification</h1>
+<div class="brandbar">
+<svg viewBox="0 0 72 72" width="30" height="30" aria-hidden="true"><circle cx="36" cy="36" r="16" fill="none" stroke="currentColor" stroke-width="5.5"/><circle cx="36" cy="9" r="5.5" fill="var(--b)"/><circle cx="36" cy="63" r="5.5" fill="var(--b)"/><circle cx="9" cy="36" r="5.5" fill="var(--b)"/><circle cx="63" cy="36" r="5.5" fill="var(--a)"/></svg>
+<span class="wordmark">Session Zero</span><span class="tagline">Collaborative Architecture with AI</span></div>
+<div class="eyebrow"><span>Session Zero design package · 03 · Technical design specification</span><span>2026-09-03</span></div>
+<h1>Session Zero: Technical Design Specification</h1>
 
 <p>Audience: an implementing agent (Claude Code) and engineers. Dense by design. Product rationale is in <code>02-architecture.md</code>; feasibility and policy in <code>01-research-findings.md</code>.</p>
 <p>Conventions: TypeScript everywhere. Identifiers in <code>snake_case</code> at the DB and wire level, <code>camelCase</code> in code. All timestamps UTC ISO-8601. All ids are ULIDs unless noted. "Payer" means the participant whose provider credentials fund an AI call.</p>

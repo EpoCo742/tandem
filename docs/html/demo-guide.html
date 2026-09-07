@@ -1,4 +1,4 @@
-<title>Tandem Demo Guide</title>
+<title>Session Zero Demo Guide</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root{--ground:#EDF0F3;--panel:#FFFFFF;--panel-2:#F5F7F9;--ink:#1A2128;--ink-2:#4A5561;--ink-3:#7C8893;--line:#D3DAE0;--a:#D4890A;--b:#178E9E;--ai:#5A6773;--ai-soft:#E4E8EC;--code:#F3F5F7;--shadow:0 1px 2px rgba(26,33,40,.06),0 8px 24px rgba(26,33,40,.08);--display:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;--body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;--mono:"IBM Plex Mono",Consolas,"Courier New",monospace}
@@ -12,6 +12,9 @@ nav.toc .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-tran
 nav.toc a{display:block;color:var(--ink-2);text-decoration:none;padding:3px 0;line-height:1.35}
 nav.toc a:hover{color:var(--b)}
 article{background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:48px 56px 56px;min-width:0}
+.brandbar{display:flex;align-items:center;gap:10px;margin:0 0 20px;color:var(--ink)}
+.brandbar .wordmark{font-family:var(--display);font-weight:800;font-size:21px;letter-spacing:-.02em;background:linear-gradient(90deg,var(--a),var(--b));-webkit-background-clip:text;background-clip:text;color:transparent}
+.brandbar .tagline{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding-left:10px;border-left:1px solid var(--line)}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
 h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;line-height:1.1;letter-spacing:-.015em}
 h1{font-size:clamp(34px,4.5vw,52px);font-weight:800;margin:0 0 12px}
@@ -46,8 +49,11 @@ strong{font-weight:600}
 <div class="page">
 <nav class="toc"><div class="k">Contents</div><a href="#1-start-the-app">1. Start the app</a><a href="#2-sign-in">2. Sign in</a><a href="#3-connect-an-ai-credential">3. Connect an AI credential</a><a href="#4-create-a-session">4. Create a session</a><a href="#5-the-session-screen-and-consent">5. The session screen and consent</a><a href="#6-two-people-one-turn">6. Two people, one turn</a><a href="#7-editing-someone-else-s-work-becomes-a-proposal">7. Editing someone else&#x27;s work becomes a proposal</a><a href="#8-a-contradiction-raises-a-decision-point">8. A contradiction raises a decision point</a><a href="#9-talking-without-the-ai-listening">9. Talking without the AI listening</a><a href="#10-history-and-rollback">10. History and rollback</a><a href="#11-uploads-and-the-compiled-design-document">11. Uploads and the compiled design document</a><a href="#12-data-model-and-forking-a-v2">12. Data model and forking a v2</a><a href="#13-export">13. Export</a><a href="#14-what-happened-underneath">14. What happened underneath</a><a href="#15-running-with-a-real-copilot-seat">15. Running with a real Copilot seat</a><a href="#16-troubleshooting">16. Troubleshooting</a></nav>
 <article>
-<div class="eyebrow"><span>Tandem design package · 06 · Demo guide</span><span>2026-09-03</span></div>
-<h1>Tandem POC: Demo Guide</h1>
+<div class="brandbar">
+<svg viewBox="0 0 72 72" width="30" height="30" aria-hidden="true"><circle cx="36" cy="36" r="16" fill="none" stroke="currentColor" stroke-width="5.5"/><circle cx="36" cy="9" r="5.5" fill="var(--b)"/><circle cx="36" cy="63" r="5.5" fill="var(--b)"/><circle cx="9" cy="36" r="5.5" fill="var(--b)"/><circle cx="63" cy="36" r="5.5" fill="var(--a)"/></svg>
+<span class="wordmark">Session Zero</span><span class="tagline">Collaborative Architecture with AI</span></div>
+<div class="eyebrow"><span>Session Zero design package · 06 · Demo guide</span><span>2026-09-03</span></div>
+<h1>Session Zero POC: Demo Guide</h1>
 
 <p>A walkthrough of the proof of concept as it runs today, with screenshots from a real run on 2026-09-03. Two people, Alice and Bob, design an order platform with one AI participant on a shared, versioned canvas. The run uses the offline "fake" provider so it costs nothing and needs no Copilot seat; with a Copilot credential the same steps run against a real model.</p>
 <hr />
@@ -133,7 +139,7 @@ pnpm --filter @tandem/server start
 <p><strong>Export .md</strong> in the top bar produces a Markdown document with the artifacts, the decision log, and the commit history. Provenance travels along as HTML comments, so attribution survives leaving the app. An excerpt from this run:</p>
 <pre><code class="language-markdown"># Order platform v1
 
-&lt;!-- tandem session 01M1NAKN...; head commit 01M1NAWF... --&gt;
+&lt;!-- session zero: session 01M1NAKN...; exported 2026-09-07T…; head commit 01M1NAWF... --&gt;
 
 ## Artifacts
 

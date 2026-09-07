@@ -1,6 +1,6 @@
 # Research Findings: Shared AI Sessions for Collaborative Architecture
 
-Working name used throughout these documents: **Tandem** (placeholder, rename freely).
+The product is **Session Zero**: the session before the build, where the architecture is agreed. These documents were written under the earlier working name Tandem, which the code, package names and environment variables still use.
 Date of research: 2026-09-03.
 
 This document answers the questions in the original brief: is it possible, what already exists, what it would take, and where the real risks are. The architecture and build spec live in `02-architecture.md` and `03-technical-design-spec.md`.
@@ -36,7 +36,7 @@ and, for API keys:
 
 > This does not restrict how customers provision and manage their own API keys ... provided the resulting usage is billed to the key owner under their agreement with Anthropic and is not resold or intermediated.
 
-Consequences for Tandem:
+Consequences for Session Zero:
 
 - **Do not** build "Sign in with Claude". It is prohibited and Anthropic actively enforces it (OpenClaw and other harnesses were cut off in January and February 2026).
 - **Do** let each user paste their own Anthropic Console API key. Usage bills to their Console account. This is the standard BYOK pattern used by Warp, Kodus, Cursor and many others. Store keys encrypted (AES-256-GCM, envelope key in a KMS), never send them to the browser.
@@ -62,7 +62,7 @@ Codex supports ChatGPT sign-in and API-key auth. "Sign in with ChatGPT" for thir
 
 ### 2.4 Resulting provider matrix (v1)
 
-| Provider | Auth in Tandem | Bills to | Claude models available | Policy status |
+| Provider | Auth in Session Zero | Bills to | Claude models available | Policy status |
 |---|---|---|---|---|
 | Anthropic API | User-pasted API key | User's Console org | All current models | Explicitly allowed |
 | GitHub Copilot | GitHub OAuth (per-user token) | User's Copilot seat | Opus 5, Sonnet 4.5 (plan-dependent) | Explicitly allowed |
@@ -92,11 +92,11 @@ Conclusion: the category is real and multiple large vendors are moving into it, 
 
 ### 3.2 Research that informs the design
 
-- **MUCA: Multi-User Chat Assistant** (arXiv 2401.04883). Frames the group-chat assistant problem as three decisions: *what* to say, *when* to speak, *who* to address. Three modules: sub-topic generator, dialog analyzer, conversational strategies arbitrator. Tandem adopts the 3W framing: users explicitly address the AI in v1, and an "ambient" mode later lets the AI decide when to intervene.
-- **GroupGPT** (arXiv 2603.01059). Separates the *intervention decision* from *response generation*, cutting token use up to 3x. Tandem uses the same split: a cheap classifier step (Haiku 4.5) decides whether a message needs a full turn, a conflict flag, or nothing.
+- **MUCA: Multi-User Chat Assistant** (arXiv 2401.04883). Frames the group-chat assistant problem as three decisions: *what* to say, *when* to speak, *who* to address. Three modules: sub-topic generator, dialog analyzer, conversational strategies arbitrator. Session Zero adopts the 3W framing: users explicitly address the AI in v1, and an "ambient" mode later lets the AI decide when to intervene.
+- **GroupGPT** (arXiv 2603.01059). Separates the *intervention decision* from *response generation*, cutting token use up to 3x. Session Zero uses the same split: a cheap classifier step (Haiku 4.5) decides whether a message needs a full turn, a conflict flag, or nothing.
 - **Collaborative Document Editing with Multiple Users and AI Agents** (CHI 2026, arXiv 2509.11826). Week-long study, 14 teams. Teams folded agents into existing norms of authorship and control rather than treating them as teammates; agent outputs became shared resources, agent configurations stayed personal. Design implication: the AI's output must be attributed *to the human who asked*, and private scratch prompts must exist.
-- **Multi-User Shared AI Sessions** (tianpan.co, 2026-04-17). Treat the session as an ordered persistent event stream; serialize LLM turns; broadcast tokens to everyone; attribute every tool call to a user identity; context fills faster with multiple authors so compaction must be attribution-aware; OT/CRDT do not map onto inference semantics. Tandem's ledger and turn broker follow this directly.
-- **Multi-party turn-taking and addressee prediction** (several 2024-2026 papers). LLMs do reasonably at addressee recognition when speakers are explicitly labelled. Tandem always labels speakers in the transcript.
+- **Multi-User Shared AI Sessions** (tianpan.co, 2026-04-17). Treat the session as an ordered persistent event stream; serialize LLM turns; broadcast tokens to everyone; attribute every tool call to a user identity; context fills faster with multiple authors so compaction must be attribution-aware; OT/CRDT do not map onto inference semantics. The ledger and turn broker follow this directly.
+- **Multi-party turn-taking and addressee prediction** (several 2024-2026 papers). LLMs do reasonably at addressee recognition when speakers are explicitly labelled. Session Zero always labels speakers in the transcript.
 
 ### 3.3 Infrastructure that can be reused
 

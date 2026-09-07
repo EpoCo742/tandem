@@ -1,8 +1,30 @@
-# Session Zero
+<p align="center">
+  <img src="docs/brand/session-zero-logo-transparent.png" alt="Session Zero" width="300">
+</p>
 
-Collaborative architecture with AI. (The code, package names and environment variables still say "Tandem", the earlier working name.) A shared AI session product: two to five software architects share one AI conversation and one versioned artifact canvas, each funding their turns with their own AI credentials, and compile the result into a design document.
+<p align="center"><b>Collaborative Architecture with AI</b></p>
 
-This repository holds the research, the design package, and the proof-of-concept.
+Session Zero is the session before the build, where the architecture gets agreed. Two to five software architects share one AI conversation and one versioned artifact canvas, each funding their turns with their own AI credentials, and compile the result into a design document that can be reviewed, signed off and published.
+
+The name is the product; the code, package names and environment variables still say "Tandem", the earlier working name. This repository holds the research, the design package, and the proof-of-concept.
+
+## What it does
+
+Every feature is listed with where it lives and how to use it on the **guide** page inside the app (top bar → guide), and demonstrated step by step in `docs/07-demo-script.md`.
+
+**One AI, many people.** Messages sent within a moment of each other are answered in one turn, streamed to everyone. Each turn is attributed and funded by the person who spoke, or by the session's sponsor. A side channel and threads anchored to cards let people talk without the AI listening, and promote a note when they want it heard.
+
+**A canvas that means something.** An architecture model is the source of truth; container, component, sequence, deployment and as-is-vs-to-be views are drawn from it. Diagrams can be imported from Mermaid, Structurizr DSL or PlantUML. Uploads become source cards. Contracts render as API references from OpenAPI or AsyncAPI.
+
+**Governed change.** Every change is an event in a per-session ledger. Editing someone else's card makes a proposal they approve, contradictions raise a decision point with a vote and a deadline, and the History tab reverts a whole commit. Ctrl+Z takes back your own last move, edit or delete.
+
+**Registers that hold the thinking.** Decisions with ADR-grade records, open questions the AI may not re-ask, assumptions with revisit dates, constraints the AI designs against, and a checklist per template.
+
+**A document at the end.** One turn compiles the canvas into a design document; any two versions can be compared by computation, with an optional AI narrative on top. Review and sign-off record an approval as a decision, and publishing gives it a public page with a frozen copy per version.
+
+**Across sessions and time.** A library searches decisions, components, constraints, contracts and published documents from every session you can see. Replay steps through a session from its first event. Forking starts v2 from the current canvas. Sessions export and import as files, and an operator can back up and restore the whole install.
+
+**Your own tools.** MCP servers registered under credentials let the AI read freely and propose anything that writes; notifications go out through those same tools when something waits on you.
 
 ## Layout
 
@@ -51,7 +73,7 @@ To tell which one it is, from the same machine and shell:
 curl -sS -I https://api.github.com/user -H "Authorization: Bearer <your token>"
 ```
 
-A certificate error means TLS inspection (set `NODE_EXTRA_CA_CERTS`); a timeout or an HTML login page means the proxy (set `HTTPS_PROXY`); a 401 means the token itself expired or was revoked (fine-grained tokens expire; re-create it under credentials). Nothing in Tandem's own builds changes how the runtime reaches GitHub.
+A certificate error means TLS inspection (set `NODE_EXTRA_CA_CERTS`); a timeout or an HTML login page means the proxy (set `HTTPS_PROXY`); a 401 means the token itself expired or was revoked (fine-grained tokens expire; re-create it under credentials). Nothing in Session Zero's own builds changes how the runtime reaches GitHub.
 
 ## If a card says "This version of the card cannot be shown"
 
@@ -111,7 +133,7 @@ Open http://localhost:5173. With `TANDEM_DEV_AUTH=1` you can log in with any han
 
 Sponsor mode (default) funds every turn with the session creator's credential, so only the creator needs a seat.
 
-**External tools:** under credentials → External tools, paste the server entry from your editor's `mcp.json` (VS Code, Claude Desktop and Cursor shapes all work; `gallery` and `version` are ignored, `${input:…}` placeholders must be replaced with real values) or fill in the fields by hand (stdio command or HTTP URL, with your own tokens in the environment or headers). The AI can use them on turns you direct; reads run at once, writes are proposed to you in the session's Proposals tab and denied if nobody answers. `node server/scripts/mcp-demo-server.mjs` is a stand-in for Atlassian for demos. Stdio servers run as child processes of the Tandem server, so only register commands you trust on the machine it runs on.
+**External tools:** under credentials → External tools, paste the server entry from your editor's `mcp.json` (VS Code, Claude Desktop and Cursor shapes all work; `gallery` and `version` are ignored, `${input:…}` placeholders must be replaced with real values) or fill in the fields by hand (stdio command or HTTP URL, with your own tokens in the environment or headers). The AI can use them on turns you direct; reads run at once, writes are proposed to you in the session's Proposals tab and denied if nobody answers. `node server/scripts/mcp-demo-server.mjs` is a stand-in for Atlassian for demos. Stdio servers run as child processes of the Session Zero server, so only register commands you trust on the machine it runs on.
 
 **Long sessions:** once more than `TANDEM_COMPACT_AFTER` messages (default 8) have fallen out of the model's transcript window, the server folds them into a running brief that keeps who said what and the message ids, and the AI reads the brief instead. That summary is one extra provider request on the sponsor's plan each time it runs. The Brief tab shows it and can refresh it by hand.
 
@@ -151,4 +173,6 @@ The smoke script drives two users through the full demo: batched directives, str
 
 ## Status
 
-2026-09-03: POC steps P0-P3 implemented (sessions, batched turns, governance, versions, uploads and source cards, AI-drafted data model, compile to design document, fork to v2, export) and passing the smoke test and manual browser runs. See `docs/06-demo-guide.md` for a screenshot walkthrough. Remaining: real-Copilot validation on an account with a seat, GitHub OAuth App configuration.
+2026-09-07: the POC is feature-complete for the plan of record in `docs/09-roadmap.md`. Phases A to F are shipped, from the architecture model, decisions, constraints and alternatives, through review, publishing, the library and templates, to replay, impact, contracts, sequence and deployment views, presentation mode, undo, full-screen zoom, version comparison and sessions as files. The smoke test drives two people through the whole demo against the offline provider, and `docs/06-demo-guide.md` is a screenshot walkthrough.
+
+Remaining before this is more than a proof of concept: validation against a real Copilot seat (the offline provider path is what the tests cover), a GitHub App rather than an OAuth App, per-user sandboxing for stdio MCP servers, and object storage instead of local disk for uploads. See `docs/09-roadmap.md` for the detail.

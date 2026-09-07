@@ -1,4 +1,4 @@
-# Tandem roadmap
+# Session Zero roadmap
 
 Plan of record from 2026-09-05. Everything built so far is listed in `05-poc-plan.md` section 7; the earlier backlog is folded into this document, which replaces `08-backlog.md` as the place to look for what is next.
 
@@ -40,7 +40,7 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 **What.** `record_decision` grows context, options considered with their trade-offs, consequences, and `about` components. The Decisions tab shows the record; the export writes each decision in ADR form; an "export ADRs" action produces one Markdown file per decision, and, when a GitHub MCP tool is registered, the AI can commit them to `docs/adr` through the same outbound gate as any other write.
 
-**Why.** It makes Tandem the place decisions are made, not merely discussed, and leaves the repository with the artefact architects already keep.
+**Why.** It makes Session Zero the place decisions are made, not merely discussed, and leaves the repository with the artefact architects already keep.
 
 **Acceptance.** A resolved decision point produces an ADR with the options that were voted on; "commit the ADRs to the repo" proposes a GitHub write naming the repository and path; after approval the files exist.
 
@@ -72,7 +72,7 @@ The roadmap fixes those three things in that order: **depth**, **reach**, **memo
 
 **Why.** Most design sessions start from something that exists, and the as-is versus to-be view is what stakeholders ask for.
 
-**Acceptance.** Against the Tandem repository itself: the model shows the server, the web app, SQLite, the Copilot runtime, and the MCP servers; adding a Redis component shows as a to-be change.
+**Acceptance.** Against this repository itself: the model shows the server, the web app, SQLite, the Copilot runtime, and the MCP servers; adding a Redis component shows as a to-be change.
 
 **Effort.** Four days. Depends on A1; reads only, so no new governance.
 
@@ -309,7 +309,7 @@ A complete session shipped as a fixture and loaded at start on every install: re
 ## Carried over from the earlier backlog
 
 - **Constraint check after hand edits.** Direct edits of the model or of free Mermaid cards are not checked against the constraints; only the AI's own changes are. The cheap version tells the AI on its next turn that the model changed by hand so it re-checks; the user's concern is that this spends tokens on every turn after a manual edit. Park until there is evidence of hand edits breaking constraints.
-- **Sandboxed MCP servers.** Stdio servers run as children of the Tandem server; production needs a per-user sandbox. Production item; unchanged.
+- **Sandboxed MCP servers.** Stdio servers run as children of the Session Zero server; production needs a per-user sandbox. Production item; unchanged.
 - **Copilot runtime MCP path on a real seat.** Wired and typechecked, not yet exercised on a seat. Needs a person with an Atlassian or GitHub MCP registered to ask the AI to publish something. Half a day, user-driven.
 - **Live text co-editing.** Still deprioritised: it bypasses the proposal flow. Anchored threads (B2) cover most of what people wanted from it.
 - **GitHub App instead of OAuth App.** Production item: short-lived tokens with refresh handling.

@@ -1,4 +1,4 @@
-# Tandem backlog
+# Session Zero backlog
 
 Superseded on 2026-09-05 by `09-roadmap.md`, which folds these items into a phased plan. Kept for the design sketch of the MCP work.
 
@@ -8,7 +8,7 @@ Shipped from this list on 2026-09-05: the first slice of per-user MCP servers (r
 
 ## 1. Per-user MCP servers (first slice shipped 2026-09-05)
 
-**Still to do.** Running stdio servers in a per-user sandbox rather than as children of the Tandem server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test). Shipped later on 2026-09-05: standing permissions ("Approve, always for space ARCH", listed and revocable under External tools) and external actions in the History tab and the export.
+**Still to do.** Running stdio servers in a per-user sandbox rather than as children of the Session Zero server; validating the Copilot runtime's MCP path on a real seat (the offline provider path is covered by the smoke test). Shipped later on 2026-09-05: standing permissions ("Approve, always for space ARCH", listed and revocable under External tools) and external actions in the History tab and the export.
 
 **Ask.** Each participant registers their own MCP servers with their own credentials and configuration, for example Atlassian and GitHub. In the chat a person can say "upload the design document to Confluence", "create epics and stories for the data model", or "commit the diagrams to the repo", and the AI discovers and uses that person's tools to do it.
 
@@ -21,7 +21,7 @@ Shipped from this list on 2026-09-05: the first slice of per-user MCP servers (r
 - *Discovery.* On each turn the broker passes the speaker's registered servers to `createSession` alongside the canvas tools, and lists them in the prompt under "External tools available to Alice". The model already knows how to pick a tool from a description.
 - *Governance.* Every external write is a new risk class, `outbound`. Under the hybrid policy it is a proposal that names the target ("create 4 Jira stories in project ORD", "publish page 'Order platform v1' to space ARCH") and needs the owner's approval; the person who registered the tool can pre-approve targets. Reads are additive. Nothing leaves the session without a ledger event that names who directed it and which tool ran, and the export's history shows the same.
 - *Ledger events.* `tool.registered`, `tool.removed`, `external.call_proposed`, `external.call_completed` with the target and a link back to the message that caused it.
-- *Sandboxing.* Stdio servers run as child processes of the Tandem server; production would run them in a per-user sandbox and the design already reserves that for M4.
+- *Sandboxing.* Stdio servers run as child processes of the Session Zero server; production would run them in a per-user sandbox and the design already reserves that for M4.
 
 **Acceptance.** Alice registers the Atlassian MCP with her token; Bob has none. Alice says "publish the design document to Confluence under ARCH". The AI proposes the publish with the page title and space, Alice approves, the page appears, the history shows Alice directed it. Bob asking the same is told he has no Confluence tool registered.
 

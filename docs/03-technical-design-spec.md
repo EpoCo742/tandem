@@ -1,4 +1,4 @@
-# Tandem: Technical Design Specification
+# Session Zero: Technical Design Specification
 
 Audience: an implementing agent (Claude Code) and engineers. Dense by design. Product rationale is in `02-architecture.md`; feasibility and policy in `01-research-findings.md`.
 
