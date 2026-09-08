@@ -75,6 +75,15 @@ function Is-Secret([string]$name) {
   return $false
 }
 
+# What to print for one variable. A name that sounds like a secret is masked whole; anything
+# else is printed so a wrong route or proxy host is visible - except the credentials inside a
+# URL, which is how a proxy password arrives (HTTPS_PROXY=http://user:pass@proxy:8080) and
+# would otherwise be read out in full.
+function Show-Value([string]$name, [string]$value) {
+  if (Is-Secret $name) { return Mask $value }
+  return [regex]::Replace($value, "://([^/:@\s]+):([^/@\s]+)@", '://$1:***@')
+}
+
 # ---- 0. what we are about to do, and to which foundation -------------------------------
 
 if (-not (Get-Command cf -ErrorAction SilentlyContinue)) { throw "The cf CLI is not on PATH." }
@@ -111,9 +120,7 @@ Write-Host ("  app        " + $App)
 Write-Host ("  manifest   " + $Manifest)
 Write-Host ("  env file   " + $EnvFile + "  (" + $vars.Count + " variables)")
 foreach ($k in $vars.Keys) {
-  $shown = $vars[$k]
-  if (Is-Secret $k) { $shown = Mask $shown }
-  Write-Host ("               " + $k.PadRight(22) + $shown)
+  Write-Host ("               " + $k.PadRight(22) + (Show-Value $k $vars[$k]))
 }
 Write-Host ("  data       " + $(if ($Fresh) { "not backed up (-Fresh)" } else { "exported before the push, imported after it" }))
 Write-Host ""
@@ -170,9 +177,7 @@ Write-Host "   setting environment"
 foreach ($k in $vars.Keys) {
   & cf set-env $App $k $vars[$k] | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "cf set-env $k failed." }
-  $shown = $vars[$k]
-  if (Is-Secret $k) { $shown = Mask $shown }
-  Write-Host ("     " + $k.PadRight(22) + $shown)
+  Write-Host ("     " + $k.PadRight(22) + (Show-Value $k $vars[$k]))
 }
 
 & cf start $App
