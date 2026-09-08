@@ -4,6 +4,9 @@
 
 export const PRODUCT_NAME = "archloom";
 
+/** Shown under the name on the way in, and nowhere else: the mark drawn as a sentence. */
+export const PRODUCT_LINE = "Many threads, one design";
+
 export function BrandMark({ size = 22, accent = "var(--accent)", ink = "currentColor" }: { size?: number; accent?: string; ink?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 72 72" aria-hidden="true" style={{ display: "block", flex: "none" }}>
@@ -18,8 +21,8 @@ export function BrandMark({ size = 22, accent = "var(--accent)", ink = "currentC
   );
 }
 
-/** Mark and name, in two sizes: the top bar and a page heading. */
-export function Brand({ large = false }: { large?: boolean }) {
+/** Mark and name, in two sizes: the top bar and a page heading. `line` adds the tagline. */
+export function Brand({ large = false, line = false }: { large?: boolean; line?: boolean }) {
   const name = (
     <span className="brand-name">
       <span className="brand-arch">arch</span>
@@ -30,7 +33,10 @@ export function Brand({ large = false }: { large?: boolean }) {
     return (
       <div className="brand-large">
         <BrandMark size={46} />
-        {name}
+        <div>
+          {name}
+          {line && <div className="brand-line">{PRODUCT_LINE}</div>}
+        </div>
       </div>
     );
   }

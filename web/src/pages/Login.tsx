@@ -21,8 +21,8 @@ export function Login() {
 
   return (
     <div className="page" style={{ maxWidth: 520 }}>
-      <Brand large />
-      <p className="muted" style={{ margin: "14px 0 18px" }}>The design session before the build: two to five people and one AI on a shared canvas, every decision on record.</p>
+      <Brand large line />
+      <div style={{ height: 22 }} />
       <div className="card stack">
         {me.githubConfigured && (
           <a href="/auth/github"><button className="primary">Sign in with GitHub</button></a>
