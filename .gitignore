@@ -30,3 +30,6 @@ smoke-server.log
 demo-server.log
 demo-run.log
 server/data-demo/
+
+# Cloud Foundry deployment secrets stay out of the repo; the example does not.
+!deploy/.env.pcf.example

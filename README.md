@@ -144,6 +144,16 @@ docker compose up --build
 
 Serves the built SPA and API on http://localhost:3000 with SQLite and uploads under `./data`.
 
+## Cloud Foundry
+
+```powershell
+copy deploy\.env.pcf.example deploy\.env.pcf   # client ids and secrets go here, nowhere else
+.\deploy\push.ps1 -Fresh                        # first deploy
+.\deploy\push.ps1                               # after that: back up, push, put the data back
+```
+
+`manifest.yml` holds everything that is not a secret; `deploy/push.ps1` builds the SPA here, exports the running install, pushes with `--no-start`, sets each variable from `deploy/.env.pcf` with `cf set-env`, starts, waits for `/api/health` and imports the sessions back. `deploy/backup.ps1` takes the same dated backup on its own. One instance, always: SQLite, the event bus and the Yjs server are all in this process, so no `cf scale -i 2` and no `--strategy rolling`. `deploy/README.md` has the detail, including what the foundation has to allow.
+
 ## Backups and redeploys
 
 Everything lives under `DATA_DIR`: `tandem.db` (SQLite: sessions, ledger, accounts, sealed credentials, tool servers, published pages) and `files/` (uploads). Anything that replaces the container's filesystem loses both unless that directory is on a volume. On Cloud Foundry every `cf push`, restage and restart starts from a fresh filesystem, so a plain push wipes the data; mount a volume service at `DATA_DIR` (one instance only; SQLite over NFS wants `journal_mode=DELETE`, which is not what the app sets) or, simpler, move the data through the app:

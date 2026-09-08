@@ -1,0 +1,27 @@
+# What not to upload to Cloud Foundry. Everything the app needs at runtime is either in the
+# push or installed at staging; the local node_modules must never travel, since it holds
+# Windows or macOS builds of better-sqlite3 and of the Copilot CLI and staging installs the
+# Linux ones itself. web/dist does travel: the SPA is built here, so staging only installs.
+.git/
+.github/
+node_modules/
+**/node_modules/
+
+# runtime data and secrets
+data/
+data-*/
+**/data-smoke/
+**/data-demo/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+deploy/backups/
+*.log
+
+# build and authoring by-products with no part in the running app
+docs/html/
+docs/brand/
+**/.vite/
+**/coverage/

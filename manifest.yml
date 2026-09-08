@@ -1,0 +1,40 @@
+# archloom on Cloud Foundry. Secrets are not here: deploy/push.ps1 sets them with cf set-env
+# from deploy/.env.pcf, which is not in the repository. See deploy/README.md.
+---
+applications:
+  - name: archloom
+    # One instance, always. SQLite, the event bus and the Yjs document server all live inside
+    # this process; a second instance would be a second writer with its own copy of the state.
+    # For the same reason never push with --strategy rolling, which runs two at once.
+    instances: 1
+    memory: 4G
+    disk_quota: 4G
+    buildpacks:
+      - nodejs_buildpack
+    command: pnpm --filter @tandem/server start
+    health-check-type: http
+    health-check-http-endpoint: /api/health
+    health-check-invocation-timeout: 10
+    # Uncomment and set to your route, then make APP_URL in deploy/.env.pcf match it exactly:
+    # the GitHub OAuth callback is built from APP_URL and has to be the address people use.
+    # routes:
+    #   - route: archloom.apps.example.com
+    env:
+      NODE_ENV: production
+      # The server runs TypeScript through tsx, which is a devDependency, so staging must not
+      # prune dev dependencies.
+      NPM_CONFIG_PRODUCTION: "false"
+      NODE_OPTIONS: --max-old-space-size=3072
+      DATA_DIR: /home/vcap/app/data
+      WEB_DIST: /home/vcap/app/web/dist
+      TANDEM_PROVIDER: copilot
+      # Never 1 on a shared deployment: it lets anyone sign in as any handle without GitHub.
+      TANDEM_DEV_AUTH: "0"
+      TANDEM_DEFAULT_MODEL: claude-opus-5
+      # Each turn spawns a Copilot CLI process. Lower this first if the app is memory-killed.
+      TANDEM_MAX_CONCURRENT_TURNS: "3"
+    # If the foundation offers an NFS volume service, mounting it at DATA_DIR keeps the data
+    # across pushes. Read deploy/README.md first: SQLite over NFS has conditions, and the
+    # backup-and-restore path below works without any volume.
+    # services:
+    #   - archloom-data
