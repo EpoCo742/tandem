@@ -30,12 +30,20 @@ export function Brand({ large = false, line = false }: { large?: boolean; line?:
     </span>
   );
   if (large) {
+    // With the line, the mark grows to the height of the two rows and the words of the line are
+    // spread to the width of the name, so the lockup is a rectangle rather than a ragged step.
     return (
       <div className="brand-large">
-        <BrandMark size={46} />
-        <div>
+        <BrandMark size={line ? 54 : 46} />
+        <div className="brand-stack">
           {name}
-          {line && <div className="brand-line">{PRODUCT_LINE}</div>}
+          {line && (
+            <div className="brand-line">
+              {PRODUCT_LINE.split(" ").map((w) => (
+                <span key={w}>{w}</span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );

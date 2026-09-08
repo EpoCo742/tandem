@@ -98,7 +98,8 @@ button.icon { padding: 3px 7px; font-family: var(--mono); font-size: 11px; lette
 .brand-name { white-space: nowrap; }
 .brand-large { display: flex; align-items: center; gap: 14px; }
 .brand-large .brand-name { font-family: var(--display); font-weight: 800; font-size: 35px; letter-spacing: -.03em; line-height: 1; }
-.brand-large .brand-line { font-family: var(--mono); font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); margin-top: 6px; }
+.brand-stack { display: flex; flex-direction: column; align-items: stretch; }
+.brand-large .brand-line { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-3); margin-top: 7px; line-height: 1.2; }
 .brand-arch { color: var(--ink); }
 .brand-loom { color: var(--accent); }
 .pub-foot svg { display: inline-block !important; vertical-align: -3px; margin-right: 4px; }
