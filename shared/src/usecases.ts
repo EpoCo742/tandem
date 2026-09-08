@@ -135,7 +135,7 @@ export function useCasesToMermaid(c: UseCaseContent): string {
     out.push(a.kind === "secondary" ? `  ${l.useCase} --> ${l.actor}` : `  ${l.actor} --> ${l.useCase}`);
   }
   for (const r of c.relations) out.push(`  ${r.from} -.->|${r.kind}| ${r.to}`);
-  out.push("  classDef actor fill:#e8f6ee,stroke:#2e9e5b,color:#1a2128", "  classDef usecase fill:#eaf2fb,stroke:#2f7fd4,color:#1a2128", "  style sys fill:#f4f6f8,stroke:#7c8893");
+  out.push("  classDef actor fill:#e8f6ee,stroke:#2e9e5b,color:#1a2128", "  classDef usecase fill:#eaf2fb,stroke:#2f7fd4,color:#1a2128", "  style sys fill:#7c88931a,stroke:#7c8893,stroke-width:1.5px");
   return out.join("\n");
 }
 
