@@ -43,6 +43,8 @@ export interface TurnRequest {
   timeoutMs: number;
   onDelta: (text: string) => void;
   onToolProgress: (tool: string, status: "start" | "done" | "error", artifactId?: string) => void;
+  /** A step the lane can show in words ("Starting the Copilot runtime", "Using github: repo_tree"). Canvas tools announce themselves. */
+  onActivity: (label: string, status: "start" | "done" | "error") => void;
   /** Surface something the runtime reported (MCP server failed to connect, OAuth needed) to the people in the session. */
   onNote: (text: string) => void;
 }

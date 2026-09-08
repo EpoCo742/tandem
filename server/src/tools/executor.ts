@@ -1,7 +1,7 @@
 import { ulid } from "ulid";
 import { allAdrs, emptyModel, nextAssumptionLabel, nextQuestionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertDeployment, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { AlternativesContent, ConstraintsContent, ContractContent, DecisionPointContent, SessionState } from "@tandem/shared";
-import { contractsOf, liveArtifacts, parseContract, similarQuestion, type SourceContent } from "@tandem/shared";
+import { contractsOf, describeToolCall, liveArtifacts, parseContract, similarQuestion, type SourceContent } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
@@ -16,6 +16,8 @@ export interface ExecutorScope {
   onBehalfOf: string; // the human this AI turn acts for
   batchEventIds: string[];
   onToolProgress?: (tool: string, status: "start" | "done" | "error", artifactId?: string) => void;
+  /** The lane shows what the AI is doing; each call is labelled in words before it runs. */
+  onActivity?: (label: string, status: "start" | "done" | "error") => void;
 }
 
 export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
@@ -26,9 +28,14 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
     handler: async (raw: unknown) => {
       const parsed = toolSchemas[name].safeParse(raw);
       if (!parsed.success) return { status: "error", message: `Invalid input for ${name}: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}` };
+      const label = scope.onActivity ? describeToolCall(name, parsed.data, (id) => getState(scope.sessionId).artifacts[id]?.title) : null;
+      if (label) scope.onActivity!(label, "start");
       try {
-        return await handler(parsed.data as never);
+        const r = await handler(parsed.data as never);
+        if (label) scope.onActivity!(label, r.status === "error" ? "error" : "done");
+        return r;
       } catch (e) {
+        if (label) scope.onActivity!(label, "error");
         return { status: "error", message: (e as Error).message };
       }
     },

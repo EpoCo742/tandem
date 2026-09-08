@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { participantName, pendingProposals, describeAnchor, describeTarget, targetOf, AI_COLOR, type ExternalCall, type Proposal } from "@tandem/shared";
+import { participantName, pendingProposals, describeAnchor, describeTarget, targetOf, AI_COLOR, PHASE_LABELS, type ExternalCall, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { signalTyping } from "../ws";
@@ -9,7 +9,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
   const meta = useStore((s) => s.meta)!;
   const state = useStore((s) => s.state);
   const streaming = useStore((s) => s.streaming);
-  const toolProgress = useStore((s) => s.toolProgress);
+  const activity = useStore((s) => s.activity);
   const turn = useStore((s) => s.turn);
   const typing = useStore((s) => s.typing);
   const highlight = useStore((s) => s.highlight);
@@ -216,16 +216,19 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
             </div>
           );
         })}
+        {busy && !streaming && (
+          <div className="msg ai">
+            <div className="who"><span style={{ color: AI_COLOR }}>AI{payerName ? ` · on ${payerName}'s credential` : ""}</span></div>
+            <ActivityTrail turnState={turn.state} items={activity?.items ?? []} />
+          </div>
+        )}
         {streaming && (
           <div className="msg ai">
             <div className="who"><span style={{ color: AI_COLOR }}>AI · streaming{payerName ? ` · on ${payerName}'s credential` : ""}</span></div>
+            {busy && <ActivityTrail turnState={turn.state} items={activity?.items ?? []} compact />}
             <div className="text">{streaming.text}<span className="cursor" /></div>
           </div>
         )}
-        {busy && !streaming && (
-          <div className="msg ai"><div className="who"><span style={{ color: AI_COLOR }}>AI</span></div><div className="text muted">{toolProgress ?? (turn.state === "collecting" ? "collecting messages…" : `${turn.state}…`)}<span className="cursor" /></div></div>
-        )}
-        {busy && streaming && toolProgress && <div className="turnstate"><span className="dot on" />{toolProgress}</div>}
       </div>
       <div className="pane-foot">
         {!consented ? (
@@ -388,5 +391,39 @@ function UsageStrip() {
         </div>
       )}
     </span>
+  );
+}
+
+// What the AI is doing right now, and what it has done so far this turn. The current step gets a
+// moving indicator so a long silence still looks alive; finished tool calls stack above it in
+// plain words; the phases (thinking, writing) show only while current. Nothing here costs tokens.
+function ActivityTrail({ turnState, items, compact = false }: { turnState: string; items: { label: string; status: "start" | "done" | "error" }[]; compact?: boolean }) {
+  const open = [...items].reverse().find((i) => i.status === "start");
+  const done = items.filter((i) => i.status !== "start" && !PHASE_LABELS.has(i.label));
+  const fallback = turnState === "collecting" ? "Collecting messages" : turnState === "applying" ? "Applying the changes" : turnState === "committing" ? "Recording the turn" : "Thinking";
+  const current = open?.label ?? fallback;
+  const hideCurrent = compact && current === "Writing the reply";
+  const shown = done.slice(-5);
+  if (compact && shown.length === 0 && hideCurrent) return null;
+  return (
+    <div className={"trail" + (compact ? " compact" : "")}>
+      {shown.length > 0 && (
+        <ul className="trail-done">
+          {done.length > shown.length && <li className="more">{done.length - shown.length} more…</li>}
+          {shown.map((i, k) => (
+            <li key={k} className={i.status}>
+              <span className="tick" aria-hidden="true">{i.status === "error" ? "!" : "✓"}</span>
+              {i.label}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!hideCurrent && (
+        <div className="trail-now">
+          <span className="thinking" aria-hidden="true"><i /><i /><i /></span>
+          <span>{current}{turnState === "collecting" ? " · about 1.5 s" : ""}</span>
+        </div>
+      )}
+    </div>
   );
 }

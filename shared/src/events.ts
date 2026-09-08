@@ -201,6 +201,7 @@ export type AnyLedgerEvent = { [K in EventType]: LedgerEvent<K> }[EventType];
 export type EphemeralEvent =
   | { kind: "ai.delta"; sessionId: string; turnId: string; text: string }
   | { kind: "ai.tool_progress"; sessionId: string; turnId: string; tool: string; artifactId?: string; status: "start" | "done" | "error" }
+  | { kind: "ai.activity"; sessionId: string; turnId: string; label: string; status: "start" | "done" | "error" } // what the AI is doing, in words
   | { kind: "turn.state"; sessionId: string; state: TurnStatus | "idle"; queued: number; turnId: string | null; payerUserId: string | null }
   | { kind: "typing"; sessionId: string; userId: string; lane: "ai" | "side"; active: boolean }
   | { kind: "session.deleted"; sessionId: string }; // the owner deleted the session; open tabs go home

@@ -115,6 +115,12 @@ assert(subA.events.filter((e) => e.type === "decision.recorded").every((e) => e.
 assert(subA.events.filter((e) => e.type === "decision.recorded").length >= 2, "AI recorded a decision per speaker");
 assert(subA.events.some((e) => e.type === "commit.created"), "a commit was created after the turn");
 assert(subA.ephemeral.some((e) => e.kind === "ai.delta"), "tokens streamed to alice");
+// What the AI is doing reaches the lane in words while the turn runs: phases from the stream, tool calls from the executor.
+const acts = subA.ephemeral.filter((e) => e.kind === "ai.activity");
+assert(acts.some((e) => e.label === "Thinking" && e.status === "start") && acts.some((e) => e.label === "Writing the reply" && e.status === "done"), "the lane is told when the AI is thinking and when it is writing");
+const named = acts.filter((e) => /^(Drawing|Updating|Adding|Recording|Connecting|Writing the design)/.test(e.label));
+assert(named.some((e) => e.status === "start") && named.some((e) => e.status === "done"), `tool calls are announced in plain words and closed (${[...new Set(named.map((e) => e.label))].slice(0, 3).join("; ")})`);
+assert(!acts.some((e) => /^Using (create|update|upsert|record)_/.test(e.label)), "no raw tool names leak into the trail");
 assert(subB.ephemeral.some((e) => e.kind === "ai.delta"), "tokens streamed to bob");
 await waitFor(() => subB.events.length === subA.events.length, "bob's client to catch up");
 assert(subB.events.length === subA.events.length, "both clients see the same ledger");

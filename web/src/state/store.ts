@@ -26,7 +26,8 @@ interface Store {
   setLoading: (l: boolean) => void;
   applyEphemeral: (ev: EphemeralEvent) => void;
   streaming: { turnId: string; text: string } | null;
-  toolProgress: string | null;
+  /** What the AI is doing this turn, in order: open steps and finished ones. Ephemeral. */
+  activity: { turnId: string; items: { label: string; status: "start" | "done" | "error" }[] } | null;
   turn: { state: TurnStatus | "idle"; queued: number; turnId: string | null; payerUserId: string | null };
   typing: Record<string, "ai" | "side">;
   presence: PresenceUser[];
@@ -70,7 +71,7 @@ export const useStore = create<Store>((set, get) => ({
   acknowledged: {},
   acknowledge: (artifactId) => { if (!get().acknowledged[artifactId]) set({ acknowledged: { ...get().acknowledged, [artifactId]: true } }); },
   state: emptyState(""),
-  reset: (sessionId) => set({ state: emptyState(sessionId), gone: false, replay: null, loading: true, streaming: null, toolProgress: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
+  reset: (sessionId) => set({ state: emptyState(sessionId), gone: false, replay: null, loading: true, streaming: null, activity: null, turn: { state: "idle", queued: 0, turnId: null, payerUserId: null }, typing: {}, highlight: [] }),
   replay: null,
   setReplay: (seq) => {
     const cur = get();
@@ -88,7 +89,7 @@ export const useStore = create<Store>((set, get) => ({
       set({ replay: { ...replaying, live: evs.reduce((s, ev) => reduce(s, ev), replaying.live) } });
       return;
     }
-    set({ state: evs.reduce((s, ev) => reduce(s, ev), get().state), streaming: null, toolProgress: null });
+    set({ state: evs.reduce((s, ev) => reduce(s, ev), get().state), streaming: null, activity: null });
   },
   applyEvent: (ev) => {
     const replaying = get().replay;
@@ -101,7 +102,7 @@ export const useStore = create<Store>((set, get) => ({
     const patch: Partial<Store> = { state: next };
     if (ev.type === "ai.message" || ev.type === "turn.failed" || ev.type === "turn.completed") {
       if (get().streaming?.turnId === ev.turnId || ev.type !== "ai.message") patch.streaming = null;
-      patch.toolProgress = null;
+      patch.activity = null;
     }
     set(patch);
   },
@@ -109,11 +110,22 @@ export const useStore = create<Store>((set, get) => ({
     if (ev.kind === "ai.delta") {
       const cur = get().streaming;
       set({ streaming: cur && cur.turnId === ev.turnId ? { turnId: ev.turnId, text: cur.text + ev.text } : { turnId: ev.turnId, text: ev.text } });
-    } else if (ev.kind === "ai.tool_progress") {
-      set({ toolProgress: ev.status === "start" ? `calling ${ev.tool}` : null });
+    } else if (ev.kind === "ai.activity") {
+      const cur = get().activity;
+      const items = cur && cur.turnId === ev.turnId ? [...cur.items] : [];
+      if (ev.status === "start") items.push({ label: ev.label, status: "start" });
+      else {
+        for (let k = items.length - 1; k >= 0; k--) {
+          if (items[k]!.label === ev.label && items[k]!.status === "start") {
+            items[k] = { label: ev.label, status: ev.status };
+            break;
+          }
+        }
+      }
+      set({ activity: { turnId: ev.turnId, items: items.slice(-40) } });
     } else if (ev.kind === "turn.state") {
       set({ turn: { state: ev.state, queued: ev.queued, turnId: ev.turnId, payerUserId: ev.payerUserId } });
-      if (ev.state === "idle") set({ streaming: null, toolProgress: null });
+      if (ev.state === "idle") set({ streaming: null, activity: null });
     } else if (ev.kind === "typing") {
       const typing = { ...get().typing };
       if (ev.active) typing[ev.userId] = ev.lane;
@@ -125,7 +137,7 @@ export const useStore = create<Store>((set, get) => ({
   },
   gone: false,
   streaming: null,
-  toolProgress: null,
+  activity: null,
   turn: { state: "idle", queued: 0, turnId: null, payerUserId: null },
   typing: {},
   presence: [],

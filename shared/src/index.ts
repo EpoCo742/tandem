@@ -17,3 +17,4 @@ export * from "./compare.js";
 export * from "./questions.js";
 export * from "./notation.js";
 export * from "./legend.js";
+export * from "./activity.js";

@@ -14,6 +14,7 @@ function toCopilotMcp(servers: McpServerForTurn[]): Record<string, MCPServerConf
 import { Semaphore } from "async-mutex";
 import { config } from "../config.js";
 import type { ProviderAdapter, TurnRequest, TurnResult } from "./types.js";
+import { describeExternalCall } from "@tandem/shared";
 
 // GitHub Copilot adapter. One throwaway Copilot session per archloom turn, funded by
 // the payer's GitHub token. Verified against @github/copilot-sdk 1.0.x typings.
@@ -106,7 +107,9 @@ export const copilotProvider: ProviderAdapter = {
     let toolCallsCount = 0;
     const usage: TurnResult["usage"] = { inputTokens: 0, outputTokens: 0, premiumRequests: 1, model: req.model };
     let modelUsed = req.model;
+    const canvasTools = new Set(req.tools.map((t) => t.name));
     try {
+      req.onActivity("Starting the Copilot runtime", "start");
       await client.start();
       const tools = req.tools.map((b) =>
         defineTool(b.name, {
@@ -154,6 +157,7 @@ export const copilotProvider: ProviderAdapter = {
         enableSkills: false,
         ...(req.mcpServers.length ? { mcpServers: toCopilotMcp(req.mcpServers) } : {}),
       });
+      req.onActivity("Starting the Copilot runtime", "done");
       // What the runtime says about the attached servers, surfaced to the people in the session.
       const offErr = session.on("session.error", (e) => req.onNote(`Runtime error (${e.data.errorType}): ${e.data.message}`));
       const offHeaders = session.on("mcp.headers_refresh_required", (e) => {
@@ -172,12 +176,15 @@ export const copilotProvider: ProviderAdapter = {
       });
       const toolNames = new Map<string, string>();
       const offStart = session.on("tool.execution_start", (e) => {
-        toolNames.set(e.data.toolCallId, e.data.toolName ?? "tool");
-        req.onToolProgress(e.data.toolName ?? "tool", "start");
+        const name = e.data.toolName ?? "tool";
+        toolNames.set(e.data.toolCallId, name);
+        req.onToolProgress(name, "start");
+        if (!canvasTools.has(name)) req.onActivity(describeExternalCall(name), "start"); // canvas tools announce themselves
       });
       const offDone = session.on("tool.execution_complete", (e) => {
         const name = toolNames.get(e.data.toolCallId) ?? "tool";
         req.onToolProgress(name, e.data.success ? "done" : "error");
+        if (!canvasTools.has(name)) req.onActivity(describeExternalCall(name), e.data.success ? "done" : "error");
         // MCP tools are named server/tool or server:tool depending on the runtime; match on the tool part.
         for (const [key, callId] of pendingCalls) {
           const tool = key.split(":")[1]!;

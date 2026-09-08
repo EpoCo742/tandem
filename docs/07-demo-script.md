@@ -355,6 +355,12 @@ Point at: the badge on the tab while something is open; the design document's "O
 
 Tool servers never speak in the lane: a server that fails, times out or needs a login shows its status and last error under credentials → External tools, and the prompt tells the model not to announce what tools are or are not available.
 
+## Stage 2i: what the AI is doing (no script)
+
+While a turn runs, the lane shows a line with three moving dots and what is happening in plain words: **Thinking**, then each tool call as it runs (**Drawing System architecture**, **Recording a decision: Kafka is the event bus**, **Recording where things run**), then **Writing the reply** once text starts streaming. Finished steps stack above the current one with a tick; a failed one shows in the warning colour. With Copilot the first step is **Starting the Copilot runtime**, which is where most of the silence used to be, and calls to the person's own tool servers show as **Using github: repo_tree**.
+
+Nothing is spent on this: the phases come from the stream and the labels from the tool calls themselves (`shared/src/activity.ts`). The trail is ephemeral; it is not in the ledger and not in replay.
+
 ## Stage 7f: sessions as files (no AI turn)
 
 | Who | Does |

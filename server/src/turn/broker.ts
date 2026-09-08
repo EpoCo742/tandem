@@ -159,11 +159,36 @@ class SessionBroker {
     if (blocked.length) notes.push(`These artifacts are blocked by open decision points and must not be changed: ${blocked.map((a) => `${a.id} (${a.title})`).join(", ")}. If the batch resolves the decision point, apply the outcome.`);
     const mcpServers = serversForUser(payer.onBehalfOf);
     const context = assembleContext(state, batch as AnyLedgerEvent[], notes, mcpServers);
+    // What the AI is doing, for the lane. Phases (thinking, writing) come from the stream; tool
+    // labels come from the executor and the provider. Ephemeral, never in the ledger.
+    let phase: "thinking" | "writing" | null = null;
+    const activity = (label: string, status: "start" | "done" | "error") => bus.publish(this.sessionId, { kind: "ephemeral", event: { kind: "ai.activity", sessionId: this.sessionId, turnId, label, status } });
+    const think = () => {
+      if (phase === "thinking") return;
+      if (phase === "writing") activity("Writing the reply", "done");
+      phase = "thinking";
+      activity("Thinking", "start");
+    };
+    const write = () => {
+      if (phase === "writing") return;
+      if (phase === "thinking") activity("Thinking", "done");
+      phase = "writing";
+      activity("Writing the reply", "start");
+    };
+    const onActivity = (label: string, status: "start" | "done" | "error") => {
+      if (status === "start" && phase === "writing") {
+        activity("Writing the reply", "done");
+        phase = null;
+      }
+      activity(label, status);
+      if (status !== "start" && phase === null) think();
+    };
     const tools = buildToolBindings({
       sessionId: this.sessionId,
       turnId,
       onBehalfOf: payer.onBehalfOf,
       batchEventIds,
+      onActivity,
     });
 
     this.state = "generating";
@@ -171,6 +196,7 @@ class SessionBroker {
     this.abort = new AbortController();
     const provider = getProvider(payer.credential.provider);
     let streamed = "";
+    think();
     try {
       const result = await provider.runTurn({
         sessionId: this.sessionId,
@@ -188,11 +214,16 @@ class SessionBroker {
         timeoutMs: config.turnTimeoutMs,
         onDelta: (text) => {
           streamed += text;
+          write();
           bus.publish(this.sessionId, { kind: "ephemeral", event: { kind: "ai.delta", sessionId: this.sessionId, turnId, text } });
         },
         onToolProgress: (tool, status, artifactId) => bus.publish(this.sessionId, { kind: "ephemeral", event: { kind: "ai.tool_progress", sessionId: this.sessionId, turnId, tool, status, artifactId } }),
+        onActivity,
         onNote: (text) => appendEvent(this.sessionId, { type: "turn.note", actorKind: "system", actorUserId: null, turnId, payload: { turnId, text: text.slice(0, 1500) } }),
       });
+      if (phase === "writing") activity("Writing the reply", "done");
+      else if (phase === "thinking") activity("Thinking", "done");
+      phase = null;
       this.state = "applying";
       this.publishState();
       const interrupted = this.abort.signal.aborted;
