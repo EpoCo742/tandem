@@ -8,6 +8,10 @@ The mark as the app draws it: four threads on the left, the cloth they become on
 | `archloom-mark-light.png` / `-dark.png` | The mark alone, square, for small icons |
 | `archloom-logo-transparent.png` | Mark and name with a transparent background (RGBA), neutral ink so it reads on either ground |
 | `archloom-mark-transparent.png` | The mark alone with a transparent background (RGBA) |
+| `archloom-oauth-dark.png` | The mark on an ink disc, transparent outside the circle, for the GitHub OAuth App logo (recommended) |
+| `archloom-oauth-light.png` | The same on the app's light ground, if the organisation's other OAuth apps use light discs |
+
+GitHub crops an OAuth app's logo to a circle and shows it small, so the OAuth files carry the mark alone on a solid disc, drawn at 740 of the 1024 diameter: the mark's farthest corner then sits at eighty percent of the radius, which the crop cannot reach. Upload the 1024 square as is under Developer settings, OAuth Apps, Upload new logo.
 
 The in-app version of the mark is `web/src/components/Brand.tsx`, the browser tab icon is the same drawing inlined in `web/index.html`, and the social image for published pages redraws it in `server/src/routes/library.ts`. Change all four together.
 
