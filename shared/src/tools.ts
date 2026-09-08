@@ -79,10 +79,33 @@ export const contractContentSchema = z.object({
   sections: z.array(sectionSchema),
 });
 
+export const useCaseContentSchema = z.object({
+  system: z.string().describe("The boundary the use cases belong to, e.g. 'Order platform'"),
+  actors: z.array(z.object({ id: z.string(), name: z.string(), componentId: z.string().optional(), kind: z.enum(["primary", "secondary"]).optional() })),
+  useCases: z.array(z.object({ id: z.string(), name: z.string(), description: z.string().optional(), componentIds: z.array(z.string()).optional(), derivedFrom: z.array(z.string()).optional() })),
+  links: z.array(z.object({ actor: z.string(), useCase: z.string() })),
+  relations: z.array(z.object({ from: z.string(), to: z.string(), kind: z.enum(["include", "extend"]) })),
+  sections: z.array(sectionSchema),
+});
+
+export const upsertUseCasesInput = z.object({
+  system: z.string().optional().describe("The system boundary the use cases belong to, e.g. 'Order platform'; set it the first time"),
+  actors: z
+    .array(z.object({ id: z.string().optional(), name: z.string(), componentId: z.string().optional().describe("The model component this actor is (a person or an external system), when one exists"), kind: z.enum(["primary", "secondary"]).optional().describe("secondary: acted on by the system (a payment provider), drawn on the right") }))
+    .optional(),
+  useCases: z
+    .array(z.object({ id: z.string().optional(), name: z.string().describe("A verb phrase: 'Place an order'"), description: z.string().optional(), componentIds: z.array(z.string()).optional().describe("Model components that realise it") }))
+    .optional(),
+  links: z.array(z.object({ actor: z.string(), useCase: z.string() })).optional().describe("Who does what; actor and use case by id or by exact name"),
+  relations: z.array(z.object({ from: z.string(), to: z.string(), kind: z.enum(["include", "extend"]) })).optional().describe("include: from always uses to; extend: from adds to to under a condition"),
+  derivedFrom: z.array(z.string()).describe("Ledger event ids of the messages that stated them"),
+  rationale: z.string(),
+});
+
 export const createArtifactInput = z.object({
-  type: z.enum(["mermaid", "markdown", "data_model", "code", "design_doc", "view", "contract"]).describe("design_doc is a Markdown document assembled from the canvas; use markdownContent for it. view is a diagram generated from the architecture model; use viewContent. contract is an API or event contract attached to a relationship or component; prefer upsert_contract"),
+  type: z.enum(["mermaid", "markdown", "data_model", "code", "design_doc", "view", "contract", "use_case"]).describe("design_doc is a Markdown document assembled from the canvas; use markdownContent for it. view is a diagram generated from the architecture model; use viewContent. contract is an API or event contract attached to a relationship or component; prefer upsert_contract. use_case is the one Use cases card; prefer upsert_use_cases"),
   title: z.string(),
-  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema, contractContentSchema]),
+  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema, contractContentSchema, useCaseContentSchema]),
   rationale: z.string().describe("One sentence on why this artifact exists"),
   summary: z.string().describe("One line describing the artifact for the index"),
 });
@@ -90,7 +113,7 @@ export const createArtifactInput = z.object({
 export const updateArtifactInput = z.object({
   artifactId: z.string(),
   baseVersionNo: z.number().int().describe("The version you read; the update is rejected as stale if it moved"),
-  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema, contractContentSchema]),
+  content: z.union([mermaidContentSchema, markdownContentSchema, dataModelContentSchema, codeContentSchema, viewContentSchema, contractContentSchema, useCaseContentSchema]),
   rationale: z.string(),
   summary: z.string(),
 });
@@ -349,6 +372,7 @@ export const toolSchemas = {
   library_search: librarySearchInput,
   upsert_contract: upsertContractInput,
   upsert_deployment: upsertDeploymentInput,
+  upsert_use_cases: upsertUseCasesInput,
   record_assumption: recordAssumptionInput,
   resolve_assumption: resolveAssumptionInput,
   resolve_question: resolveQuestionInput,
@@ -358,6 +382,8 @@ export type ToolName = keyof typeof toolSchemas;
 export type ToolInput<N extends ToolName> = z.infer<(typeof toolSchemas)[N]>;
 
 export const toolDescriptions: Record<ToolName, string> = {
+  upsert_use_cases:
+    "Record who can do what with the system on the one Use cases card: actors (linked to a person or external component when one exists), use cases as verb phrases, the links between them, include and extend between use cases, and the components that realise each use case. Merges by id or exact name; the card draws its own diagram. Use this whenever people say what an actor can or must be able to do; never draw a use case diagram as free Mermaid.",
   create_artifact:
     "Create a new artifact card on the shared canvas (Mermaid diagram, Markdown note, data model, or code). Prefer update_artifact when a card on the same concern already exists.",
   update_artifact:
@@ -417,4 +443,5 @@ export type ToolResult =
   | { status: "contract_recorded"; artifactId: string; versionNo: number; consumers: string[]; format: string; bodyFrom?: string }
   | { status: "assumption_recorded"; assumptionId: string; label: string }
   | { status: "assumption_resolved"; assumptionId: string; label: string; outcome: string }
+  | { status: "use_cases_updated"; artifactId: string; versionNo: number; actors: number; useCases: number; unknown?: string[] }
   | { status: "error"; message: string };

@@ -23,6 +23,7 @@ export type ProposalStatus = "pending" | "applied" | "rejected" | "expired" | "s
 export type DecisionStatus = "proposed" | "agreed" | "contested" | "superseded";
 export type ArtifactType =
   | "mermaid"
+  | "use_case"
   | "markdown"
   | "data_model"
   | "decision"

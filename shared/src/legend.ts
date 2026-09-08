@@ -10,6 +10,8 @@ export const KIND_CLASSES: Record<string, { label: string; shape: string }> = {
   person: { label: "person", shape: "stadium" },
   ui: { label: "user interface", shape: "rounded box" },
   fn: { label: "function or job", shape: "flag" },
+  actor: { label: "actor", shape: "green box" },
+  usecase: { label: "use case", shape: "rounded box" },
   added: { label: "added since as-is", shape: "green outline" },
   removed: { label: "removed since as-is", shape: "red dashed" },
   changed: { label: "changed since as-is", shape: "amber outline" },
@@ -40,6 +42,7 @@ export function mermaidLegend(source: string): Legend {
   if (/linkStyle \d+ stroke:#c0392b/.test(source)) edges.push("red arrow: a classified flow that breaks a constraint");
   if (/^\s*[A-Za-z0-9_]+-[)>]|-->>|->>/m.test(source)) edges.push("solid: call; open head: async message; dashed: reply or read");
   if (/style d_\S+ stroke:#c0392b,stroke-dasharray/.test(source)) edges.push("red dashed box: internet-facing node");
+  if (/-\.->\|(include|extend)\|/.test(source)) edges.push("dashed: include or extend between use cases");
   const dataClasses = [...new Set([...source.matchAll(/\[((?:PII|payment|health|credentials|confidential)(?:, (?:PII|payment|health|credentials|confidential))*)\]/g)].flatMap((m) => m[1]!.split(", ")))];
   return { kinds, boundaries, edges, dataClasses };
 }

@@ -951,6 +951,28 @@ const ctFile = subA.events.filter((e) => e.type === "artifact.applied" && e.payl
 assert(ctFile && ctFile.payload.content.body === asyncSpec && ctFile.payload.content.format === "asyncapi" && ctFile.payload.content.version === "1.0.0", "a contract taken from an uploaded file is the file verbatim, with format and version read from it");
 const ctFileReply = subA.events.filter((e) => e.type === "ai.message").pop();
 assert(ctFileReply && /from orders-events\.yaml as uploaded/.test(ctFileReply.payload.text ?? ""), "the AI says the document came from the upload");
+
+// Use cases: who can do what, as data on one card; the offline architect records them, a PlantUML use
+// case diagram merges into the same card, and the export carries the diagram and the table.
+const ucTurns = subA.events.filter((e) => e.type === "turn.completed").length;
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "The customer can place an order and track it." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > ucTurns, "use cases turn");
+const ucCard = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "use_case").pop();
+assert(ucCard && ucCard.payload.content.useCases.length === 2 && ucCard.payload.content.actors.length === 1 && ucCard.payload.content.links.length === 2, "one message became two use cases for one actor on the Use cases card");
+await alice.call("POST", `/api/v1/sessions/${sessionId}/messages`, { text: "Ops must be able to cancel an order." });
+await waitFor(() => subA.events.filter((e) => e.type === "turn.completed").length > ucTurns + 1, "second use cases turn");
+const ucCard2 = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "use_case").pop();
+assert(ucCard2.payload.artifactId === ucCard.payload.artifactId && ucCard2.payload.versionNo === ucCard.payload.versionNo + 1 && ucCard2.payload.content.useCases.length === 3 && ucCard2.payload.content.actors.length === 2, "a second actor's use case lands on the same card as a new version");
+assert(subA.ephemeral.some((e) => e.kind === "ai.activity" && e.label === "Recording use cases"), "the lane said it was recording use cases");
+const puml = "@startuml\nleft to right direction\nactor Customer\nactor \"Payment provider\" as pay\nrectangle \"Order platform\" {\n  usecase \"Place an order\" as UC1\n  (Pay for an order) as UC2\n  usecase \"Refund an order\" as UC3\n}\nCustomer --> UC1\nCustomer --> UC2\nUC2 --> pay\nUC1 .> UC2 : include\nUC3 ..> UC2 : <<extend>>\n@enduml";
+const ucPreview = await alice.call("POST", `/api/v1/sessions/${sessionId}/model/import`, { text: puml, apply: false });
+assert(ucPreview.preview.kind === "use_cases" && ucPreview.preview.useCases.length === 3 && ucPreview.preview.actors.length === 2 && ucPreview.preview.relations.length === 2, "a PlantUML use case diagram previews as use cases, not components");
+const ucImport = await alice.call("POST", `/api/v1/sessions/${sessionId}/model/import`, { text: puml, apply: true });
+assert(ucImport.status === "applied", "the import applies to the Use cases card");
+const c3 = subA.events.filter((e) => e.type === "artifact.applied" && e.payload.artifactType === "use_case").pop().payload.content;
+assert(c3.useCases.length === 5 && c3.actors.length === 3 && c3.actors.some((a) => a.name === "Payment provider" && a.kind === "secondary") && c3.relations.some((r) => r.kind === "extend") && c3.relations.some((r) => r.kind === "include"), `the import merged by name into the card: ${c3.useCases.length} use cases, ${c3.actors.length} actors, ${c3.relations.length} relations`);
+const ucMd = await alice.call("GET", `/api/v1/sessions/${sessionId}/export`);
+assert(/### Use cases[\s\S]*flowchart LR[\s\S]*\| Use case \| Actors \| Realised by \| Notes \|/.test(ucMd) && /\| Place an order \| Customer/.test(ucMd), "the export carries the use case diagram and the table");
 void upAsync;
 assert((await alice.call("GET", "/api/v1/library?q=Orders+API&kind=contract")).hits.some((h) => h.kind === "contract" && h.artifactId === ct.artifactId), "contracts are in the library");
 

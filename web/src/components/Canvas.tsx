@@ -90,7 +90,7 @@ const WIDE_TYPES = new Set<Artifact["type"]>(["alternatives"]);
 const COL_W = 460;
 const GAP = 40;
 const ORIGIN = 40;
-const HEIGHT_GUESS: Partial<Record<Artifact["type"], number>> = { arch_model: 520, view: 470, mermaid: 440, design_doc: 520, markdown: 300, data_model: 440, constraints: 360, alternatives: 520, decision_point: 470, contract: 400, source: 110, code: 380 };
+const HEIGHT_GUESS: Partial<Record<Artifact["type"], number>> = { arch_model: 520, view: 470, mermaid: 440, design_doc: 520, markdown: 300, data_model: 440, constraints: 360, alternatives: 520, decision_point: 470, contract: 400, use_case: 460, source: 110, code: 380 };
 
 function packInto(items: { id: string; wide: boolean; h: number }[], cols: number): { placed: Map<string, { x: number; y: number }>; width: number; height: number } {
   const heights = Array.from({ length: cols }, () => ORIGIN);
@@ -135,7 +135,7 @@ function defaultPositions(artifacts: Artifact[]): Map<string, { x: number; y: nu
 
 const GRID_LABEL: Record<GridStyle, string> = { dots: "grid: dots", lines: "grid: lines", off: "grid: off" };
 
-const THUMB_TINT: Partial<Record<Artifact["type"], string>> = { arch_model: "#3FB4C3", view: "#3FB4C3", mermaid: "#3FB4C3", design_doc: "#E9A63A", markdown: "#9AA7B3", data_model: "#8e44ad", constraints: "#c26b1f", decision_point: "#c0392b", alternatives: "#2e9e5b", contract: "#2f7fd4", source: "#7C8893", code: "#7C8893" };
+const THUMB_TINT: Partial<Record<Artifact["type"], string>> = { arch_model: "#3FB4C3", view: "#3FB4C3", mermaid: "#3FB4C3", design_doc: "#E9A63A", markdown: "#9AA7B3", data_model: "#8e44ad", constraints: "#c26b1f", decision_point: "#c0392b", alternatives: "#2e9e5b", contract: "#2f7fd4", use_case: "#2e9e5b", source: "#7C8893", code: "#7C8893" };
 
 /** The canvas as coloured rectangles: enough to recognise a session by its shape. */
 function thumbnailSvg(artifacts: Artifact[], layout: Record<string, Layout>): string | null {

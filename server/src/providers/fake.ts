@@ -97,6 +97,8 @@ function buildDesignDoc(
   md.push("## Constraints", "");
   if (constraintsCard) md.push(...(contents.get(constraintsCard.id) ?? "").split("\n"), "");
   else md.push("None recorded.", "");
+  const useCaseCard = artifacts.find((a) => a.type === "use_case");
+  if (useCaseCard) md.push("## Use cases", "", ...(contents.get(useCaseCard.id) ?? "").split("\n"), "");
   md.push("## Sources", "");
   if (!sources.length) md.push("No uploaded material.", "");
   for (const s of sources) md.push(`- **${s.title}**: ${(contents.get(s.id) ?? "").split("\n").find((l) => l.trim())?.slice(0, 160) ?? "(binary)"}`);
@@ -529,6 +531,23 @@ export const fakeProvider: ProviderAdapter = {
         await emit(r.status === "assumption_resolved" ? `${best.a.label} ("${best.a.statement}") ${refuted ? "did not hold" : "held"}, per ${contradiction.speaker}. ${refuted ? "Anything built on it should be looked at again." : ""}` : `Could not settle ${best.a.label}: ${r.status}.`);
         return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
       }
+    }
+
+    // 0u. "The customer can place an order and track it." / "Ops must be able to cancel an order.":
+    //     use cases on the one Use cases card, the actor linked to a model component of the same name.
+    const ucMsg = batch
+      .map((m) => ({ m, x: m.text.match(/^(?:the |an? )?([A-Za-z][A-Za-z ]{0,30}?) (?:can|could|must be able to|should be able to|needs? to be able to|is able to|are able to) (.+?)\.?$/i) }))
+      .find((x) => x.x && !/^(we|you|they|it|i|that|this|which|who|there|service|system|users?)$/i.test(x.x[1]!.trim()) && !batch.some((b) => b.speaker.toLowerCase() === x.x![1]!.trim().toLowerCase()));
+    if (ucMsg) {
+      const actor = ucMsg.x![1]!.trim();
+      const names = ucMsg.x![2]!.split(/,\s*|\s+and\s+|\s+or\s+/).map((s) => s.trim()).filter(Boolean);
+      const modelArt = artifacts.find((a) => a.type === "arch_model");
+      const cur = modelArt ? ((await call("read_artifact", { artifactId: modelArt.id })) as { content?: ArchModelContent }).content : undefined;
+      const comp = cur?.components.find((c) => c.name.toLowerCase() === actor.toLowerCase());
+      const r = (await call("upsert_use_cases", { actors: [{ name: actor, ...(comp ? { componentId: comp.id } : {}) }], useCases: names.map((name) => ({ name })), links: names.map((name) => ({ actor, useCase: name })), derivedFrom: [ucMsg.m.eventId], rationale: `Stated by ${ucMsg.m.speaker}` })) as { status: string; useCases?: number; actors?: number };
+      const cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
+      await emit(r.status === "use_cases_updated" ? `Recorded ${names.length === 1 ? "a use case" : `${names.length} use cases`} for ${cap(actor)}${comp ? ` (${comp.name} in the model)` : ""}: ${names.map(cap).join(", ")}. The Use cases card holds ${r.useCases} use case${r.useCases === 1 ? "" : "s"} for ${r.actors} actor${r.actors === 1 ? "" : "s"}.` : r.status === "pending_approval" ? `Proposed ${names.length === 1 ? "a use case" : `${names.length} use cases`} for ${cap(actor)} (${names.map(cap).join(", ")}) to ${r.approvers.map((u) => nameFor(req.context.prompt, u)).join(", ")}, whose Use cases card it is; nothing changes until they approve.` : `Could not record the use cases: ${r.status}.`);
+      return { text, toolCallsCount: toolCalls, usage: estimate(req.context.prompt, text), modelUsed: "fake-architect-1" };
     }
 
     // 0o. "Contract for Service B: …": a contract card attached to that component (or "for Service A -> Service B" to a relationship).

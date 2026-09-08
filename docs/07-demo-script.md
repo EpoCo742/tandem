@@ -396,6 +396,20 @@ Only your own actions in this tab: moves, resizes, tidy, edits, deletes. Whichev
 
 External tool servers that connect normally no longer announce themselves in the lane each turn; only a server that fails, times out or needs a login gets a line.
 
+## Stage 2j: use cases
+
+Feature: use cases as data on one card, not a drawing. Actors link to model components where one exists, each use case names the components that realise it, and the card draws its own diagram (actors left, the system as a box of use cases, include and extend dashed). The impact panel lists the use cases a component realises or acts in; the export and the design document get a table. `upsert_use_cases` is the tool; a PlantUML use case diagram pasted into the model card's **import…** goes to the same card.
+
+| Who | Says |
+|---|---|
+| Alice | "The customer can place an order and track it." |
+| Bob | "Ops must be able to cancel an order." |
+| Alice | Approves Bob's proposal on the Use cases card (the card is hers, so the AI's change for Bob is a proposal, as on the model card). |
+
+Fake architect: records the actor (linked to the model component of the same name when there is one) and one use case per verb phrase, and says how many the card now holds. A real model uses the same tool from the prompt's guidance and adds the realising components.
+
+Point at: the Use cases card and the list under its diagram; a component on the model card for the use cases it realises; the design document's Use cases section after a recompile; **import…** with a PlantUML use case diagram, which previews as actors and use cases and merges into the same card.
+
 ## Stage 2f: contracts as cards
 
 Feature: an API or event contract (OpenAPI, AsyncAPI, a JSON schema, GraphQL, proto or Markdown) is a **contract** card attached to the relationship it governs or the component that exposes it. The model says who provides and who consumes it; when the contract changes after the model last changed, every consumer row on the Architecture model card shows "contract changed" until the model moves again.
@@ -647,6 +661,7 @@ The offline provider is deterministic. Phrase directives so they hit the right r
 | Data model | "data model", "entity", "schema", or "table … draft/design/model" | data_model card from every "X table" and "Y event" mentioned so far; asks a clarification if none |
 | Contradiction | A negation word (drop, remove, instead, replace, not, no longer, rather than, switch) plus two or more words in common with an **agreed** decision | decision point; blocks all mermaid cards; no canvas change |
 | Resolution | The synthetic system directive after a vote resolves | records an agreed decision superseding the old one; appends a note node to the first diagram |
+| Use cases | "X can Y[, Z and W]" or "X must be able to Y", where X is not a pronoun, a participant, or the word service or system | the actor X (linked to a same-named component) and one use case per phrase, on the Use cases card |
 | Architecture | Any "service X", "app X", "system X", or Kafka, Postgres, Redis, S3, DynamoDB, RabbitMQ, API gateway, MongoDB | creates or extends the System architecture diagram, edge label from the verb (publishes, subscribes, writes, reads, calls…); one agreed decision per speaker |
 | Fallback | Anything else | a Notes card quoting the batch; one decision per speaker |
 

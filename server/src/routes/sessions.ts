@@ -24,13 +24,14 @@ import { requestReview, signOff, withdrawReview } from "../review.js";
 import { publishDocument, revokePublication } from "../publish.js";
 import { importFromLibrary } from "../importer.js";
 import { demoSessionId, demoViewer, isDemoSession } from "../demo.js";
+import { emptyUseCases, isUseCaseDiagram, parsePlantUmlUseCases, upsertUseCases, type UseCaseContent } from "@tandem/shared";
 import { impactLines, impactOf, contractsOf, nextAssumptionLabel, nextQuestionLabel, parseNotation, compareDesign, comparisonMarkdown, reduceUpTo, toStructurizrDsl, upsertBoundaries, upsertComponents, upsertRelationships, emptyModel, liveArtifacts, contentText, participantName } from "@tandem/shared";
 
 export const NARRATE_INSTRUCTION =
   "Narrate the changes. The attached card compares two versions of the design document. Replace its \"Major changes\" section with a section titled \"What matters\": a short narrative for a reader who knows the earlier version, saying what changed, why it matters and who is affected, drawn only from the comparison below it. Keep every section after it exactly as it is. Update that card with update_artifact, same title. Change nothing else on the canvas.";
 
 export const COMPILE_INSTRUCTION =
-  "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
+  "Compile the design document. Create (or update, if one exists) a design_doc artifact titled \"Design document\" that assembles everything on the canvas: Overview (what is being built, for whom), Architecture (embed every mermaid diagram as a fenced mermaid block, referencing the artifact by title), Data model (as Markdown tables: one table per entity with field, type and notes; never raw JSON), Constraints (a table of the constraints card: id, statement, kind, who set it), Use cases (when a Use cases card exists: its diagram as a mermaid block and a table of use case, actors, components that realise it), Sources (one or two sentences per uploaded file describing what it is and what was taken from it; never paste file contents), Decision log (every decision in the registry with status, who agreed, and what superseded what), and Open questions (proposed or contested decisions, unresolved decision points). Cite artifact ids in derivedFrom. Do not invent facts that are not on the canvas.";
 
 function participantOr403(sessionId: string, userId: string) {
   const p = db.select().from(schema.participants).where(and(eq(schema.participants.sessionId, sessionId), eq(schema.participants.userId, userId))).get();
@@ -129,6 +130,22 @@ export async function registerSessionRoutes(app: FastifyInstance) {
     const text = (req.body?.text ?? "").trim();
     if (!text) return reply.code(400).send({ error: "paste a diagram first" });
     if (text.length > 200_000) return reply.code(400).send({ error: "that is too large to import" });
+    // A PlantUML use case diagram goes to the Use cases card, not into the model.
+    const notation = req.body.notation ?? "auto";
+    if (notation !== "mermaid" && notation !== "structurizr" && isUseCaseDiagram(text)) {
+      const parsed = parsePlantUmlUseCases(text);
+      const preview = { notation: "plantuml" as const, kind: "use_cases" as const, ...parsed };
+      if (!req.body.apply) return { preview };
+      if (parsed.useCases.length === 0) return reply.code(400).send({ error: "no use cases found", preview });
+      const state = getState(req.params.id);
+      const existing = liveArtifacts(state).find((a) => a.type === "use_case");
+      const cur = (existing?.current.content as UseCaseContent | undefined) ?? emptyUseCases(parsed.system);
+      const model = liveArtifacts(state).find((a) => a.type === "arch_model")?.current.content as ArchModelContent | undefined;
+      const { content } = upsertUseCases(cur, { ...(existing ? {} : { system: parsed.system }), actors: parsed.actors, useCases: parsed.useCases, links: parsed.links, relations: parsed.relations }, model);
+      const r = requestChange({ sessionId: req.params.id, turnId: null, actorKind: "user", actorUserId: user.id, op: existing ? "update" : "create", artifactId: existing?.id ?? null, artifactType: "use_case", title: existing?.title ?? "Use cases", content, summary: `${content.useCases.length} use cases (imported from plantuml)`, rationale: `Imported from a PlantUML use case diagram by ${user.displayName || user.handle}`, baseVersionNo: existing?.current.versionNo ?? null, causedBy: [], provenance: [{ sectionId: "usecases", derivedFrom: [] }] });
+      if (r.status === "applied") createCommit(req.params.id, user.id, null, `${user.displayName || user.handle} imported ${parsed.useCases.length} use cases from plantuml`);
+      return { preview, ...r };
+    }
     const preview = parseNotation(text, req.body.notation);
     if (!preview) return reply.code(400).send({ error: "could not tell the notation; choose Mermaid, Structurizr or PlantUML" });
     if (!req.body.apply) return { preview };

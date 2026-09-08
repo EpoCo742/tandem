@@ -64,6 +64,7 @@ export function describeToolCall(name: string, input: unknown, titleOf: (artifac
     case "propose_alternatives": return "Laying out the alternatives";
     case "render_adr": return "Rendering decision records";
     case "upsert_contract": return `Recording the contract ${cut(title)}`.trim();
+    case "upsert_use_cases": return "Recording use cases";
     case "library_search": {
       const q = cut(str(i.query), 32);
       return q ? `Searching the library for “${q}”` : "Searching the library";

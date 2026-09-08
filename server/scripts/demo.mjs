@@ -313,6 +313,21 @@ const STAGES = [
     fs.writeFileSync(out, md);
     console.log(`   wrote ${out} (${md.length} chars)`);
   }],
+  ["usecases", "who can do what, as data on one card that draws its own diagram", async () => {
+    const n = await completedTurns();
+    await say(alice, "The customer can place an order and track it.");
+    await waitForTurns(n + 1, "use cases turn");
+    await say(bob, "Ops must be able to cancel an order.");
+    await waitForTurns(n + 2, "second use cases turn");
+    const evs = await events();
+    const prop = evs.filter((e) => e.type === "proposal.created" && e.payload.artifactType === "use_case").pop();
+    if (prop && !evs.some((e) => (e.type === "proposal.approved" || e.type === "proposal.rejected") && e.payload.proposalId === prop.payload.proposalId)) {
+      await alice.call("POST", `/api/v1/sessions/${ctx.sessionId}/proposals/${prop.payload.proposalId}/resolve`, { decision: "approve" });
+      console.log("   The Use cases card is Alice's, so Bob's use case is a proposal; Alice approves it");
+    }
+    const uc = await latestArtifact("use_case");
+    console.log(`   Use cases card: ${uc.content.useCases.map((u) => u.name).join(", ")} for ${uc.content.actors.map((a) => a.name).join(", ")}; the card draws itself, the impact panel and the export know about it`);
+  }],
 ];
 
 if (args.includes("--list") || args.includes("-h") || args.includes("--help")) {

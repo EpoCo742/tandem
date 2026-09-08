@@ -44,6 +44,9 @@ export function ImpactPanel({ componentId, onClose }: { componentId: string; onC
         <Section title="Views that draw it" count={i.views.length}>
           {i.views.map((v) => <div key={v.id} className="impact-row" onClick={() => { setFocusArtifact(v.id); onClose(); }} title="Show the card">{v.title}</div>)}
         </Section>
+        <Section title="Use cases it realises or acts in" count={i.useCases.length}>
+          {i.useCases.map((u) => <div key={u.id} className="impact-row" onClick={() => { const uc = Object.values(state.artifacts).find((a) => a.type === "use_case" && !a.deleted); if (uc) setFocusArtifact(uc.id); onClose(); }} title="Show the Use cases card">{u.name}</div>)}
+        </Section>
         <Section title="Candidate architectures" count={i.alternatives.flatMap((a) => a.candidates).length}>
           {i.alternatives.map((a) => <div key={a.artifact.id} className="impact-row" onClick={() => { setFocusArtifact(a.artifact.id); onClose(); }}>{a.artifact.title}: {a.candidates.join("; ")}</div>)}
         </Section>

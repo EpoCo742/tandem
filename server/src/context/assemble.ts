@@ -62,6 +62,7 @@ export function assembleContext(state: SessionState, batch: AnyLedgerEvent[], op
   const model = arts.find((a) => a.type === "arch_model")?.current.content as ArchModelContent | undefined;
   if (model) lines.push("(The arch_model card is the source of truth for structure; every view card is generated from it. Change structure with upsert_components / upsert_relationships / remove_from_model, not by drawing.)");
   if (arts.some((a) => a.type === "constraints")) lines.push("(The constraints card lists what the design must respect; check every structural change against it and raise a decision point with violatesConstraintIds instead of applying a change that breaks one.)");
+  if (arts.some((a) => a.type === "use_case")) lines.push("(The use_case card lists who can do what; change it with upsert_use_cases, never by rewriting the card.)");
   else lines.push("(No architecture model yet. When people describe systems, services, queues or stores, build the model with upsert_components and upsert_relationships and create a container view titled \"System architecture\".)");
   if (arts.length === 0) lines.push("(empty canvas)");
   const batchText = batch.map((b) => JSON.stringify(b.payload)).join(" ").toLowerCase();

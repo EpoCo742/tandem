@@ -5,7 +5,7 @@ const ChangedRowsContext = createContext<Set<string>>(EMPTY_SET);
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, boundaryColor, violationsOf, contractsOf, contractsConsumedBy, threadsFor, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent, type ContractContent } from "@tandem/shared";
+import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid, boundaryColor, violationsOf, contractsOf, contractsConsumedBy, threadsFor, useCasesToMermaid, AI_COLOR, type AlternativesContent, type Artifact, type ArchModelContent, type ConstraintsContent, type DecisionPointContent, type DataModelContent, type MermaidContent, type MarkdownContent, type CodeContent, type SourceContent, type ViewContent, type ContractContent, type UseCaseContent } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
@@ -80,7 +80,7 @@ export function ArtifactCard({ artifact: a, sessionId, sized = false, onResetSiz
   const [msg, setMsg] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const zoom = useZoom(1);
-  const isDiagram = a.type === "mermaid" || a.type === "view";
+  const isDiagram = a.type === "mermaid" || a.type === "view" || a.type === "use_case";
   useEffect(() => {
     if (!expanded) return;
     const onKey = (e: KeyboardEvent) => {
@@ -262,6 +262,7 @@ export function ArtifactBody({ artifact: a, version: v, sessionId, myId, onVote,
       {(a.type === "markdown" || a.type === "design_doc") && <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{(v.content as MarkdownContent).markdown}</ReactMarkdown></div>}
       {a.type === "code" && <pre>{(v.content as CodeContent).source}</pre>}
       {a.type === "contract" && <ContractView artifactId={a.id} content={v.content as ContractContent} />}
+      {a.type === "use_case" && <UseCaseView content={v.content as UseCaseContent} />}
       {a.type === "data_model" && <DataModel content={v.content as DataModelContent} />}
       {a.type === "source" && <SourceView sessionId={sessionId} content={v.content as SourceContent} full={large} />}
       {a.type === "arch_model" && <ModelTable content={v.content as ArchModelContent} artifactId={a.id} />}
@@ -444,6 +445,40 @@ function ModelTable({ content, artifactId }: { content: ArchModelContent; artifa
       <ImportButton />
       <CompareVersions artifactId={artifactId} current={content} />
       {impactOf && <ImpactPanel componentId={impactOf} onClose={() => setImpactOf(null)} />}
+    </div>
+  );
+}
+
+// The use case card draws itself from its data: actors on the left, the system as a box of use
+// cases, include and extend dashed. Beneath it, who does what and which components realise each.
+function UseCaseView({ content }: { content: UseCaseContent }) {
+  const state = useStore((s) => s.state);
+  const setFocus = useStore((s) => s.setFocusComponent);
+  const model = Object.values(state.artifacts).find((x) => x.type === "arch_model" && !x.deleted)?.current.content as ArchModelContent | undefined;
+  const cname = (id: string) => model?.components.find((c) => c.id === id)?.name ?? id;
+  const aname = (id: string) => content.actors.find((a) => a.id === id)?.name ?? id;
+  const src = useCasesToMermaid(content);
+  return (
+    <div>
+      <div className="mono" style={{ marginBottom: 6 }}>{content.system} · {content.useCases.length} use case{content.useCases.length === 1 ? "" : "s"} · {content.actors.length} actor{content.actors.length === 1 ? "" : "s"}</div>
+      {content.useCases.length === 0 ? <div className="muted">No use cases yet. Say what an actor can do: "the customer can place an order".</div> : <><Mermaid source={src} /><MermaidLegend source={src} /></>}
+      {content.useCases.length > 0 && (
+        <div className="usecase-list">
+          {content.useCases.map((u) => {
+            const actors = content.links.filter((l) => l.useCase === u.id).map((l) => aname(l.actor));
+            const rel = content.relations.filter((r) => r.from === u.id).map((r) => `${r.kind}s ${content.useCases.find((x) => x.id === r.to)?.name ?? r.to}`);
+            return (
+              <div key={u.id} className="usecase-row">
+                <b>{u.name}</b>
+                <span className="muted"> · {actors.join(", ") || "no actor yet"}</span>
+                {u.componentIds?.length ? <span className="mono"> · realised by {u.componentIds.map((id, i) => <span key={id}>{i ? ", " : ""}<a href="#" onClick={(e) => { e.preventDefault(); setFocus(id); }}>{cname(id)}</a></span>)}</span> : null}
+                {rel.length ? <span className="muted"> · {rel.join("; ")}</span> : null}
+                {u.description ? <div className="muted" style={{ fontSize: 12 }}>{u.description}</div> : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

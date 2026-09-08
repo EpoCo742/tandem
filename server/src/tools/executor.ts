@@ -1,7 +1,7 @@
 import { ulid } from "ulid";
 import { allAdrs, emptyModel, nextAssumptionLabel, nextQuestionLabel, nextDecisionLabel, removeFromModel, toolDescriptions, toolSchemas, upsertBoundaries, upsertComponents, upsertDeployment, upsertRelationships, type ArchModelContent, type ToolName, type ToolResult } from "@tandem/shared";
 import type { AlternativesContent, ConstraintsContent, ContractContent, DecisionPointContent, SessionState } from "@tandem/shared";
-import { contractsOf, describeToolCall, liveArtifacts, parseContract, similarQuestion, type SourceContent } from "@tandem/shared";
+import { contractsOf, describeToolCall, emptyUseCases, liveArtifacts, parseContract, similarQuestion, upsertUseCases, type SourceContent, type UseCaseContent } from "@tandem/shared";
 import { appendEvent, getState } from "../ledger.js";
 import { requestChange } from "../governance.js";
 import type { ToolBinding } from "../providers/types.js";
@@ -406,6 +406,31 @@ export function buildToolBindings(scope: ExecutorScope): ToolBinding[] {
       if (r.status !== "applied") return r as ToolResult;
       const status = contractsOf(getState(scope.sessionId)).find((c) => c.artifact.id === r.artifactId);
       return { status: "contract_recorded", artifactId: r.artifactId, versionNo: r.versionNo, consumers: (status?.consumers ?? []).map((id) => model.components.find((c) => c.id === id)?.name ?? id), format, ...(bodyFrom ? { bodyFrom } : {}) };
+    }),
+
+    // Use cases live on one card per session. Actors and realising components have to exist in the
+    // model; ids that do not are dropped and named in the result so the model can correct them.
+    bind("upsert_use_cases", async (input) => {
+      const state = getState(scope.sessionId);
+      const existing = Object.values(state.artifacts).find((a) => a.type === "use_case" && !a.deleted);
+      const cur = (existing?.current.content as UseCaseContent | undefined) ?? emptyUseCases(input.system || state.title || "System");
+      const model = modelArtifact(state)?.current.content as ArchModelContent | undefined;
+      const { content, unknown } = upsertUseCases(cur, input, model);
+      if (!content.useCases.length && !content.actors.length) return { status: "error", message: "Nothing to record: give at least one actor or use case." };
+      const r = requestChange({
+        ...common,
+        op: existing ? "update" : "create",
+        artifactId: existing?.id ?? null,
+        artifactType: "use_case",
+        title: existing?.title ?? "Use cases",
+        content,
+        summary: `${content.useCases.length} use case${content.useCases.length === 1 ? "" : "s"}, ${content.actors.length} actor${content.actors.length === 1 ? "" : "s"}`,
+        rationale: input.rationale,
+        baseVersionNo: existing?.current.versionNo ?? null,
+        provenance: [{ sectionId: "usecases", derivedFrom: input.derivedFrom }],
+      });
+      if (r.status === "applied") return { status: "use_cases_updated", artifactId: r.artifactId, versionNo: r.versionNo, actors: content.actors.length, useCases: content.useCases.length, ...(unknown.length ? { unknown } : {}) };
+      return r as ToolResult;
     }),
 
     bind("read_artifact", async (input) => {

@@ -97,7 +97,7 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
         <span className="mono">{state.title}</span>
         <span className="mono">{at + 1} / {total}</span>
         <span className="grow" />
-        <ZoomBar z={zoom} diagram={Boolean(a && (a.type === "mermaid" || a.type === "view"))} />
+        <ZoomBar z={zoom} diagram={Boolean(a && (a.type === "mermaid" || a.type === "view" || a.type === "use_case"))} />
         <button className={"icon" + (contents ? " primary" : "")} onClick={() => { setContents((v) => !v); setArranging(false); }} title="Jump to a slide (C)">contents</button>
         <button className="icon" onClick={() => { setArranging((v) => !v); setContents(false); }} title="Choose which cards are shown and in what order (shared with everyone presenting this session)">{arranging ? "done" : "arrange"}</button>
         <button className="icon" onClick={onClose} title="Leave presentation (Esc)">exit</button>
@@ -110,7 +110,7 @@ export function Presentation({ sessionId, collab, onClose }: { sessionId: string
               <h1 style={{ fontSize: 28, margin: 0 }}>{a.title}</h1>
               <span className="mono">v{a.current.versionNo} · {a.current.authorKind === "ai" ? "AI for " : ""}{participantName(state, a.current.authorUserId)}</span>
             </div>
-            <ZoomBody z={zoom} diagram={a.type === "mermaid" || a.type === "view"} className={"present-card" + (a.type === "mermaid" || a.type === "view" ? " diagram-full" : " md-doc")}>
+            <ZoomBody z={zoom} diagram={a.type === "mermaid" || a.type === "view" || a.type === "use_case"} className={"present-card" + (a.type === "mermaid" || a.type === "view" || a.type === "use_case" ? " diagram-full" : " md-doc")}>
               <ArtifactBody artifact={a} version={a.current} sessionId={sessionId} myId={me.user!.id} onVote={() => undefined} large />
             </ZoomBody>
           </div>

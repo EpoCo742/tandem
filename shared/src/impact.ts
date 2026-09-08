@@ -3,6 +3,7 @@ import { contentText } from "./artifacts.js";
 import type { ArchModelContent, ModelComponent, ModelRelationship, ViewContent } from "./model.js";
 import { liveArtifacts, type Artifact, type Decision, type SessionState } from "./reducer.js";
 import { threads, type Thread } from "./threads.js";
+import { useCasesFor, type UseCase } from "./usecases.js";
 
 // What depends on a component: a deterministic report over the model, the decisions, the
 // constraints, the views, the alternatives, the documents and the threads. No AI turn; the
@@ -17,6 +18,7 @@ export interface Impact {
   alternatives: { artifact: Artifact; candidates: string[] }[];
   mentions: { artifact: Artifact; count: number }[];
   threads: Thread[];
+  useCases: UseCase[]; // realised by it, or acted in by an actor that is it
   ifRemoved: { relationships: number; viewsAffected: number; decisionsLeftPointing: number; threadsOrphaned: number };
 }
 
@@ -62,6 +64,7 @@ export function impactOf(state: SessionState, componentId: string): Impact | nul
     alternatives,
     mentions,
     threads: anchored,
+    useCases: useCasesFor(state, componentId),
     ifRemoved: {
       relationships: relationships.length,
       viewsAffected: views.length,
@@ -81,5 +84,6 @@ export function impactLines(i: Impact): string[] {
   if (i.alternatives.length) out.push(`in ${i.alternatives.flatMap((a) => a.candidates).length} candidate architecture${i.alternatives.flatMap((a) => a.candidates).length === 1 ? "" : "s"}`);
   if (i.mentions.length) out.push(`mentioned in ${i.mentions.map((m) => `${m.artifact.title} (${m.count})`).join(", ")}`);
   if (i.threads.length) out.push(`${i.threads.length} thread${i.threads.length === 1 ? "" : "s"} on it${i.ifRemoved.threadsOrphaned ? `, ${i.ifRemoved.threadsOrphaned} open` : ""}`);
+  if (i.useCases.length) out.push(`${i.useCases.length} use case${i.useCases.length === 1 ? "" : "s"}: ${i.useCases.map((u) => u.name).join("; ")}`);
   return out.length ? out : ["nothing else refers to it"];
 }

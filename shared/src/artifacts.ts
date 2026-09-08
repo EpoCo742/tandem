@@ -2,6 +2,7 @@ import type { ArtifactType, Option, Provenance } from "./events.js";
 import type { ImportedFrom } from "./library.js";
 import type { ContractContent } from "./contracts.js";
 import { modelToText, type ArchModelContent, type ViewContent } from "./model.js";
+import type { UseCaseContent } from "./usecases.js";
 
 export interface Section {
   id: string;
@@ -160,6 +161,21 @@ export function dataModelMarkdown(c: DataModelContent): string {
   return out.join("\n");
 }
 
+/** The use case card as a Markdown table, for the export, the design document and the prompt. */
+export function useCasesMarkdown(c: UseCaseContent, model?: ArchModelContent): string {
+  const cname = (id: string) => model?.components.find((x) => x.id === id)?.name ?? id;
+  const aname = (id: string) => c.actors.find((a) => a.id === id)?.name ?? id;
+  const uname = (id: string) => c.useCases.find((u) => u.id === id)?.name ?? id;
+  if (!c.useCases.length) return `(no use cases yet; system: ${c.system})`;
+  const out = [`System: ${c.system}`, "", "| Use case | Actors | Realised by | Notes |", "|---|---|---|---|"];
+  for (const u of c.useCases) {
+    const actors = c.links.filter((l) => l.useCase === u.id).map((l) => aname(l.actor));
+    const rel = c.relations.filter((r) => r.from === u.id || r.to === u.id).map((r) => (r.from === u.id ? `${r.kind}s ${uname(r.to)}` : `${r.kind}ed by ${uname(r.from)}`));
+    out.push(`| ${u.name} | ${actors.join(", ") || "-"} | ${(u.componentIds ?? []).map(cname).join(", ") || "-"} | ${[u.description ?? "", ...rel].filter(Boolean).join("; ")} |`);
+  }
+  return out.join("\n");
+}
+
 export function contentText(type: string, content: unknown): string {
   const c = content as Record<string, unknown>;
   switch (type) {
@@ -194,6 +210,8 @@ export function contentText(type: string, content: unknown): string {
       const to = c.attachedTo?.relationshipId ? `relationship ${c.attachedTo.relationshipId}` : c.attachedTo?.componentId ? `component ${c.attachedTo.componentId}` : "nothing yet";
       return `${c.format} contract${c.version ? ` ${c.version}` : ""}, attached to ${to}\n${c.body}`;
     }
+    case "use_case":
+      return useCasesMarkdown(content as UseCaseContent);
     case "view": {
       const v = content as ViewContent;
       return `${v.kind === "diff" ? "as-is vs to-be" : v.kind} view${v.focus ? ` ${v.kind === "sequence" ? "from" : "of"} ${v.focus}` : ""}${v.environment ? ` (${v.environment})` : ""}${v.note ? `: ${v.note}` : ""} (rendered from the architecture model)`;
@@ -243,6 +261,8 @@ export function contentProblem(type: ArtifactType, content: unknown): string | n
       return need("question", "string") ?? need("candidates", "array");
     case "contract":
       return need("format", "string") ?? need("body", "string");
+    case "use_case":
+      return need("system", "string") ?? need("actors", "array") ?? need("useCases", "array") ?? need("links", "array");
     case "decision_point":
       return need("question", "string") ?? need("options", "array") ?? need("votes", "object") ?? need("blocksArtifactIds", "array");
     case "source":

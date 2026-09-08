@@ -9,7 +9,7 @@ import { setEditingArtifact } from "../collab";
 // your own artifact applies at once; someone else's becomes a proposal for them.
 
 export function ArtifactEditor({ artifact: a, sessionId, onClose }: { artifact: Artifact; sessionId: string; onClose: () => void }) {
-  const [text, setText] = useState(a.type === "contract" ? (a.current.content as { body: string }).body : contentText(a.type, a.current.content));
+  const [text, setText] = useState(a.type === "contract" ? (a.current.content as { body: string }).body : a.type === "use_case" ? JSON.stringify(Object.fromEntries(Object.entries(a.current.content as Record<string, unknown>).filter(([k]) => k !== "sections")), null, 2) : contentText(a.type, a.current.content));
   const [title, setTitle] = useState(a.title);
   const [rationale, setRationale] = useState("");
   const [result, setResult] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export function ArtifactEditor({ artifact: a, sessionId, onClose }: { artifact: 
     else if (a.type === "code") content = { ...base, source: text };
     else if (a.type === "view") content = { ...base, note: text.trim() || undefined };
     else if (a.type === "contract") content = { ...base, body: text };
-    else if (a.type === "data_model" || a.type === "arch_model" || a.type === "constraints" || a.type === "alternatives") {
+    else if (a.type === "data_model" || a.type === "arch_model" || a.type === "constraints" || a.type === "alternatives" || a.type === "use_case") {
       try {
         content = { ...base, ...JSON.parse(text) };
       } catch (e) {
