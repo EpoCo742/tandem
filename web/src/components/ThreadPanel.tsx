@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Markdown } from "./Markdown";
 import { createPortal } from "react-dom";
 import { participantName, threadsFor, describeAnchor, type ArchModelContent, type MessageAnchor, type Thread } from "@tandem/shared";
 import { api } from "../api";
@@ -136,7 +137,7 @@ function ThreadView({ sessionId, thread: t, canPost }: { sessionId: string; thre
               <button style={{ padding: "0 6px", fontSize: 10.5 }} disabled={busy === m.eventId} onClick={() => promote(m.eventId)} title="Send this message to the AI, keeping the author and saying what it is about; earlier messages in the thread go along as background">promote to AI</button>
             ) : null}
           </div>
-          <div className="text">{m.text}</div>
+          <div className="text md"><Markdown>{m.text}</Markdown></div>
         </div>
       ))}
       {canPost && !t.resolved && (

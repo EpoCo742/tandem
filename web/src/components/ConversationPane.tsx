@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Markdown } from "./Markdown";
 import { participantName, pendingProposals, describeAnchor, describeTarget, targetOf, AI_COLOR, PHASE_LABELS, type ExternalCall, type Proposal } from "@tandem/shared";
 import { api } from "../api";
 import { useStore } from "../state/store";
@@ -205,7 +206,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
                 })()}
                 {m.kind === "system" && <span>system</span>}
               </div>
-              <div className="text">{m.intent === "compile" ? <em>asked the AI to compile the design document from the canvas</em> : m.intent === "compare" ? <em>asked the AI to say what matters in the changes between two versions of the design document</em> : m.text}</div>
+              <div className="text md">{m.intent === "compile" ? <em>asked the AI to compile the design document from the canvas</em> : m.intent === "compare" ? <em>asked the AI to say what matters in the changes between two versions of the design document</em> : <Markdown>{m.text}</Markdown>}</div>
               {m.attachments && m.attachments.length > 0 && (
                 <div>
                   {m.attachments.map((id) => (
@@ -226,7 +227,7 @@ export function ConversationPane({ sessionId }: { sessionId: string }) {
           <div className="msg ai">
             <div className="who"><span style={{ color: AI_COLOR }}>AI · streaming{payerName ? ` · on ${payerName}'s credential` : ""}</span></div>
             {busy && <ActivityTrail turnState={turn.state} items={activity?.items ?? []} compact />}
-            <div className="text">{streaming.text}<span className="cursor" /></div>
+            <div className="text md streaming"><Markdown>{streaming.text}</Markdown><span className="cursor" /></div>
           </div>
         )}
       </div>

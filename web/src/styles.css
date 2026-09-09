@@ -265,6 +265,29 @@ tr.row-changed td { animation: row-glow 2.6s ease-out; }
 .msg { padding: 8px 10px; border-left: 3px solid var(--line); background: var(--panel-2); border-radius: 0 3px 3px 0; }
 .msg .who { font-family: var(--mono); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 3px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .msg .text { white-space: pre-wrap; word-break: break-word; }
+/* Markdown in a message: the AI writes bold, lists, tables and code, so the lane renders them
+   rather than showing the marks. Kept tight - a message is not a document. Paragraphs inherit
+   pre-wrap, which keeps the model's own single line breaks, while the container does not - the
+   renderer puts a newline between block elements and pre-wrap would show it as a blank line. */
+.msg .md { white-space: normal; }
+.msg .md p, .msg .md li, .msg .md h1, .msg .md h2, .msg .md h3, .msg .md h4, .msg .md th, .msg .md td, .msg .md blockquote { white-space: pre-wrap; }
+.msg .md > :first-child { margin-top: 0; }
+.msg .md > :last-child { margin-bottom: 0; }
+.msg .md p { margin: 0 0 6px; }
+.msg .md ul, .msg .md ol { padding-left: 18px; margin: 4px 0; }
+.msg .md li { margin: 2px 0; }
+.msg .md li > p { margin: 0; }
+.msg .md h1, .msg .md h2, .msg .md h3, .msg .md h4 { font-size: 13px; font-weight: 600; margin: 8px 0 4px; line-height: 1.3; }
+.msg .md code { font-family: var(--mono); font-size: 12px; background: var(--panel); padding: 0 3px; border-radius: 2px; }
+.msg .md pre { background: var(--panel); padding: 6px 8px; margin: 6px 0; overflow-x: auto; white-space: pre; }
+.msg .md pre code { background: none; padding: 0; }
+.msg .md blockquote { margin: 6px 0; padding-left: 8px; border-left: 2px solid var(--line); color: var(--ink-2); }
+.msg .md table { border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+.msg .md th, .msg .md td { border: 1px solid var(--line); padding: 3px 6px; text-align: left; }
+.msg .md hr { border: 0; border-top: 1px solid var(--line); margin: 8px 0; }
+.msg .md a { color: var(--accent); }
+/* While a reply streams, the caret follows the last paragraph instead of dropping below it. */
+.msg .streaming .md > p:last-child { display: inline; }
 .msg.ai { border-left-color: var(--ai); background: var(--ai-soft); }
 .msg.system { border-left-color: var(--line); background: transparent; color: var(--ink-2); font-size: 13px; }
 .msg.note { background: transparent; border-left-style: dashed; }

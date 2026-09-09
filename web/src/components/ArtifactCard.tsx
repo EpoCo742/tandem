@@ -9,6 +9,7 @@ import { participantName, modelToMermaid, modelDiff, diffModels, compareMermaid,
 import { api } from "../api";
 import { useStore } from "../state/store";
 import { Mermaid } from "./Mermaid";
+import { mdComponents } from "./Markdown";
 import { ArtifactEditor } from "./ArtifactEditor";
 import { AlternativesView } from "./AlternativesView";
 import { ReviewPanel } from "./ReviewPanel";
@@ -21,15 +22,6 @@ import { navigate } from "../App";
 import { recordAction } from "../undo";
 import { ImportModel } from "./ImportModel";
 import { MermaidLegend } from "./MermaidLegend";
-
-// Render ```mermaid fences inside Markdown cards as diagrams instead of code.
-const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
-  code({ className, children }) {
-    const text = String(children).replace(/\n$/, "");
-    if (className === "language-mermaid") return <Mermaid source={text} />;
-    return <code className={className}>{children}</code>;
-  },
-};
 
 // True for a moment after the version changes (not on first render): the card lights up so a
 // change made by the AI or by someone else is seen, not just present.

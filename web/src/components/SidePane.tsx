@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Markdown } from "./Markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { participantName, pendingProposals, contentText, describeAnchor, describeTarget, targetOf, completeness, AI_COLOR, type Proposal } from "@tandem/shared";
@@ -109,7 +110,7 @@ function SideChannel({ sessionId }: { sessionId: string }) {
                 <button style={{ padding: "0 6px", fontSize: 10.5 }} onClick={() => api("POST", `/api/v1/sessions/${sessionId}/messages/${m.eventId}/promote`)}>promote to AI</button>
               )}
             </div>
-            <div className="text">{m.text}</div>
+            <div className="text md"><Markdown>{m.text}</Markdown></div>
           </div>
         ))}
         {typers.length > 0 && <div className="mono">{typers.join(", ")} typing…</div>}

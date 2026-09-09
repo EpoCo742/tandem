@@ -1,16 +1,9 @@
 import { useEffect, useState } from "react";
+import { mdComponents } from "./Markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api";
 import { Mermaid } from "./Mermaid";
-
-const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
-  code({ className, children }) {
-    const text = String(children).replace(/\n$/, "");
-    if (className === "language-mermaid") return <Mermaid source={text} />;
-    return <code className={className}>{children}</code>;
-  },
-};
 
 // Provenance travels in HTML comments; real Markdown renderers hide them, this one would print them.
 const withoutComments = (md: string) => md.replace(/<!--[\s\S]*?-->\n?/g, "");
